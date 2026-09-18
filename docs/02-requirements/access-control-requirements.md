@@ -106,6 +106,10 @@ Re-grant після revocation `MUST` створювати новий `grantId`,
 
 У Personal Space зміну доступу `MUST` ініціювати Owner; у shared Space — Owner або Admin із `manage_members` у відповідному scope. Authority service `MUST` повторно перевірити права, записати команду до control log і підписати результат. За замовчуванням одна чинна авторизація є достатньою; critical policy `MAY` вимагати `M-of-N` quorum до набуття зміною чинності.
 
+### REQ-ACL-018 — Offline mutation acceptance windows
+
+Maximum window без оновлення control state `MUST` становити: `standard` — 30 днів, `protected` — 7 днів, `critical` — 24 години. Membership, role, permission, policy та key-management mutations `MUST` проходити online authority validation. Прострочена offline mutation `MUST` переходити до `RevokedOperationQuarantine`.
+
 ## Галузеві орієнтири
 
 ### Linear

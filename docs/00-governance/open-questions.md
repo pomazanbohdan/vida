@@ -26,7 +26,7 @@ last_updated: 2026-09-18
 | OQ-0016 | Authorization | Чи Contributor може за замовчуванням видаляти власні draft resources? | resolved: [ADR-0002](../03-architecture/decisions/ADR-0002-default-role-presets.md) |
 | OQ-0017 | Ownership | Чи Space підтримує кількох Owner одночасно? | resolved: [ADR-0002](../03-architecture/decisions/ADR-0002-default-role-presets.md) |
 | OQ-0018 | Authorization | Чи приймаємо authority-accepted revocation, control-before-data sync, scope key epochs і quarantine rejected offline operations? | resolved: [ADR-0003](../03-architecture/decisions/ADR-0003-offline-revocation.md) |
-| OQ-0019 | Authorization | Які maximum offline mutation acceptance windows застосовуємо для різних risk classes? | open |
+| OQ-0019 | Authorization | Які maximum offline mutation acceptance windows застосовуємо для різних risk classes? | resolved: [ADR-0003](../03-architecture/decisions/ADR-0003-offline-revocation.md) |
 | OQ-0020 | Authority | Який authority/quorum приймає revocation у різних типах Space? | resolved: [ADR-0003](../03-architecture/decisions/ADR-0003-offline-revocation.md) |
 
 Питання закривається лише посиланням на accepted ADR або approved normative document.

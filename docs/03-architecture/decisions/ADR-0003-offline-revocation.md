@@ -117,6 +117,14 @@ Offline capability lease `MUST` обмежувати не локальне чи�
 
 Platform policy задає глобальну верхню межу. Space або protected scope `MAY` скоротити її чи заборонити локальне зберігання, але `MUST NOT` розширювати понад platform maximum.
 
+V1 використовує такі maximum offline mutation acceptance windows:
+
+- `standard` — 30 днів;
+- `protected` — 7 днів;
+- `critical` — 24 години.
+
+Membership, role, permission, policy та key-management mutations `MUST` проходити online authority validation і `MUST NOT` покладатися на offline lease. Mutation після завершення window `MUST` перейти до quarantine, а не бути втраченою чи автоматично прийнятою.
+
 Точний maximum lifetime визначається risk class scope; довгоживучі безстрокові write grants `MUST NOT` бути default.
 
 ### 8. Re-grant
@@ -159,4 +167,4 @@ Authority service відповідного Space `MUST` перевірити п�
 
 ## Open questions
 
-- Які maximum offline mutation acceptance windows відповідають різним risk classes? Див. `OQ-0019`.
+Немає для поточного рішення.
