@@ -111,13 +111,25 @@ Re-encryption старої історії не скасовує знання в�
 
 ### 7. Offline capability leases
 
-Offline grants `MUST` мати expiration і maximum control-head age. Після expiry пристрій `MUST` оновити grant/control head перед authority-requiring operations.
+Дані, повністю синхронізовані на пристрій, `MUST` бути доступні локально без мережі за замовчуванням. Це правило охоплює Messenger, Knowledge/Notes, Projects/Tasks та інші schema-driven Apps.
+
+Offline capability lease `MUST` обмежувати не локальне читання вже отриманих даних, а строк, протягом якого створена offline mutation може претендувати на authority acceptance після reconnect. Offline grants `MUST` мати expiration і maximum control-head age. Після expiry пристрій `MUST` оновити grant/control head перед authority-requiring operations.
+
+Platform policy задає глобальну верхню межу. Space або protected scope `MAY` скоротити її чи заборонити локальне зберігання, але `MUST NOT` розширювати понад platform maximum.
 
 Точний maximum lifetime визначається risk class scope; довгоживучі безстрокові write grants `MUST NOT` бути default.
 
 ### 8. Re-grant
 
 Повторний доступ після revocation `MUST` створювати новий `grantId`, нові key envelopes та прив'язку до current epoch. Старий grant `MUST NOT` реактивуватися.
+
+### 9. Authority та quorum
+
+У Personal Space зміну доступу `MUST` ініціювати Owner. У shared Space її `MAY` ініціювати Owner або Admin із чинним `manage_members` у відповідному scope.
+
+Authority service відповідного Space `MUST` перевірити поточні права ініціатора, прийняти команду в control log та підписати результат. Локальна клієнтська команда без authority acceptance `MUST NOT` вважатися effective.
+
+Звичайні membership і revocation operations `MUST NOT` вимагати голосування кількох Owners за замовчуванням. Policy critical Space або scope `MAY` вимагати quorum, зокрема `M-of-N`; required quorum `MUST` бути виконаний до authority acceptance.
 
 ## Consequences
 
@@ -147,5 +159,4 @@ Offline grants `MUST` мати expiration і maximum control-head age. Післ�
 
 ## Open questions
 
-- Які maximum offline lease lifetimes відповідають personal, team і sensitive scopes? Див. `OQ-0019`.
-- Який authority/quorum потрібен для revocation у різних типах Space? Див. `OQ-0020`.
+- Які maximum offline mutation acceptance windows відповідають різним risk classes? Див. `OQ-0019`.

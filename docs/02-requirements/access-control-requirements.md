@@ -98,6 +98,14 @@ Vida `MUST` пояснювати, що revocation припиняє майбут�
 
 Re-grant після revocation `MUST` створювати новий `grantId`, нові key envelopes і прив'язку до current epoch. Відкликаний grant `MUST NOT` реактивуватися.
 
+### REQ-ACL-016 — Offline-доступ до синхронізованих даних
+
+Повністю синхронізовані локальні дані `MUST` бути доступні без мережі за замовчуванням у всіх Apps. Offline lease `MUST` обмежувати лише вік control state та можливість подальшого authority acceptance для offline mutations, а не локальне читання вже отриманих даних. Platform задає maximum; Space або protected scope `MAY` його скоротити чи заборонити local persistence, але `MUST NOT` збільшувати.
+
+### REQ-ACL-017 — Authority для змін доступу
+
+У Personal Space зміну доступу `MUST` ініціювати Owner; у shared Space — Owner або Admin із `manage_members` у відповідному scope. Authority service `MUST` повторно перевірити права, записати команду до control log і підписати результат. За замовчуванням одна чинна авторизація є достатньою; critical policy `MAY` вимагати `M-of-N` quorum до набуття зміною чинності.
+
 ## Галузеві орієнтири
 
 ### Linear
