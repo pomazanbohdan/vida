@@ -1,0 +1,1156 @@
+Редактировать
+
+У прототипі я застосував не один UI-патерн, а комбінацію патернів для «операційної системи робочих просторів», де одночасно існують Personal Workspace, організації, застосунки й глобальні функції. Ключова задача — не змушувати користувача весь час думати, «в якому я зараз модулі».
+
+1. Global shell + contextual navigation
+
+Головний патерн:
+
+Global shell
+   ↓
+Workspace
+   ↓
+App
+   ↓
+Object / View
+
+Тобто нижня навігація не повинна просто містити:
+
+Messenger | Tasks | Notes | Calendar | Projects | CRM | ...
+
+Бо після встановлення 10–20 Apps вона розвалиться.
+
+Замість цього shell залишається стабільним, а всередині нього змінюється контекст.
+
+У Hybrid-варіанті:
+
+Home     Messages     +     Today     Search
+
+Це глобальні сценарії, які мають сенс незалежно від Workspace.
+
+А:
+
+Knowledge
+Tasks
+Messenger
+Projects
+CRM
+...
+
+— це Apps поточного Workspace.
+
+Це один із найважливіших патернів у всій концепції.
+
+2. Workspace Switcher
+
+У верхній частині екрана:
+
+[ avatar ] Особистий ▼
+
+або:
+
+[ AC ] Acme Corp ▼
+
+Це compact context switcher.
+
+Натискаємо — отримуємо:
+
+✓ Особистий
+
+AC  Acme Corp
+MO  Мобільний додаток
+🏠  ОСББ
+
++ Створити простір
+
+Тобто Workspace не займає окремий нижній tab.
+
+Це важливо, тому що користувач потенційно матиме:
+
+Personal;
+Work;
+сім'ю;
+кілька організацій;
+декілька проєктних просторів;
+зовнішні communities.
+
+Усе це стає одним перемикачем контексту.
+
+3. Personal Workspace як Home
+
+На першому Hybrid-екрані я навмисно не зробив «Dashboard з 40 widgets».
+
+Home відповідає на три питання:
+
+Де я?
+Що мені потрібно зробити?
+Куди я можу перейти?
+
+Тому він складається приблизно з:
+
+Workspace
+
+Добрий ранок
+
+[ Knowledge ][ Tasks ][ Messenger ][ Files ]
+
+Today
+• 3 задачі
+• 12 повідомлень
+• 2 майбутні події
+
+Recent
+...
+
+Це патерн Launchpad + Activity Summary.
+
+Він добре працює для Personal Workspace, але та сама структура масштабується на компанію.
+
+4. App Launcher / Dock
+
+Ряд:
+
+Knowledge   Tasks   Messenger   Files
+
+— це не bottom navigation.
+
+Це launcher застосунків конкретного Workspace.
+
+Наприклад:
+
+Personal
+Tasks
+Knowledge
+Messenger
+Files
+Finance
+Habits
+Acme
+Messenger
+Tasks
+Knowledge
+Projects
+CRM
+
+У кожного Workspace своя конфігурація.
+
+Це принципово відрізняється від Notion/Telegram/TickTick, тому що Apps фактично стають встановлюваними capability-пакетами.
+
+5. Global views поверх кількох Workspace
+
+Екран Today у Hybrid навмисно має:
+
+[ Усі простори ▼ ]
+
+і може показувати:
+
+11:00  Завершити дизайн
+        🔵 Mobile Project
+
+14:00  Підготувати презентацію
+        🟣 Acme Corp
+
+Купити корм коту
+        🏠 Personal
+
+Це патерн cross-workspace aggregation.
+
+Фізично ресурси належать різним Workspace.
+
+Але UX дозволяє створити персональну projection:
+
+All Tasks
+Today
+Inbox
+Mentions
+Notifications
+Recent
+
+Це одна з найважливіших відмінностей нашої системи.
+
+Workspace визначає:
+
+ownership + security + synchronization
+
+а не обов'язково межі UX.
+
+6. Unified Inbox
+
+Той самий принцип я використав у Messenger.
+
+Замість:
+
+Personal → Messenger
+Acme → Messenger
+OSBB → Messenger
+
+і постійного перемикання отримуємо:
+
+Усі | Чати | Канали | Форум
+
+а в списку:
+
+Команда продукту
+🔵 Mobile project
+
+ОСББ «Сонячний»
+🟢 ОСББ
+
+Family
+🏠 Personal
+
+Це Unified Inbox pattern.
+
+Але filtering зберігає isolation:
+
+Усі простори
+Personal
+Acme
+OSBB
+7. Messenger як один Communication Hub
+
+Я не робив:
+
+Chats app
+Channels app
+Forum app
+
+Замість цього:
+
+Messenger
+ ├─ Чати
+ ├─ Канали
+ └─ Форум
+
+Використано патерн segmented navigation.
+
+На мобільному це дуже природна модель:
+
+┌────────────────────┐
+│ Messenger          │
+│                    │
+│ [Чати][Канали][Форум]│
+│                    │
+│ content            │
+└────────────────────┘
+
+А не ще три рівні drawer-навігації.
+
+8. Community як container pattern
+
+На екрані спільноти:
+
+Мобільний додаток
+│
+├─ Огляд
+├─ Теми
+├─ Файли
+└─ ...
+
+Всередині можуть існувати:
+
+# Загальний
+# Дизайн
+# Backend
+
+💡 Ideas
+🐛 Bugs
+
+📢 Announcements
+
+Це container → multiple communication modes.
+
+Community не тотожна Forum.
+
+І не тотожна Workspace.
+
+Модель:
+
+Workspace
+    ↓
+Messenger
+    ↓
+Community
+    ↓
+Channel / Chat / Forum
+9. Topic-centric forum
+
+Для Forum я використав не стару модель:
+
+Forum
+ → Category
+   → Subcategory
+     → Thread
+
+а більш мобільну:
+
+Community
+
+Теми
+
+[ Концепція мобільного додатку ]
+12 відповідей · 2 год
+
+[ UI Kit ]
+8 відповідей · 1 день
+
+Тобто topic-centric UI.
+
+Категорії й tags існують, але не змушують користувача провалюватися через дерево.
+
+Це ближче до сучасного Discord/Reddit/GitHub Discussions-патерну.
+
+10. Threaded discussion + real-time chat
+
+У темі я поєднав два способи взаємодії:
+
+Original post
+──────────────
+replies
+replies
+replies
+
+[ Написати відповідь... ]
+
+Але технічно replies можуть приходити realtime так само, як повідомлення.
+
+Тобто UX форуму, але поведінка Messenger.
+
+Це патерн:
+
+asynchronous structure + synchronous interaction.
+
+Він дуже добре підходить для наших Communities.
+
+11. View switching замість різних Apps
+
+Для Tasks:
+
+Список | Kanban | Календар
+
+Це multiple projections over one data model.
+
+Не:
+
+Task
+KanbanCard
+CalendarItem
+
+а:
+
+Task
+  ├─ ListView
+  ├─ KanbanView
+  ├─ CalendarView
+  └─ TimelineView
+
+Те саме пізніше можна зробити для будь-яких collection:
+
+Table
+Cards
+Board
+Calendar
+Timeline
+Map
+Gallery
+
+Це вже Notion/Airtable-подібна частина платформи.
+
+12. Object-first navigation
+
+Екран документа я зробив окремим об'єктом:
+
+UI Kit
+
+[Документ] [Обговорення 12] [Задачі 4]
+
+Тобто користувач відкриває не «Knowledge app → database → page → comments».
+
+Він відкриває Resource.
+
+А біля Resource вже можуть існувати пов'язані capabilities.
+
+Наприклад:
+
+Document
+ ├─ Content
+ ├─ Discussion
+ ├─ Tasks
+ ├─ Files
+ ├─ Activity
+ └─ Relations
+
+Це патерн object-centric UX.
+
+І я вважаю його надзвичайно важливим для нашої платформи.
+
+13. Contextual cross-app navigation
+
+На останньому екрані:
+
+UI Kit
+
+Документ
+Обговорення 12
+Задачі 4
+
+натискання Обговорення не відкриває якийсь дивний незалежний Messenger home.
+
+Воно одразу відкриває:
+
+Messenger
+→ Discussion
+→ linked to UI Kit
+
+А Задачі 4:
+
+Tasks
+→ filtered by relation = UI Kit
+
+Це deep contextual linking.
+
+Тобто Apps перестають бути silo.
+
+14. Global Search + faceted search
+
+Search у макеті:
+
+Пошук
+
+[Усі] [Повідомлення] [Документи] [Задачі]
+
+— це faceted search.
+
+Результати змішані:
+
+📄 Концепція мобільного додатку
+💬 Обговорення дизайну
+✅ Завершити дизайн
+📁 UI Kit
+
+При цьому кожен результат має:
+
+тип
+Workspace
+App
+metadata
+
+Так пошук працює як launcher усієї платформи.
+
+15. Quick Create як глобальна команда
+
+Синя кнопка + у центрі нижньої навігації — це патерн global contextual create.
+
+Але я не планую, щоб вона завжди означала «створити Task».
+
+Наприклад на Home:
+
++
+├─ Задача
+├─ Сторінка
+├─ Нотатка
+├─ Подія
+├─ Завантажити файл
+└─ Нове повідомлення
+
+У Messenger:
+
++
+├─ Новий чат
+├─ Канал
+├─ Community
+└─ Topic
+
+У Tasks:
+
++ → Task
+
+Тобто команда одна, але action адаптується до context.
+
+16. Progressive disclosure
+
+Ми не показуємо всі можливості одразу.
+
+Наприклад Community спочатку:
+
+Overview
+Topics
+Files
+
+Коли користувач заходить глибше:
+
+Members
+Moderation
+Bots
+Permissions
+Automation
+Analytics
+...
+
+Це progressive disclosure.
+
+Для нашої системи це критично, бо функціональність потенційно буде величезною.
+
+17. Progressive complexity
+
+Схожий, але трохи інший принцип.
+
+Для звичайного користувача:
+
+Create workspace
+Invite people
+Create task
+Write document
+Chat
+
+Для power user:
+
+Schemas
+Views
+Relations
+Permissions
+Automations
+Packages
+Bots
+Workflow
+
+Ми не створюємо два продукти.
+
+Ми нарощуємо складність поступово.
+
+18. Shadcn-патерн
+
+Візуально я навмисно не використовував типовий Flutter Material:
+
+великий AppBar
+FAB
+Material Cards
+Material NavigationBar
+
+Натомість основа:
+
+Shadcn / New York
+
+Характеристики:
+
+Елемент	Принцип
+Buttons	компактні
+Cards	мінімальний elevation
+Borders	subtle 1px
+Radius	помірний
+Typography	інформаційна ієрархія
+Tabs	compact segmented
+Badge	metadata/status
+Sheet	secondary actions
+Command	пошук/команди
+Dropdown	workspace/context
+Lucide	єдиний icon set
+
+Тобто Flutter — runtime/framework, а Shadcn — design language/component philosophy.
+
+19. Bottom navigation використовується тільки для L1
+
+Ще один принцип:
+
+Bottom bar не повинен змінюватися кожні 20 секунд.
+
+Він призначений для Level 1 destinations.
+
+Тому я прийшов до Hybrid:
+
+Home
+Messages
++
+Today
+Search
+
+а не:
+
+Knowledge
+Messenger
+Tasks
+Projects
+Files
+
+Це суттєва різниця.
+
+20. Чому я вибрав Hybrid
+
+Три показані концепції вирішують різні задачі:
+
+Варіант	Сильна сторона	Проблема
+Command Bar	простота	слабше відчуття Workspace
+Workspace Dock	дуже сильний командний контекст	забагато перемикань
+Hybrid	Workspace + global aggregation	трохи складніша IA
+
+Саме Hybrid найкраще відповідає нашій архітектурі.
+
+Його фундамент:
+
+                    ACCOUNT
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+       Global Views        Workspace Context
+             │                   │
+    Messages / Today        Installed Apps
+    Search / Activity           │
+             │          Knowledge / Tasks /
+             │          Messenger / CRM / ...
+             └─────────┬─────────┘
+                       │
+                    Resource
+                       │
+       ┌───────────────┼──────────────┐
+       ↓               ↓              ↓
+    Content        Discussion       Tasks
+
+Це вже не просто дизайн декількох екранів. Це UI-модель усієї платформи.
+
+Наступна ітерація має бути не ще одним загальним moodboard, а приблизно 12–15 зв'язаних mobile screens одного Hybrid flow: запуск → Personal → switch Workspace → App launcher → Messenger → Community → Forum Topic → linked Document → linked Tasks → global Today → Search → Create. Так ми зможемо побачити реальні слабкі місця навігації, а не оцінювати екрани ізольовано.
+
+Продумай головний екран так, щоб там було перемикання акаунтів, якесь компактне, і це перемикання повинно бути, напевно, доступне там знизу, тому що це взагалі в нас там потреба буде така, де робити. Далі. Напевно, основні додатки, да, тобто можливо це якийсь тип боковий бар, да, який буде відображати на постійній основі іконки, додатки, там сповіщення, там і все таке інше. І при перемиканні через них буде там відкриватися, і вони будуть відкриватися як drawer, да, але вони будуть закриватися, не буде закриватися повністю, будуть так відображені. Це Google, є такий патерн взагалі використання в мобільних додатках, да, щоб було на постійній основі, як це реалізовано в цих супер-апах, да, подивися, як там реалізовано. Ну і основний екран, він, відповідно, повинен відображати те, що зараз є. Наприклад, якщо я зараз спілкуюся з людиною, да, там, то в нас включений Messenger, і Messenger — це чати, там і все таке інше. Ну і там десь потрібні все-таки налаштування. Продумай, загугли ці патерни, супер-апи, і опиши, що ти знайшов.
+
+Так, такий патерн існує, але в чистому вигляді постійний вертикальний sidebar на вузькому телефоні — рідкість. Після перегляду актуальних super-app та communication-app патернів я б не відмовлявся від твоєї ідеї, а трохи її модифікував: зробити постійний App Rail, який стискається до іконок, а конкретний App відкриває поруч свій drawer/panel.
+
+4
+Що показали існуючі продукти
+
+Найближчий до нашої концепції зараз — Discord. Вони багато років експериментували із серверним rail, drawer, bottom tabs і горизонтальним dock. Показовий результат: горизонтальний dock серверів протестували, але користувачі бачили надто мало серверів, тому Discord повернувся до вертикальної навігації. А після спроби розділити Servers і DMs на різні мобільні tabs їх знову об'єднали — користувачам було складніше підтримувати ментальну модель системи.
+
+Ще цікавіше те, що у червні 2026 Discord ввів You Bar саме внизу мобільного інтерфейсу. Він представляє користувача, відкриває профіль, notifications; long-press дає account menu, long-press avatar — Settings, а горизонтальний swipe перемикає DM ↔ поточний server. Discord прямо пише, що причиною була проблема двох паралельних систем навігації. Це дуже близько до того, що ти зараз описуєш.
+
+Тобто я б запозичив сам принцип, але застосував до Account/Workspace.
+
+WeChat: Apps не повинні захоплювати головний UI
+
+У WeChat основний продукт — Messenger, тому chats залишаються головним canvas. Mini Programs не розкидані по нижній навігації. Їх можна відкрити через Discover/Search, а power-user шлях — pull-down зі списком недавно використаних mini apps. Класичний UX-аналіз WeChat саме так описує цей патерн.
+
+У 2026 також тестується більш виражений taskbar із pinned і recently used Mini Programs.
+
+Для нас висновок:
+
+Apps мають бути завжди дуже близько, але вони не повинні перетворювати головний екран на 30 іконок.
+
+Тому постійний компактний rail тут може бути навіть кращим рішенням, ніж модель WeChat.
+
+Alipay: launcher + Favorites + Recently Used
+
+Alipay використовує більш класичний super-app підхід: services/mini apps організовані launcher-сіткою, а платформа має окремі Favorites і Recently Used. В актуальній платформі Mini Service ці секції є прямо базовими компонентами.
+
+Їхня UX-документація також прямо порівнює цей підхід із WeChat: Alipay використовує grid як частину Home, тоді як WeChat зберігає Home для Messenger.
+
+Для нас grid має сенс як:
+
+Apps → All Apps / Marketplace
+
+але не як основна навігація щодня.
+
+Grab/Gojek-подібний патерн
+
+У таких super-app Home фактично є service dashboard:
+
+Transport
+Food
+Delivery
+Pay
+Hotels
+...
+
+а знизу лишаються 3–5 основних destinations.
+
+Це добре для сервісів, якими користуються епізодично, але гірше для нашої платформи, де людина може годинами працювати:
+
+Messenger
+→ Document
+→ Task
+→ Messenger
+→ Project
+
+Тому я б не робив Grab-pattern основним.
+
+Що з постійним боковим App Bar
+
+Тут є важлива деталь.
+
+Google/Android рекомендує приблизно таку адаптацію:
+
+Ширина	Типовий pattern
+compact phone	bottom navigation / drawer
+medium	navigation rail
+expanded/tablet	rail / persistent drawer
+
+Android прямо рекомендує Navigation Rail переважно для більших window sizes, а на compact phone — bottom navigation.
+
+Apple говорить приблизно те саме: sidebar потребує багато горизонтального місця, тому при обмеженій ширині tab bar часто кращий; sidebar має адаптуватися до доступного простору.
+
+Тому стандартний:
+
+80 dp sidebar
++ content
+
+на 360–400 dp телефоні я б не робив.
+
+А от 40–48 dp icon rail — вже інша справа.
+
+Якою я бачу нашу модель
+
+Не класичний sidebar.
+
+Я назвав би компонент:
+
+Platform App Rail
+
+Наприклад:
+
+┌─────┬─────────────────────────────┐
+│ 🏠  │                             │
+│     │                             │
+│ 💬  │       ACTIVE APP            │
+│ 12  │                             │
+│     │                             │
+│ ✓   │       Messenger             │
+│  3  │       Document              │
+│     │       Tasks                 │
+│ 📄  │       etc.                  │
+│     │                             │
+│ ⋯   │                             │
+│─────│                             │
+│ 🔔  │                             │
+│ 👤  │                             │
+└─────┴─────────────────────────────┘
+ 44dp
+
+Цей rail ніколи повністю не зникає.
+
+Саме це відповідає твоїй ідеї.
+
+При натисканні Messenger
+
+Rail залишається.
+
+Відкривається його secondary drawer:
+
+┌────┬───────────────┬───────────────┐
+│Rail│ Messenger     │               │
+│    │               │               │
+│ 🏠 │ 🔎 Search     │               │
+│    │               │               │
+│ 💬 │ Chats         │    ACTIVE     │
+│    │ Channels      │    CHAT       │
+│ ✓  │ Forums        │               │
+│    │ Communities   │               │
+│ 📄 │               │               │
+│    │ John          │               │
+│ …  │ Acme team     │               │
+│    │ Design        │               │
+│────│               │               │
+│ 🔔 │               │               │
+│ 👤 │               │               │
+└────┴───────────────┴───────────────┘
+ 44       ~280dp
+
+На планшеті це буквально три колонки.
+
+На телефоні drawer накладається поверх Canvas.
+
+Наприклад:
+
+┌────┬───────────────────────┐
+│rail│ Messenger drawer      │
+│    │                       │
+│ 💬 │ Chats                 │
+│    │ Channels              │
+│    │ Forums                │
+│    │ ...                   │
+│    │                       │
+└────┴───────────────────────┘
+
+Тап на поточний 💬 або swipe назад:
+
+┌────┬────────────────────────────┐
+│rail│                            │
+│    │                            │
+│ 💬 │       CHAT WITH JOHN       │
+│    │                            │
+│    │                            │
+│    │                            │
+└────┴────────────────────────────┘
+
+Тобто drawer закрився, але App Rail залишився.
+
+Саме та модель, яку ти описав.
+
+Це краще називати не Drawer, а Panel
+
+Тут є цікава історична паралель із Discord.
+
+Вони свого часу спеціально замінили звичайний Android Drawer на Overlapping Panels, тому що Drawer + Bottom Tabs створювали дві конкуруючі primary navigation systems. Panel у них став secondary navigation усередині основного контексту.
+
+Для нас це практично ідеальна модель:
+
+Platform Rail        = Level 1
+App Panel            = Level 2
+Canvas               = Level 3+
+
+Наприклад:
+
+💬 Messenger
+       ↓
+Panel:
+Chats / Channels / Forums
+       ↓
+Canvas:
+конкретна розмова
+
+або:
+
+✓ Tasks
+       ↓
+Panel:
+Today / Inbox / Lists / Projects
+       ↓
+Canvas:
+задача / список / Kanban
+
+або:
+
+📄 Knowledge
+       ↓
+Panel:
+Recent / Favorites / Spaces / Collections
+       ↓
+Canvas:
+Document
+
+Це дуже чиста ієрархія.
+
+Перемикання акаунтів унизу
+
+Тут я б майже буквально використав ідею Discord You Bar, але компактніше.
+
+У самому низу rail:
+
+│ 🔔 │
+│    │
+│ 👤 │
+└────┘
+
+👤 — не просто Settings.
+
+Це Identity / Context control.
+
+Tap
+
+Відкривається bottom sheet:
+
+┌──────────────────────────────┐
+│ ━━━━━                        │
+│                              │
+│ 👤 Богдан Помазан            │
+│    personal@example.com      │
+│                              │
+│ ACCOUNT                      │
+│ ✓ Богдан                     │
+│   Другий акаунт              │
+│ + Додати акаунт              │
+│                              │
+│ WORKSPACES                   │
+│ 🏠 Personal                  │
+│ AC Acme Corp                 │
+│ 🏢 Company                   │
+│                              │
+│ ⚙ Settings                   │
+│ ❓ Help                      │
+└──────────────────────────────┘
+
+Тут важливо не змішати Account та Workspace логічно, хоча в одному sheet їх можна показати.
+
+Long press
+
+Як Discord:
+
+👤 long press
+
+відкриває Quick Switcher:
+
+Personal
+Acme
+Company
+──────
+Other account
+
+Без зайвих налаштувань.
+
+Я б навіть зробив swipe по avatar
+
+Наприклад:
+
+← swipe 👤 →
+
+циклічно:
+
+Personal → Acme → OSBB → Personal
+
+Але це тільки для 2–4 pinned Workspace.
+
+Не для двадцяти.
+
+Це дає надзвичайно швидке перемикання однією рукою.
+
+Сповіщення також повинні жити у shell
+
+На іконках Apps:
+
+💬 12
+✓  3
+📄 •
+
+Це app-specific notifications.
+
+А внизу:
+
+🔔 17
+
+— глобальна Activity/Notifications.
+
+Тобто:
+
+💬 12
+
+означає:
+
+у Messenger є 12 непрочитаних.
+
+А:
+
+🔔
+
+відкриває:
+
+Mentions
+Assignments
+Comments
+Invites
+System
+Workflow
+
+з усієї платформи.
+
+Це різні функції.
+
+Налаштування я б розділив на три рівні
+
+Не робити один величезний Settings.
+
+Platform Settings
+        ↑
+       👤
+
+Workspace Settings
+        ↑
+Workspace context / ⋯
+
+App Settings
+        ↑
+App panel / ⋯
+
+Наприклад у Messenger:
+
+💬 Messenger   ⋯
+
+⋯:
+
+Notification settings
+Appearance
+Chat settings
+Storage
+Privacy
+
+Workspace:
+
+Members
+Roles
+Permissions
+Apps
+Storage
+Sync
+
+Global:
+
+Accounts
+Devices
+Security
+Appearance
+Language
+Notifications
+Sync
+А що тоді є «головним екраном»
+
+Я б взагалі змінив наше попереднє поняття Home.
+
+Головний екран платформи — це не Dashboard.
+
+Це:
+
+останній активний Canvas.
+
+Наприклад учора ти спілкувався з людиною:
+
+activeApp = Messenger
+route = /dm/ivan
+
+Відкриваєш систему:
+
+┌────┬────────────────────────────┐
+│ 🏠 │ Іван                    ⋯ │
+│    │────────────────────────────│
+│ 💬 │                            │
+│ ●  │   Привіт...                │
+│    │                            │
+│ ✓  │              Так, зроблю  │
+│    │                            │
+│ 📄 │                            │
+│    │                            │
+│ …  │                            │
+│────│────────────────────────────│
+│ 🔔 │ [ + ] Написати повідомлення│
+│ 👤 │                            │
+└────┴────────────────────────────┘
+
+Messenger already active.
+
+Не потрібно ще:
+
+Home
+→ Messenger
+→ Chats
+→ Ivan
+
+Це дуже важлива зміна.
+
+Home все одно залишається
+
+Першою іконкою rail:
+
+🏠
+
+але Home — це вже Platform Dashboard / Launcher, який користувач відкриває свідомо.
+
+Там:
+
+Good evening
+
+Continue
+[UI Kit document]
+[Chat with Ivan]
+[Mobile project]
+
+Today
+3 tasks
+2 meetings
+
+Apps
+💬 ✓ 📄 📁 …
+
+Recent
+...
+
++ Install app
+
+Тобто Home стає корисною сторінкою, а не обов'язковим проміжним екраном.
+
+Ще одна важлива річ — кожен App пам'ятає свій стан
+
+Це вже практично OS-like pattern.
+
+Наприклад ти знаходишся:
+
+Messenger
+→ Ivan
+
+перемикаєш:
+
+📄 Knowledge
+→ Mobile architecture
+
+потім:
+
+✓ Tasks
+→ Mobile project / Kanban
+
+і натискаєш Messenger.
+
+Я б не повертав Messenger на список чатів.
+
+Він повертається сюди:
+
+Messenger
+→ Ivan
+
+Кожен App має власний navigation stack:
+
+Messenger stack
+Knowledge stack
+Tasks stack
+CRM stack
+
+Саме так платформа починає відчуватися як маленька ОС, а не як сайт із меню.
+
+Що робити із шириною телефону
+
+Оце єдиний момент, де я б не робив буквально так, як на desktop.
+
+Моя пропозиція:
+
+Device	Rail	App Panel
+360–430px portrait	44px persistent	overlay
+large phone landscape	48–56px	overlay / partial persistent
+foldable	56px	persistent
+tablet	64px	persistent
+desktop	64px	persistent
+
+А на дуже маленькому телефоні можна мати ще один стан:
+
+normal rail = 44dp
+reading mode = 12dp edge strip
+
+тобто навіть у fullscreen Document / Video / Map він не зникає зовсім, а перетворюється на маленький edge-handle.
+
+Це якраз відповідає твоєму «закриватися, але не повністю».
+
+В результаті я зараз більше схиляюся саме до цього дизайну
+
+Не:
+
+Bottom nav
+Home / Messages / Today / Search
+
+як у першому прототипі.
+
+А:
+
+┌──────────────────────────────────┐
+│ APP RAIL │      ACTIVE CANVAS    │
+│          │                       │
+│ 🏠       │                       │
+│ 💬 12    │                       │
+│ ✓  3     │                       │
+│ 📄       │                       │
+│ 📁       │                       │
+│ ⋯        │                       │
+│──────────│                       │
+│ 🔔       │                       │
+│ 👤       │                       │
+└──────────────────────────────────┘
+
+і при interaction:
+
+RAIL → APP PANEL → CANVAS
+
+Це дуже цікава комбінація Discord vertical context rail + Discord 2026 You Bar + WeChat recent mini-app taskbar + Alipay Favorites/Recents + adaptive Flutter split/panel architecture. І вона, на мою думку, значно краще відповідає нашій платформі, ніж стандартний bottom navigation. Android і Flutter при цьому вже мають адаптивні патерни, де вузький екран працює stack-based, а широкий — master/detail з постійними панелями.
+
+Наступний прототип я б уже будував саме на цій схемі: 44dp App Rail + нижній Account/Workspace control + app-specific sliding panel + stateful central canvas, окремо показавши Messenger у трьох станах — panel closed, panel open і account/workspace switcher.
+
+Створимо декілька екранів, які будуть відображати узгоджений набір патернів, оптимальний для нас.
+Редактировать

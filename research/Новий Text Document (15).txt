@@ -1,0 +1,406 @@
+чт, 27 авг. в 23:04
+Загугли функціонал ticktick, google keep
+
+Перевірив актуальний функціонал TickTick і Google Keep станом на 27 серпня 2026 року. За останній рік TickTick суттєво розширився, зокрема AI та автоматизаціями.
+
+TickTick
+
+TickTick зараз фактично поєднує task manager + календар + прості нотатки + habit tracker + focus tracker + легкий project management.
+
+1. Задачі
+
+Є:
+
+списки та папки;
+задачі;
+підзадачі;
+чеклісти всередині задач;
+пріоритети;
+теги;
+коментарі;
+вкладення;
+шаблони;
+повторювані задачі;
+дата та час;
+тривалість start → end;
+кілька нагадувань;
+нагадування для окремих пунктів чекліста;
+Constant Reminder — нагадує повторно, доки задача не буде закрита;
+email-нагадування;
+NLP: наприклад, введення дати/часу природною мовою;
+smart/custom filters;
+історія активності задач і списків.
+2. Представлення задач
+
+Один набір даних можна дивитися по-різному:
+
+List;
+Kanban;
+Calendar;
+Timeline — спрощений Gantt;
+Eisenhower Matrix;
+Agenda;
+Year;
+Month;
+Week;
+Day;
+Multi-Day;
+Multi-Week.
+
+Задачі можна перетягувати безпосередньо на календар для time blocking.
+
+3. Календар
+
+Календар — одна з основних частин TickTick:
+
+задачі + події в одному представленні;
+річний/місячний/тижневий/денний календар;
+agenda;
+підписка на сторонні календарі;
+Google Calendar;
+перетягування задач між датами та часовими слотами;
+часові зони;
+tasks + calendar у split view.
+4. Нотатки
+
+TickTick уже не тільки task manager.
+
+Є:
+
+окремий тип Note;
+текст усередині задач;
+Markdown;
+заголовки та форматування;
+зображення;
+вкладення;
+code blocks;
+чеклісти;
+desktop Sticky Notes.
+
+З оновлення від 11 серпня 2026 при створенні елемента його можна швидко конвертувати між Task → Event → Note.
+
+5. Habits
+
+Повноцінний Habit Tracker:
+
+окремі звички;
+регулярність;
+check-in;
+календар виконання;
+серії;
+статистика;
+історія;
+різні представлення.
+
+Є окремий модуль, а не просто recurring tasks.
+
+6. Focus / Pomodoro
+
+Вбудовані:
+
+Pomodoro;
+focus timer;
+прив'язка focus session до задачі;
+статистика часу;
+історія focus;
+облік додаткового часу понад запланований Pomodoro.
+7. Countdown
+
+Окремий тип для:
+
+днів народження;
+річниць;
+дедлайнів;
+майбутніх подій;
+countdown до дати;
+повторення;
+нотаток до пам'ятної дати.
+8. Collaboration
+
+Є:
+
+shared lists;
+учасники;
+призначення задач;
+коментарі;
+історія активності.
+
+Тобто це вже легкий collaborative task manager.
+
+9. AI — особливо цікаво в актуальній версії
+
+У 2026 TickTick додав доволі багато AI-функцій:
+
+Voice Capture
+
+говориш природною мовою;
+AI виділяє окремі задачі;
+визначає дати;
+визначає пріоритет.
+
+Audio Summary
+
+запис/аудіовкладення;
+transcription;
+AI summary;
+зручно для зустрічей та голосових нотаток.
+10. Автоматизація
+
+Тут TickTick у 2026 став значно цікавішим:
+
+MCP;
+CLI;
+OpenClaw;
+зовнішні інтеграції;
+Google Calendar;
+Notion;
+Telegram → створення задачі;
+browser integration.
+
+Офіційний сайт уже прямо позиціонує це як Automated Workflows.
+
+11. Пошук
+
+Останні оновлення додали:
+
+глобальний пошук;
+фільтр результатів за:
+tasks;
+lists;
+tags;
+іншими типами;
+сортування за creation time;
+modified time;
+newest first.
+12. Free / Premium
+
+Безкоштовний план:
+
+9 списків;
+99 задач/нотаток на список;
+5 habits;
+5 countdowns;
+2 reminders/task;
+List + Kanban;
+basic Calendar;
+NLP;
+sync.
+
+Premium зараз коштує $49.99/рік і суттєво піднімає ліміти та відкриває Timeline, повний Calendar, duration, розширені filters, AI features тощо.
+
+Google Keep
+
+Google Keep значно простіший. Його модель — швидко щось зафіксувати, а не керувати складною системою задач.
+
+1. Типи нотаток
+
+Підтримуються:
+
+звичайний текст;
+checklist;
+фото;
+зображення;
+малюнки;
+голосові нотатки / audio;
+змішані нотатки.
+2. Форматування тексту
+
+На Android та Desktop зараз є:
+
+Bold;
+Italic;
+Underline;
+H1;
+H2;
+Normal text;
+скидання форматування.
+
+Це важлива зміна відносно старих версій Keep. На iOS форматування все ще має платформні обмеження.
+
+3. Checklist
+
+Є:
+
+checkbox items;
+reorder drag-and-drop;
+completed items;
+вкладення/indent пунктів;
+перетворення звичайної нотатки на checklist.
+
+Але це не повноцінні tasks: немає окремих пріоритетів, дедлайнів, статусів, виконавців тощо для кожного пункту.
+
+4. Організація
+
+Є:
+
+labels;
+до 50 labels;
+кольори;
+backgrounds;
+pin;
+archive;
+trash;
+grid/list view.
+
+Структура майже плоска:
+
+Note → labels
+
+Немає нормальної ієрархії:
+
+Workspace → Project → List → Task → Subtask
+
+як у TickTick.
+
+5. Пошук
+
+Keep добре орієнтований на швидкий пошук:
+
+текст;
+labels;
+кольори;
+типи контенту;
+pinned;
+інші фільтри.
+
+Це одна з основних сильних сторін Keep.
+
+6. Нагадування
+
+Після змін Google у 2025–2026 архітектура стала такою:
+
+Keep Note → Reminder → Google Tasks
+
+Нагадування доступне одночасно через:
+
+Keep;
+Google Tasks;
+Google Calendar;
+Gemini.
+
+Підтримуються дата, час і recurrence.
+
+Важлива зміна: location reminders видалені. Старі location reminder були перенесені, але нові створювати вже не можна.
+
+7. Collaboration
+
+Нотатку можна поділити з іншими користувачами.
+
+Співавтори можуть редагувати:
+
+текст;
+checklist;
+images;
+drawings;
+audio.
+
+Але модель спільної роботи дуже проста: немає task assignment, ролей, workflow тощо.
+
+8. Google ecosystem
+
+Це найбільша перевага Keep:
+
+Google Docs;
+Google Drive / Workspace;
+Google Calendar;
+Google Tasks;
+Gemini;
+Chrome;
+Android;
+web.
+
+Нотатку можна перенести/розгорнути в Google Docs.
+
+9. Gemini
+
+Gemini може працювати безпосередньо з Keep:
+
+створити note;
+створити checklist;
+показати нотатки;
+додати пункт до існуючого списку;
+взяти результат поточної розмови Gemini та «Save this to Keep».
+
+Також є Help me create a list — Gemini генерує checklist за промптом. Функція доступна на Android для відповідних Pixel/Google AI планів.
+
+10. Version history
+
+Keep уже має історію версій.
+
+На Desktop можна завантажити попередню версію нотатки як текстовий файл.
+
+Обмеження: історія стосується передусім текстових змін, зображення до неї не потрапляють.
+
+TickTick vs Keep
+Функція	TickTick	Google Keep
+Швидка нотатка	✅	⭐⭐⭐
+Текстові нотатки	✅	✅
+Форматування	✅ Markdown/rich	✅ базове
+Фото	✅	✅
+Audio	✅	✅
+AI transcription	✅	❌
+AI summary audio	✅	❌
+Checklist	✅	✅
+Задачі	⭐⭐⭐	⚠️ через checklist/Tasks
+Subtasks	✅	⚠️ indent checklist
+Priority	✅	❌
+Tags/labels	✅	✅
+Smart filters	✅	❌
+Recurring tasks	✅ потужні	⚠️ через Tasks
+Multiple reminders	✅	⚠️
+Constant reminder	✅	❌
+Calendar	⭐⭐⭐	через Google Calendar
+Time blocking	✅	❌
+Kanban	✅	❌
+Timeline/Gantt-like	✅	❌
+Eisenhower	✅	❌
+Habits	✅	❌
+Pomodoro	✅	❌
+Focus statistics	✅	❌
+Countdown	✅	❌
+Collaboration	✅ task-oriented	✅ note-oriented
+Task assignment	✅	❌
+AI list generation	✅/AI capture	✅ Gemini
+Voice → structured tasks	✅	⚠️
+MCP	✅	❌ напряму
+CLI automation	✅	❌
+Telegram capture	✅	❌
+Google ecosystem	✅ інтеграція	⭐⭐⭐ native
+Простота	⭐⭐	⭐⭐⭐
+Project management	⭐⭐	❌
+Концептуально
+
+Google Keep
+
+Capture
+  ↓
+Note
+ ├─ Text
+ ├─ Checklist
+ ├─ Image
+ ├─ Drawing
+ └─ Audio
+      ↓
+Labels / Colors / Pin
+      ↓
+Reminder → Google Tasks / Calendar
+
+TickTick
+
+Capture
+   ↓
+Task / Note / Event
+   ↓
+List / Folder / Tags
+   ↓
+Subtasks / Checklist
+   ↓
+Priority + Schedule + Recurrence + Reminders
+   ↓
+Calendar / Kanban / Timeline / Matrix
+   ↓
+Focus / Habits / Statistics
+   ↓
+AI + MCP + integrations
+
+Тобто Keep — надзвичайно швидкий inbox для інформації, а TickTick — система організації та виконання. Цікаво, що в 2026 TickTick починає заходити і на територію Keep: Note, Sticky Notes, голосовий capture, audio transcription та швидке Task ↔ Event ↔ Note.

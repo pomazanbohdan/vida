@@ -1,0 +1,2326 @@
+чт, 27 авг. в 23:57
+Як би я будував для нашої системи (тіктік+notions+система управління проектами сховище на файлах, що було з сінхронізацією iroh, то як би це було реалізовано?
+Працюй ітераційно поки не відповідь на всі запитання 
+Цільова архітектура
+
+Я б будував систему не як три окремі продукти — TickTick, Notion і менеджер проєктів, — а як єдину local-first платформу сутностей, документів, зв’язків і подій.
+
+Канонічними даними були б:
+
+незмінні підписані операції;
+періодичні знімки стану;
+контент-адресовані вкладення;
+маніфести, які пов’язують усе в одну версіоновану структуру.
+
+Усе це зберігається звичайними файлами. SQLite використовується лише як швидкий локальний індекс, який можна видалити й повністю перебудувати. Iroh забезпечує P2P-з’єднання, доставлення об’єктів і live-сповіщення, але не є моделлю даних, системою прав або сервером зберігання. Сам Iroh позиціонується як модульний мережевий стек: Endpoint відповідає за ідентичність вузла, NAT traversal і relays, Router — за маршрутизацію протоколів через ALPN, а blobs/docs/gossip — за прикладні протоколи.
+
+┌────────────────────────────────────────────────────────────┐
+│                    Клієнтський застосунок                   │
+│       .NET 10 / Blazor Hybrid / мобільний та desktop UI    │
+├────────────────────────────────────────────────────────────┤
+│ Команди │ Запити │ Валідація │ Представлення │ Інтеграції │
+└───────────────────────────┬────────────────────────────────┘
+                            │ local gRPC / IPC
+┌───────────────────────────▼────────────────────────────────┐
+│                 Локальне data/sync ядро Rust               │
+│                                                            │
+│  Domain merge engine      File repository                  │
+│  CRDT engine              Encryption/signatures            │
+│  Snapshot/materializer    SQLite/FTS projector              │
+│                                                            │
+│  Iroh Endpoint + Router                                    │
+│   ├─ personalvida-sync/1 — власний sync-протокол           │
+│   ├─ iroh-blobs — передавання незмінних об’єктів           │
+│   └─ iroh-gossip — сповіщення про нові heads               │
+└───────────────────────────┬────────────────────────────────┘
+                            │
+           ┌────────────────┼────────────────┐
+           ▼                ▼                ▼
+      Інший клієнт     Sync-keeper      Sync-keeper
+                        завжди online     резервний
+Ітерація 1. Єдина предметна модель
+1.1. Не дублювати задачі, сторінки та проєкти
+
+Базовою одиницею має бути не «задача TickTick» або «сторінка Notion», а універсальна Entity.
+
+Entity
+ ├─ id
+ ├─ schemaId
+ ├─ properties
+ ├─ contentDocumentId
+ ├─ relations
+ ├─ parentId
+ ├─ lifecycle
+ ├─ permissionsScope
+ └─ audit metadata
+
+Різницю між задачею, нотаткою, проєктом і клієнтом визначає схема.
+
+Функціональний об’єкт	Реалізація
+Задача	Entity зі схемою Task
+Нотатка	Entity зі схемою Note і block-документом
+Сторінка Notion	Entity + BlockDocument
+Проєкт	Entity зі схемою Project, цілями, етапами та зв’язками
+Епік	Entity зі схемою Epic
+Віха	Entity зі схемою Milestone
+База Notion	Schema + набір сутностей + збережені Views
+Папка або простір	Scope/Space + відношення parent
+Коментар	Незмінна подія, прив’язана до Entity
+Вкладення	BlobManifest, що посилається на контент-адресовані chunks
+Канбан	View над сутностями, згрупованими за властивістю
+Календар	View над властивостями дат
+Gantt	View над датами та залежностями
+Smart List TickTick	Збережений запит
+Звичка	TaskTemplate + RecurrenceRule + OccurrenceLog
+Нагадування	ReminderRule, а не окрема копія задачі
+
+Отже, одна задача може одночасно:
+
+з’являтися у «Сьогодні»;
+бути рядком у таблиці;
+бути карткою Kanban;
+входити у проєкт;
+відображатися у Gantt;
+мати власну сторінку документації.
+
+Це будуть різні представлення однієї сутності, а не п’ять синхронізованих копій.
+
+1.2. Сторінка та задача можуть бути одним об’єктом
+
+У Notion сторінка часто одночасно є записом у базі. Це варто зберегти:
+
+Task Entity
+ ├─ properties
+ │   ├─ status
+ │   ├─ priority
+ │   ├─ assignees
+ │   ├─ dueDate
+ │   ├─ estimate
+ │   └─ projectRelation
+ └─ contentDocument
+     ├─ description
+     ├─ checklist
+     ├─ images
+     ├─ decisions
+     └─ embedded views
+
+Тому не потрібно окремо зберігати «коротку задачу» і «сторінку задачі».
+
+1.3. View не володіє даними
+
+View зберігає тільки:
+
+ViewDefinition
+ ├─ source schema/query
+ ├─ filter
+ ├─ sort
+ ├─ group
+ ├─ columns
+ ├─ presentation: table/board/calendar/gantt/list
+ ├─ manual ordering
+ └─ local/shared settings
+
+Усі фактичні дані залишаються в Entity.
+
+Ітерація 2. Чому не можна просто синхронізувати Markdown і JSON
+
+Наївний варіант:
+
+tasks/task-1.json
+pages/project-a.md
+projects/project-a.json
+
+і передавати змінені файли через Iroh.
+
+Це працюватиме лише для одного користувача з послідовними змінами. Щойно два пристрої змінять файл паралельно, виникнуть проблеми:
+
+конфлікт цілого файлу через зміну одного поля;
+втрата однієї з версій;
+проблеми з перейменуванням;
+неоднозначність між видаленням і переміщенням;
+пошкодження після аварійного завершення запису;
+неможливість частково синхронізувати великий workspace;
+складна історія змін;
+неможливість правильно відкликати права;
+мільйони дрібних файлів;
+постійне перехешування великих документів.
+Правильний поділ
+Канонічний рівень
+
+Машинний, незмінний, придатний для синхронізації:
+
+operation packs;
+snapshots;
+manifests;
+attachment chunks;
+membership records;
+key envelopes.
+Людиночитаний рівень
+
+Відновлювана проєкція:
+
+Markdown;
+JSON;
+YAML frontmatter;
+звичайна структура папок;
+експорт вкладень під початковими іменами.
+Канонічні об’єкти → Materializer → Markdown/JSON/SQLite
+                                     ↑
+                              File watcher/importer
+                                     │
+                         зовнішня зміна → нова операція
+
+Користувач може редагувати Markdown зовнішнім редактором, але watcher не «перезаписує істину». Він:
+
+читає попередній projection hash;
+обчислює структурну різницю;
+створює доменні операції;
+застосовує їх через той самий merge engine;
+оновлює проєкцію.
+
+Таким чином, зовнішнє редагування залишається підтримуваним, але raw-файли не стають джерелом файлових конфліктів.
+
+Ітерація 3. Файлова структура workspace
+3.1. Фізична структура
+~/.personalvida/
+├─ node/
+│  ├─ endpoint.key              # ключ Iroh Endpoint
+│  ├─ device.key                # прикладний ключ пристрою
+│  └─ device.json
+│
+├─ workspaces/
+│  └─ 0198...-workspace-id/
+│     ├─ genesis.cbor
+│     │
+│     ├─ refs/
+│     │  ├─ local-head
+│     │  ├─ accepted-head
+│     │  ├─ scopes/
+│     │  │  ├─ control
+│     │  │  ├─ space-01
+│     │  │  └─ project-42
+│     │  └─ peer-acks/
+│     │
+│     ├─ objects/
+│     │  ├─ 00/
+│     │  ├─ 01/
+│     │  └─ ff/
+│     │
+│     ├─ packs/
+│     │  ├─ operations/
+│     │  ├─ snapshots/
+│     │  └─ attachments/
+│     │
+│     ├─ journal/
+│     │  └─ pending.log
+│     │
+│     ├─ projections/
+│     │  ├─ pages/
+│     │  ├─ tasks/
+│     │  ├─ projects/
+│     │  └─ attachments/
+│     │
+│     ├─ index/
+│     │  ├─ readmodel.sqlite
+│     │  └─ search.sqlite
+│     │
+│     ├─ quarantine/
+│     ├─ trash/
+│     └─ cache/
+3.2. Незмінні типи об’єктів
+Об’єкт	Призначення
+WorkspaceGenesis	Початкова ідентичність workspace, власник, формат
+OperationPack	Пакет операцій одного або кількох actor sequence ranges
+EntitySnapshot	Матеріалізований стан сутності на певній версії
+ScopeManifest	Поточні heads, snapshot, key epoch, доступні packs
+MembershipRecord	Grant, revoke, role, device certificate
+AttachmentManifest	Ім’я, MIME, розмір, список chunks
+AttachmentChunk	Частина зашифрованого файлу
+AckCheckpoint	До якої версії конкретний peer отримав дані
+KeyEnvelope	Зашифрований scope key для певного пристрою
+3.3. Формат операції
+
+Логічно envelope виглядатиме так:
+
+OperationEnvelope
+ ├─ formatVersion
+ ├─ workspaceId
+ ├─ scopeId
+ ├─ entityId
+ ├─ actorId
+ ├─ deviceId
+ ├─ sequence
+ ├─ causalParents / versionVector
+ ├─ hybridLogicalTimestamp
+ ├─ operationKind
+ ├─ schemaVersion
+ ├─ payloadHash
+ ├─ encryptionKeyEpoch
+ └─ signature
+
+Payload зберігається окремим зашифрованим об’єктом або всередині невеликого pack.
+
+3.4. Формати
+
+Я б використав:
+
+Дані	Формат
+Підписувані envelope і manifests	Deterministic CBOR
+Локальний IPC .NET ↔ Rust	Protobuf/gRPC
+Пакети операцій	CBOR + Zstandard
+Хешування	BLAKE3
+Людиночитані проєкції	Markdown + YAML frontmatter
+Read model	SQLite + FTS5
+Вкладення	Зашифровані chunks + manifest
+
+Deterministic encoding потрібний, щоб однаковий логічний об’єкт мав однакове байтове представлення перед підписанням.
+
+3.5. Атомарність запису
+
+Незмінний об’єкт записується так:
+
+створити файл у temp;
+записати повністю;
+fsync;
+перевірити hash;
+atomic rename до objects/<hash>;
+оновити ref окремою атомарною операцією.
+
+Існуючі об’єкти ніколи не перезаписуються. Змінюються тільки маленькі refs. Це значно спрощує crash recovery.
+
+3.6. Не створювати файл на кожну дрібну операцію
+
+Для маленьких операцій потрібні packs:
+
+actor A, seq 1200–1350
+       ↓
+operation-pack-<hash>.cbor.zst
+
+Окремі великі документи та вкладення залишаються окремими blobs.
+
+Початкові пороги можна встановити так:
+
+pack приблизно 1–4 MiB;
+snapshot після певної кількості операцій або розміру oplog;
+великі вкладення — chunking;
+маленькі вкладення — один blob.
+
+Ці числа мають визначатися benchmark-тестами, а не бути частиною wire-протоколу.
+
+Ітерація 4. Як саме використовується Iroh
+4.1. Ролі компонентів
+Компонент Iroh	Використання у системі
+iroh::Endpoint	Мережевий вузол пристрою, direct connection, relay fallback
+Router	Розподіл підключень між прикладними ALPN-протоколами
+Власний sync-протокол	Авторизація, manifests, version vectors, selective sync
+iroh-blobs	Передавання незмінних packs, snapshots і вкладень
+iroh-gossip	Сповіщення про новий scope head, presence, cursor awareness
+iroh-docs	Прототип або trusted-device режим, але не основна team-база
+
+Iroh blobs використовує BLAKE3 content addressing, перевіряє частини потоку під час передавання та підтримує range/resumable transfer. Це добре відповідає нашим незмінним packs і вкладенням.
+
+Gossip варто застосовувати тільки як «з’явилася нова версія», а не як гарантований event bus. Сам протокол орієнтований на поширення повідомлень між учасниками topic із eventual delivery, а scoped topics рекомендовані для окремих просторів або документів.
+
+4.2. Чому я не ставив би iroh-docs у центр production-моделі
+
+iroh-docs уже пропонує:
+
+key-value entries;
+BLAKE3-посилання на вміст;
+авторські підписи;
+range-based set reconciliation;
+blobs для фактичного вмісту;
+gossip для live-сповіщень;
+persistent redb storage.
+
+Але для нашої системи є обмеження:
+
+право запису визначається possession of NamespaceSecret;
+holders цього секрету можуть вставляти записи;
+team ACL, відкликання конкретного користувача та scope permissions залишаються нашою відповідальністю;
+rich text, task semantics і project constraints все одно потребують прикладного CRDT;
+persistent store iroh-docs — один redb-файл, а не наша переносна канонічна структура;
+selective sync і шифрування за просторами доведеться будувати окремо.
+
+Документація прямо описує NamespaceSecret як write capability: той, хто володіє ключем, може вставляти нові entries. DocTicket при цьому може містити public або private capability.
+
+Тому:
+
+для особистого MVP між довіреними пристроями iroh-docs допустимий;
+для командного production я б використовував власний підписаний oplog і custom sync protocol;
+iroh-docs можна залишити як експериментальний reconciliation adapter.
+4.3. Поточний технологічний ризик
+
+Станом на 27 серпня 2026 року core API Iroh має стабілізовану 1.x поверхню, але iroh-docs, iroh-blobs і iroh-gossip не входять до стабілізованих high-level FFI bindings. iroh-docs зараз документується як 0.101.0, а документація latest iroh-blobs містить попередження про production quality. Тому їх потрібно ізолювати за власними інтерфейсами, pin-ити сумісний набір версій і не зберігати доменний формат у типах конкретної бібліотеки.
+
+Ітерація 5. Власний sync-протокол
+5.1. ALPN
+/personalvida/sync/1
+
+Окремо Router реєструє ALPN для blobs і gossip. Iroh Router маршрутизує підключення за ALPN і дозволяє кільком протоколам використовувати один Endpoint.
+
+5.2. Підключення
+Peer A                                      Peer B / Keeper
+  │                                               │
+  ├──── Iroh connect by EndpointId ──────────────►│
+  │                                               │
+  ├──── Hello + supported protocol versions ─────►│
+  │◄─── Challenge ────────────────────────────────┤
+  ├──── Device certificate + signature ──────────►│
+  │                                               │
+  ├──── Authorized scope summaries ──────────────►│
+  │◄─── Authorized scope summaries ───────────────┤
+  │                                               │
+  ├──── Missing ranges/object hashes ────────────►│
+  │◄═══ iroh-blobs transfer ══════════════════════╡
+  │                                               │
+  ├──── Apply + AckCheckpoint ───────────────────►│
+  │◄─── Apply + AckCheckpoint ────────────────────┤
+5.3. Повідомлення протоколу
+message Hello {
+  bytes device_id = 1;
+  bytes endpoint_id = 2;
+  repeated uint32 protocol_versions = 3;
+  repeated string features = 4;
+  bytes nonce = 5;
+}
+
+message ScopeSummary {
+  bytes scope_id = 1;
+  uint64 key_epoch = 2;
+  bytes manifest_hash = 3;
+  bytes version_vector_digest = 4;
+  bytes snapshot_hash = 5;
+}
+
+message NeedRanges {
+  bytes scope_id = 1;
+  repeated ActorRange ranges = 2;
+  repeated bytes object_hashes = 3;
+}
+
+message Ack {
+  bytes scope_id = 1;
+  bytes accepted_manifest_hash = 2;
+  bytes version_vector = 3;
+}
+5.4. Синхронізація по кроках
+Крок 1. Authentication
+
+Iroh уже автентифікує Endpoint на рівні з’єднання, але EndpointId — це мережевий пристрій, а не користувач системи. Тому поверх Iroh потрібний прикладний challenge-response:
+
+device certificate;
+user identity;
+workspace membership;
+role;
+дозволені scopes;
+key epoch.
+Крок 2. Control scope
+
+Спочатку синхронізуються:
+
+membership;
+device grants;
+revocations;
+encryption key epochs;
+schema definitions;
+active scope list.
+
+Лише після цього можна довіряти operation packs.
+
+Крок 3. Version reconciliation
+
+Для кожного scope peers обмінюються:
+
+snapshot hash;
+actor heads;
+version vector;
+Merkle root operation index;
+tombstone watermark.
+
+Для невеликих workspace достатньо:
+
+Actor A → seq 1950
+Actor B → seq 885
+Actor C → seq 142
+
+Peer, у якого Actor B має тільки 820, просить range 821–885.
+
+Для великих workspace actor-range index мерклізується, щоб не передавати весь список.
+
+Крок 4. Передавання
+
+Через iroh-blobs передаються:
+
+manifests;
+operation packs;
+актуальні snapshots;
+за потреби block documents;
+вкладення — lazy.
+Крок 5. Перевірка
+
+Отриманий об’єкт спочатку потрапляє в quarantine:
+
+перевіряється BLAKE3;
+розшифровується;
+перевіряється AEAD tag;
+перевіряється signature;
+перевіряється device certificate;
+перевіряється scope membership;
+перевіряється key epoch;
+перевіряється sequence;
+перевіряються quota і schema version.
+
+Тільки потім об’єкт переходить у canonical store.
+
+Крок 6. Materialization
+
+Після прийняття операцій:
+
+оновлюється CRDT;
+створюється новий entity state;
+оновлюється SQLite read model;
+оновлюється FTS;
+перераховуються залежні views;
+надсилається подія UI;
+формується AckCheckpoint.
+Крок 7. Anti-entropy
+
+Gossip надсилає лише коротке повідомлення:
+
+scopeId + newHeadDigest + deviceId
+
+Peer запускає звичайний reconciliation. Якщо gossip-повідомлення загубилося, періодичний anti-entropy sync усе одно знайде відмінності.
+
+Ітерація 6. CRDT і конфлікти
+6.1. Один CRDT на весь workspace — помилка
+
+Не слід робити один величезний Automerge/Loro document на всі задачі й сторінки. Це призведе до:
+
+надмірного causal history;
+великої пам’яті;
+синхронізації непотрібних даних;
+неможливості ізолювати права;
+складного compaction;
+конфліктів між незалежними модулями.
+
+Правильна гранулярність:
+
+Дані	Гранулярність
+Workspace configuration	Один control scope
+Схеми та shared views	Один або кілька catalog scopes
+Метадані задач проєкту	Project scope
+Велика сторінка	Окремий document scope
+Коментарі	Append-only stream на entity
+Вкладення	Окремі immutable blobs
+Приватний простір	Окремий encrypted scope
+6.2. Вибір CRDT engine
+
+Для Notion-подібних блоків потрібні:
+
+rich text;
+movable tree;
+movable list;
+stable cursors;
+version vectors;
+history;
+offline merge.
+
+Архітектурно CRDT engine має бути змінним adapter. Як початковий вибір я б взяв Loro для block document і ручного порядку, оскільки він має rich text, movable tree, fractional ordering і version vectors.
+
+Automerge залишається сильним альтернативним варіантом: він network-agnostic, має власний sync protocol і офіційний приклад інтеграції з Iroh.
+
+Важливо не зберігати «файл Loro» як єдину платформну істину. Зберігаються:
+
+наш signed envelope;
+CRDT update payload;
+periodic normalized snapshot;
+версія CRDT adapter.
+
+Тоді engine можна оновити або замінити через migration.
+
+6.3. Merge policy визначається схемою поля
+PropertyDefinition
+ ├─ name
+ ├─ dataType
+ ├─ mergePolicy
+ ├─ validation
+ ├─ indexing
+ ├─ sensitivity
+ └─ permissions
+Рекомендована матриця
+Тип даних	Merge policy	Поведінка UI
+Назва	Multi-value register із preferred value	Показувати conflict, якщо зміни справді concurrent
+Опис	Rich-text CRDT	Автоматичне злиття
+Status	Causal register + transition validation	Конфлікт або deferred validation
+Priority	LWW register + історія	Детермінований winner
+Due date	Multi-value або LWW залежно від схеми	Для критичних дат показувати conflict
+Tags	Observed-remove set	Незалежне додавання/видалення
+Assignees	Observed-remove set	Незалежне додавання/видалення
+Watchers	Observed-remove set	Автоматичне злиття
+Checklist	Movable list CRDT	Паралельні вставки не губляться
+Page blocks	Movable tree + rich text	Паралельне редагування
+Kanban manual order	Окремий movable list для конкретного View	Порядок не змінює саму задачу
+Comments	Append-only set/log	Коментарі не перезаписуються
+Reactions	OR-set	Злиття
+Dependencies	OR-set edges	Після merge перевірка циклів
+Counter	PN-counter	Сума змін
+Entity deletion	Tombstone	Restore — окрема операція
+Attachment replacement	Новий immutable reference	Стара версія залишається в історії
+Schema	Versioned CRDT map	Міграція та compatibility layer
+6.4. Час
+
+Не можна використовувати тільки локальний DateTime.Now для визначення winner.
+
+Потрібні:
+
+causal parents/version vectors для причинності;
+monotonic actor sequence;
+Hybrid Logical Clock для зрозумілого сортування;
+actor ID як останній deterministic tie-breaker.
+6.5. Видалення
+
+Фізичне видалення одразу неприпустиме.
+
+DeleteEntity {
+  entityId
+  deletedBy
+  deletedAt
+  causalContext
+}
+
+Це tombstone. Він синхронізується як звичайна операція.
+
+Фізичний GC можливий лише після:
+
+завершення retention window;
+створення snapshot;
+підтвердження активними replicas;
+відсутності refs з history/undo;
+відсутності legal hold;
+завершення key rotation.
+6.6. Центр конфліктів
+
+Не всі конфлікти треба приховувати. Система повинна мати окремий Conflict Inbox:
+
+Concurrent title changes
+Invalid workflow transition
+Dependency cycle
+External Markdown import conflict
+Schema migration conflict
+Permission-rejected offline operation
+Automation duplicate
+
+Користувач бачить не технічний JSON diff, а предметне формулювання.
+
+Ітерація 7. Recurrence, нагадування і звички
+7.1. Не створювати наперед тисячі повторюваних задач
+
+Зберігається правило:
+
+RecurrenceRule
+ ├─ DTSTART
+ ├─ RRULE
+ ├─ timezone
+ ├─ completionPolicy
+ ├─ reschedulePolicy
+ └─ exceptions
+
+Occurrence ID визначається детерміновано:
+
+hash(taskId + scheduledInstant + recurrenceVersion)
+
+Завершення зберігається як:
+
+CompleteOccurrence(taskId, occurrenceId)
+
+Тому два пристрої, які завершили ту саму occurrence, не створять два різні завершення.
+
+7.2. Нагадування
+
+Синхронізується тільки правило нагадування. Локальний scheduler кожного пристрою створює platform notification.
+
+ReminderRule → DerivedOccurrence → OS Scheduler
+
+Сам факт показу локального notification не потрібно глобально синхронізувати. А от snooze або dismiss, якщо вони мають бути спільними між пристроями, — це окремі події з occurrence ID.
+
+7.3. Автоматизації
+
+Для automation run потрібний idempotency key:
+
+automationId + triggerEventId + ruleVersion
+
+Якщо автоматизація повинна виконатися рівно один раз, її виконує:
+
+authority node;
+або keeper із lease;
+або сервер інтеграцій.
+
+Звичайний gossip не дає exactly-once гарантій.
+
+Ітерація 8. Права і шифрування 🔐
+8.1. Три різні ідентичності
+
+Необхідно розділити:
+
+Ідентичність	Призначення
+User Identity	Довгострокова особа користувача
+Device Identity	Конкретний довірений пристрій
+Iroh EndpointId	Мережевий endpoint і встановлення з’єднання
+
+Один користувач може мати кілька пристроїв. Один пристрій може змінити Iroh Endpoint key без зміни user identity, хоча в нормальному режимі ключ Endpoint потрібно зберігати стабільним.
+
+8.2. Device certificate
+DeviceCertificate
+ ├─ userId
+ ├─ deviceId
+ ├─ devicePublicKey
+ ├─ endpointId
+ ├─ capabilities
+ ├─ validFrom
+ ├─ expiresAt
+ └─ userSignature
+8.3. Workspace genesis
+WorkspaceGenesis
+ ├─ workspaceId
+ ├─ ownerPublicKey
+ ├─ createdAt
+ ├─ formatVersion
+ ├─ initialControlScope
+ └─ ownerSignature
+8.4. Grants
+Grant
+ ├─ grantId
+ ├─ subjectUser/device
+ ├─ role
+ ├─ allowedScopes
+ ├─ allowedOperations
+ ├─ validFrom
+ ├─ expiresAt
+ └─ adminSignature
+
+Приклади ролей:
+
+Owner;
+Admin;
+Project Manager;
+Editor;
+Commenter;
+Viewer;
+Automation Agent;
+Integration Agent.
+8.5. Шифрування за scope
+
+Не слід мати один workspace key на всі дані.
+
+Workspace
+ ├─ Control scope key
+ ├─ Private space key
+ ├─ Team A space key
+ ├─ Project X key
+ └─ Project Y key
+
+Переваги:
+
+selective sync;
+окремі права;
+відкликання без повного перешифрування workspace;
+keeper не бачить plaintext;
+пристрій навіть фізично не отримує недоступні scope objects.
+
+Кожен scope має key epoch:
+
+scope-42:
+  epoch 7 → old members
+  epoch 8 → після revocation
+
+Нові операції шифруються ключем epoch 8. Старий учасник не може читати нові дані.
+
+8.6. Межі revocation
+
+Відкликання права не може стерти дані, які користувач уже завантажив. Воно може:
+
+заборонити нові valid operations;
+припинити видачу нових object hashes;
+змінити scope key;
+не допустити читання майбутніх даних.
+
+Це фундаментальне обмеження будь-якої offline-first системи.
+
+8.7. Iroh encryption недостатньо для keeper storage
+
+Iroh шифрує трафік end-to-end, і relay не може читати вміст. Але relay бачить connection metadata, а keeper після отримання даних матиме bytes на диску. Тому application-level encryption at rest залишається необхідним. Офіційна документація також зазначає, що relays можуть бачити IP-адреси, час і обсяг переданого через них трафіку.
+
+8.8. Invitations
+
+Не варто використовувати довгоживучий DocTicket як запрошення до workspace. Tickets:
+
+reusable;
+можуть містити IP-адреси;
+можуть містити write capability;
+можуть застарівати;
+не є автоматично одноразовими.
+
+Наш invite token має містити:
+
+Invite
+ ├─ workspaceId
+ ├─ inviterEndpointHint
+ ├─ inviteNonce
+ ├─ requestedRole
+ ├─ allowedScopes
+ ├─ expiresAt
+ ├─ oneTimeClaimId
+ └─ inviterSignature
+
+Після claim відбувається handshake, створюється Grant і окремі KeyEnvelopes.
+
+Ітерація 9. Scopes і selective sync
+9.1. Рівні scope
+Workspace
+ ├─ control
+ ├─ schemas
+ ├─ shared-views
+ ├─ spaces/
+ │  ├─ personal
+ │  ├─ product
+ │  └─ sales
+ ├─ projects/
+ │  ├─ project-a
+ │  └─ project-b
+ └─ documents/
+    └─ large-hot-documents
+9.2. Політики пристрою
+
+Користувач може вибрати:
+
+Режим	Що зберігається
+Full replica	Усі доступні scopes і вкладення
+Metadata only	Усі сутності, без великих bodies/attachments
+Assigned to me	Мої проєкти та задачі
+Recent	Останні N днів + pinned
+On demand	Тільки control/index, решта lazy
+Offline pack	Вибрані проєкти повністю
+9.3. Порядок initial sync
+Genesis.
+Control scope.
+Membership і keys.
+Schemas.
+Current scope manifests.
+Latest snapshots.
+Operations після snapshot.
+Entity metadata.
+Page bodies.
+Attachments за потреби.
+
+Користувач повинен побачити список задач раніше, ніж завантажаться всі PDF і відео.
+
+Ітерація 10. Keeper, relay та coordination service
+10.1. Це різні компоненти
+Relay
+  └─ передає encrypted network traffic
+     не зберігає workspace
+
+Sync-keeper
+  └─ зберігає encrypted objects
+     може віддавати їх іншим authorized peers
+
+Coordination service
+  └─ account discovery, invites, push tokens, active endpoint hints
+
+Authority/automation service
+  └─ виконує операції, що потребують єдиного рішення
+
+Iroh relay допомагає endpoint-ам знайти одне одного, встановити direct path і передає трафік, коли direct connection неможливий. Це не application storage.
+
+10.2. Навіщо keeper
+
+Без keeper:
+
+Телефон online 09:00–09:10
+ПК online       18:00–22:00
+
+Вони ніколи не зустрічаються онлайн — синхронізації немає.
+
+З keeper:
+
+09:05 телефон → keeper
+18:01 keeper → ПК
+
+Keeper може не мати ключів розшифрування. Він зберігає:
+
+object hash;
+encrypted bytes;
+scope routing metadata;
+retention metadata;
+authorized device list.
+10.3. Рекомендована topology
+Особистий режим
+Phone
+Desktop
+Home server/NAS keeper
+Public Iroh relays для раннього MVP
+Командний production
+Clients
+   │
+   ├─ Dedicated Relay EU-1
+   ├─ Dedicated Relay EU-2
+   │
+   ├─ Keeper EU-1
+   └─ Keeper EU-2
+
+Iroh рекомендує dedicated relays для production і щонайменше два relays у різних регіонах для redundancy. Relays stateless, а clients можуть перемикатися між ними.
+
+Enterprise
+Self-hosted relays
+Self-hosted address lookup
+Two or more keepers
+Internal identity provider
+Policy/authority service
+Encrypted backup
+Optional air-gapped mode
+
+Iroh дозволяє замінити public relays та address lookup власною інфраструктурою, включно з повністю ізольованими мережами.
+
+Ітерація 11. Desktop, mobile і web
+11.1. Desktop
+
+Основна перша платформа:
+
+.NET 10 UI;
+Rust sidecar;
+повний filesystem;
+SQLite;
+persistent Iroh Endpoint;
+direct P2P;
+background sync.
+11.2. Android
+
+На Android фонова робота обмежена. Документація Iroh рекомендує:
+
+завершувати Endpoint при переході у background;
+зберігати secret key;
+rebind із тим самим key після повернення;
+для постійного з’єднання використовувати foreground service.
+
+Тому мобільний режим:
+
+Push / periodic wake
+       ↓
+Start sync service
+       ↓
+Connect to keeper
+       ↓
+Sync small metadata first
+       ↓
+Schedule notifications
+       ↓
+Shutdown endpoint
+11.3. Web
+
+У browser sandbox Iroh не може виконувати звичайний UDP hole punching, тому browser-з’єднання проходять через relay. Офіційна документація прямо описує browser mode як relay-only і рекомендує native deployment як основний.
+
+Тому web-клієнт я б реалізував так:
+
+Browser
+ ├─ IndexedDB/OPFS cache
+ ├─ WASM merge engine
+ └─ connection до keeper
+       через relay або окремий WebSocket gateway
+
+Web не має бути єдиною повною replica у першій версії.
+
+11.4. Чому Rust sidecar
+
+Офіційного C# binding для повного Iroh stack немає, а high-level blobs/docs/gossip не входять до стабілізованого FFI.
+
+Тому оптимальна межа:
+
+.NET
+ ├─ UI
+ ├─ application use cases
+ ├─ low-code configuration
+ └─ integrations
+
+Rust core
+ ├─ Iroh
+ ├─ CRDT
+ ├─ canonical file format
+ ├─ crypto
+ ├─ sync
+ └─ materialization primitives
+
+На desktop Rust запускається як sidecar process. На мобільних платформах те саме ядро пізніше компілюється як native library.
+
+Ітерація 12. SQLite як read model, а не істина
+12.1. Навіщо SQLite
+
+Читати тисячі CBOR packs для кожного відкриття Kanban — неправильно.
+
+SQLite містить:
+
+Entities
+PropertyValues
+Relations
+Hierarchy
+TaskOccurrences
+Dependencies
+Views
+Members
+Activity
+ReminderSchedule
+FTS text
+Sync diagnostics
+12.2. Властивості read model
+не синхронізується;
+не входить у backup як обов’язковий компонент;
+може бути видалений;
+повністю перебудовується з manifests, snapshots та oplog;
+має schema version окремо від canonical format.
+12.3. Запит
+UI Query
+   ↓
+SQLite read model
+   ↓
+Entity DTO
+
+Запис:
+
+UI Command
+   ↓
+Domain validation
+   ↓
+Canonical operation
+   ↓
+CRDT merge
+   ↓
+File append
+   ↓
+SQLite projection
+   ↓
+UI update
+
+Тобто CQRS тут природний:
+
+файловий oplog — write model;
+SQLite — read model.
+Ітерація 13. Приклад повного сценарію
+Завершення повторюваної задачі на телефоні без інтернету
+Користувач натискає «Виконано».
+Застосунок обчислює occurrenceId.
+Створюється:
+CompleteOccurrence {
+  taskId
+  occurrenceId
+  completedAt
+  actorId
+}
+Операція отримує локальний sequence і causal context.
+Payload шифрується.
+Envelope підписується device key.
+Об’єкт записується атомарно.
+CRDT/read model оновлюються одразу.
+UI показує completed без очікування мережі.
+Після появи мережі телефон під’єднується до keeper.
+Peers обмінюються scope heads.
+Keeper запитує відсутній operation pack.
+Перевіряє підпис і membership.
+Зберігає encrypted object.
+ПК пізніше отримує цей pack.
+ПК бачить ту саму occurrence як completed.
+Якщо ПК також завершив її offline, idempotent occurrence ID не створює дубль.
+Ітерація 14. Суворі бізнес-інваріанти
+
+Не все можна зробити одночасно:
+
+повністю offline;
+multi-writer;
+без центрального authority;
+зі строгими глобальними гарантіями.
+
+Потрібно розділити інваріанти.
+
+14.1. Mergeable
+
+Можна повністю offline:
+
+текст;
+коментарі;
+tags;
+assignees;
+checklist;
+більшість полів;
+page tree;
+completed occurrences;
+time entries;
+attachments.
+14.2. Repairable
+
+Спочатку merge, потім deterministic repair:
+
+dependency cycle;
+entity, переміщена одночасно у двох місцях;
+дубльоване ім’я;
+перевищення soft WIP limit;
+паралельна зміна status;
+external file conflict.
+
+Наприклад, dependency edge не видаляється безслідно, а отримує стан:
+
+accepted
+blocked-cycle
+pending-validation
+rejected
+14.3. Authority-required
+
+Потребує online authority:
+
+строго послідовний номер документа;
+«рівно один» фінальний approval;
+hard WIP limit;
+бронювання ексклюзивного ресурсу;
+фінансові операції;
+списання бюджету;
+підписання контракту;
+запуск зовнішньої інтеграції exactly once.
+
+Такі локальні операції можуть мати статус:
+
+Draft → PendingAuthority → Accepted/Rejected
+Ітерація 15. Історія, snapshots, compaction і GC
+15.1. Snapshots
+
+Snapshot створюється:
+
+після досягнення ліміту oplog;
+після великої міграції;
+перед compaction;
+для швидкого initial sync;
+перед експортом backup.
+Snapshot
+ ├─ state
+ ├─ versionVector
+ ├─ sourceOperationHeads
+ ├─ schemaVersion
+ ├─ crdtAdapterVersion
+ └─ signature
+15.2. Compaction
+
+Операції не видаляються тільки тому, що з’явився snapshot.
+
+Compaction дозволений, коли:
+
+snapshot перевірено;
+keeper має копію;
+активні replicas підтвердили достатню версію;
+закінчився history retention;
+tombstones безпечні для видалення;
+немає pending device recovery.
+
+Старий пристрій після довгої відсутності отримує snapshot + tail, а не всю історію.
+
+15.3. Garbage collection
+
+Mark-and-sweep roots:
+
+current manifests
+pinned versions
+active snapshots
+undo window
+unsynced local operations
+peer recovery checkpoints
+legal retention
+exports in progress
+
+Усе недосяжне спочатку переміщується в trash, і лише після grace period фізично видаляється.
+
+15.4. Integrity check
+
+Періодично:
+
+rehash BLAKE3;
+перевірити signatures;
+перевірити manifests;
+знайти missing objects;
+запросити repair у keeper або peer;
+перевірити rebuild SQLite.
+Ітерація 16. Backup та експорт
+16.1. Технічний backup
+
+Backup визначається root manifest hash:
+
+WorkspaceBackup
+ ├─ genesis
+ ├─ selected root manifests
+ └─ all reachable encrypted objects
+
+Це дозволяє incremental backup: якщо object hash уже присутній, його не потрібно копіювати повторно.
+
+16.2. Людиночитаний експорт
+
+Окремо створюється:
+
+Export/
+├─ pages/*.md
+├─ tasks/*.json
+├─ projects/*.json
+├─ schemas/*.json
+├─ views/*.json
+├─ attachments/
+└─ export-manifest.json
+
+Такий експорт не повинен бути єдиним способом backup, бо він може втрачати:
+
+causal history;
+comments metadata;
+CRDT positions;
+device signatures;
+tombstones;
+точні конфлікти;
+permissions history.
+Ітерація 17. Міграції та сумісність
+17.1. Рівні версій
+
+Потрібно окремо версіонувати:
+
+sync protocol;
+canonical envelope;
+operation schema;
+domain schema;
+snapshot schema;
+CRDT adapter;
+SQLite read model;
+Markdown projection.
+17.2. Незмінна історія не переписується
+
+Старі операції залишаються у своєму форматі. Reader має adapter:
+
+Operation v1
+   ↓ upgrade-on-read
+Current internal representation
+
+Після materialization може бути створений новий snapshot у поточній версії.
+
+17.3. ALPN versioning
+/personalvida/sync/1
+/personalvida/sync/2
+
+Під час rolling upgrade клієнт підтримує поточну і попередню версію.
+
+Iroh декларує wire compatibility у межах major series і compatibility з попередньою major series відповідно до release policy, але наш прикладний протокол усе одно потребує власного version negotiation.
+
+Ітерація 18. Структура реалізації
+src/
+├─ PersonalVida.App/
+│  ├─ UI
+│  ├─ Navigation
+│  ├─ Commands
+│  └─ Queries
+│
+├─ PersonalVida.Domain.Contracts/
+│  ├─ EntitySchemas
+│  ├─ OperationContracts
+│  ├─ ValidationContracts
+│  └─ ProjectionContracts
+│
+├─ PersonalVida.Application/
+│  ├─ Tasks
+│  ├─ Documents
+│  ├─ Projects
+│  ├─ Views
+│  ├─ Reminders
+│  └─ Integrations
+│
+├─ PersonalVida.LocalClient/
+│  └─ gRPC client до Rust core
+│
+├─ vida-core/
+│  ├─ repository/
+│  ├─ objects/
+│  ├─ oplog/
+│  ├─ manifests/
+│  ├─ snapshots/
+│  ├─ crdt/
+│  ├─ crypto/
+│  ├─ permissions/
+│  ├─ materializer/
+│  ├─ indexer/
+│  ├─ sync/
+│  │  ├─ protocol/
+│  │  ├─ reconciliation/
+│  │  ├─ blobs/
+│  │  ├─ gossip/
+│  │  └─ peer_manager/
+│  └─ ipc/
+│
+├─ vida-keeper/
+│  ├─ encrypted_store/
+│  ├─ peer_auth/
+│  ├─ retention/
+│  └─ availability/
+│
+└─ vida-relay-deployment/
+Межа між .NET і Rust
+.NET надсилає
+CreateEntity
+SetProperty
+InsertBlock
+MoveBlock
+CompleteOccurrence
+AddRelation
+DeleteEntity
+QueryEntities
+SubscribeChanges
+Rust повертає
+Accepted operation ID
+Materialized entity
+Conflict notification
+Sync status
+Peer state
+Attachment progress
+Index rebuild progress
+Ітерація 19. Тестування
+19.1. Convergence property tests
+
+Генерується випадкова послідовність операцій:
+
+Replica A
+Replica B
+Replica C
+
+Операції доставляються:
+
+у різному порядку;
+з дублікатами;
+після network partitions;
+із clock skew;
+після snapshot;
+після видалення;
+після revocation.
+
+Фінальний state hash усіх replicas має збігатися.
+
+19.2. Crash tests
+
+Аварійне завершення в кожній точці:
+
+під час temp write;
+перед rename;
+після object write, але до ref update;
+під час SQLite projection;
+під час compaction;
+під час key rotation.
+19.3. Security tests
+підроблений actor;
+неправильний key epoch;
+operation після revocation;
+replay старої операції;
+sequence gap;
+blob hash mismatch;
+decompression bomb;
+oversized CRDT update;
+unauthorized scope request;
+stolen invite;
+duplicate automation.
+19.4. Network tests
+direct connection;
+relay-only;
+зміна Wi-Fi на мобільну мережу;
+IPv4/IPv6;
+enterprise proxy;
+UDP blocked;
+relay outage;
+peer unavailable;
+keeper unavailable;
+повільний partial transfer.
+Ітерація 20. Поетапна реалізація
+Етап 0. Технологічний spike
+
+Результат:
+
+Iroh Endpoint між двома desktop вузлами;
+custom ALPN;
+передавання encrypted blob;
+persistent endpoint identity;
+Rust sidecar ↔ .NET gRPC;
+benchmark версій iroh, blobs, gossip;
+тест CRDT на реальному block-document;
+перевірка 100 000+ сутностей і великої кількості малих operations.
+Етап 1. Локальне файлове ядро
+
+Результат:
+
+WorkspaceGenesis;
+Entity;
+Task і Page schemas;
+append-only operation packs;
+snapshots;
+SQLite projector;
+Markdown export;
+rebuild index із нуля;
+crash recovery.
+
+Без мережі система вже повністю працездатна.
+
+Етап 2. Синхронізація особистих пристроїв
+
+Результат:
+
+stable EndpointId;
+custom sync handshake;
+actor ranges;
+iroh-blobs;
+gossip head announcements;
+один keeper;
+metadata-first sync;
+lazy attachments;
+sync diagnostics.
+Етап 3. Rich documents і конфлікти
+
+Результат:
+
+block-tree CRDT;
+rich text;
+movable checklist;
+concurrent editing;
+external Markdown editing;
+Conflict Inbox;
+history/time travel.
+Етап 4. Team security
+
+Результат:
+
+user/device identities;
+grants/revocations;
+encrypted scopes;
+key epochs;
+invitation handshake;
+viewer/editor/commenter roles;
+two keepers;
+audit log.
+Етап 5. Повний project management
+
+Результат:
+
+milestones;
+dependencies;
+Gantt;
+portfolios;
+resource assignments;
+workload;
+time tracking;
+approvals;
+configurable workflows;
+automations;
+authority-required operations.
+Етап 6. Production hardening
+
+Результат:
+
+dedicated relays;
+redundancy;
+backups;
+GC;
+migrations;
+fuzz testing;
+chaos testing;
+observability;
+enterprise network profiles;
+mobile sync lifecycle;
+browser/keeper mode.
+Фінальний набір архітектурних рішень
+Питання	Рішення
+Чи є файли джерелом істини?	Так, але це immutable operation packs, snapshots і blobs
+Чи є Markdown джерелом істини?	Ні, це editable projection/import format
+Чи потрібний SQLite?	Так, як відновлюваний read model
+Чи потрібний центральний сервер?	Не для локальної роботи або одночасного P2P, але потрібен keeper для асинхронної доступності
+Чи є Iroh relay сховищем?	Ні
+Чи використовувати iroh-docs як базу?	Лише для prototype/trusted-device mode
+Production sync	Власний ALPN-протокол + blobs + gossip
+Як вирішувати конфлікти?	Merge policy на рівні кожного типу поля
+Rich text і блоки	CRDT document, попередньо Loro за adapter interface
+Як зберігати вкладення?	Encrypted content-addressed chunks
+Як реалізувати ACL?	User/device certificates, grants, scopes і key epochs
+Як відкликати користувача?	Revocation + припинення приймання operations + rotation scope key
+Як синхронізувати web?	Через keeper/relay; browser не основна full replica
+Як уникнути мільйонів файлів?	Immutable packs для малих operations
+Як відновитися після пошкодження SQLite?	Повний rebuild із canonical files
+Як робити backup?	Root manifest + усі reachable objects
+Як підтримати строгі approval/номери?	Окремий authority service
+Як уникнути vendor lock-in Iroh/CRDT?	Власні envelope, manifests, protocol і adapter boundaries
+Остаточна рекомендована конфігурація
+.NET 10 application
+        +
+Rust local-first data/sync core
+        +
+Immutable file repository
+        +
+SQLite/FTS derived index
+        +
+Loro-compatible CRDT adapter
+        +
+Iroh 1.x Endpoint/Router
+        +
+Custom personalvida-sync/1 protocol
+        +
+iroh-blobs adapter
+        +
+iroh-gossip adapter
+        +
+2 dedicated relays
+        +
+2 encrypted sync-keepers
+
+Головний принцип: дані належать workspace і локальним replicas; Iroh лише з’єднує їх. Це дає швидку offline-роботу як у TickTick, універсальні документи й бази як у Notion, повну модель проєктного управління та незалежне файлове сховище, яке можна перевірити, скопіювати, відновити й синхронізувати без центральної бази.
+
+чт, 10 сент. в 0:35
+На основі свіже знайдених проектів в іншому чаті за місяць чи потрібно оновити архітектуру?
+Висновок
+
+Так, архітектуру варто оновити, але не перебудовувати з нуля. Свіжі проєкти, знайдені у зрізі 3–10 вересня 2026 року, переважно підтверджують правильність основних рішень:
+
+local-first;
+Rust-ядро;
+.NET-інтерфейс;
+Iroh як транспорт;
+власний доменний протокол синхронізації;
+підписаний журнал операцій;
+CRDT для конкурентного редагування;
+SQLite як відновлювана проєкція;
+зашифровані keeper-вузли;
+WASM для бізнес-правил.
+
+Оновлення зачіпає приблизно 20–30% архітектури: потрібно чіткіше розділити мережевий runtime, доменні дані, файлове object storage, realtime, агентів і platform-specific lifecycle. Це радше архітектура v0.2, а не нова архітектура v2.
+
+1. Що залишається без змін
+1.1. Єдина модель Entity + Schema + View
+
+Задача, нотатка, сторінка, проєкт, віха, документ, клієнт, адреса чи агент залишаються універсальними сутностями, тип яких визначається схемою.
+
+Entity
+ ├─ entityId
+ ├─ schemaId
+ ├─ properties
+ ├─ relations
+ ├─ contentRef
+ ├─ scopeId
+ ├─ permissions
+ └─ lifecycle
+
+Одна задача й надалі може бути одночасно:
+
+елементом списку «Сьогодні»;
+карткою Kanban;
+рядком таблиці;
+вузлом Gantt;
+частиною проєкту;
+сторінкою з блоками.
+
+Свіжі проєкти не дають підстав змінювати цю модель.
+
+1.2. Підписаний append-only oplog
+
+Джерелом істини залишаються:
+
+Signed Operations
+        ↓
+CRDT / Domain Merge
+        ↓
+Snapshots
+        ↓
+SQLite / FTS / UI projections
+
+Не Markdown, не SQLite і не iroh-docs.
+
+1.3. SQLite залишається read model
+
+SQLite потрібний для:
+
+запитів;
+сортування;
+фільтрів;
+FTS;
+календарів;
+Gantt;
+залежностей;
+локального планувальника;
+локального векторного індексу.
+
+Але його можна видалити і повністю перебудувати з канонічного журналу та snapshots.
+
+1.4. Власний доменний sync поверх Iroh
+
+iroh-docs зараз є CRDT key-value store із namespace-ключем, авторами, content hashes і ticket-based sharing; persistent implementation зберігає репліки в одному файлі redb. Це хороший компонент для прототипів, конфігурації або невеликих trusted-device сценаріїв, але його модель доступу не замінює наші права на рівні організацій, просторів, проєктів, записів, полів і дій.
+
+Тому залишається:
+
+Iroh Endpoint/Router
+        +
+власний vida-sync протокол
+        +
+власний operation envelope
+        +
+власні membership та scope keys
+1.5. CRDT adapter залишається adapter
+
+Нові проєкти не дають підстав прямо зараз відмовитися від попереднього рішення:
+
+Loro — основний кандидат для rich text, movable tree та manual ordering;
+Automerge — контрольна альтернатива;
+доменний формат не повинен залежати від внутрішнього формату конкретного CRDT.
+
+Вибір між ними має завершитися benchmark-тестами, а не новим архітектурним припущенням.
+
+2. Головне оновлення: Vida Node Host
+
+Раніше Rust core розглядався переважно як data/sync sidecar. Тепер його слід формалізувати як повноцінний локальний вузол платформи:
+
+VidaNodeHost
+ ├─ Node Identity
+ ├─ Device Identity
+ ├─ Iroh Endpoint
+ ├─ Protocol Router
+ ├─ Relay Policy
+ ├─ Admission Policies
+ ├─ Domain Repository
+ ├─ Object Store
+ ├─ Projection Engine
+ ├─ Realtime Runtime
+ ├─ Agent Runtime
+ └─ Platform Lifecycle
+
+Iroh офіційно підтримує кілька незалежних протоколів на одному Endpoint через Router і ALPN. Це саме та модель, яку треба використати: один мережевий runtime, але окремі протоколи з різними гарантіями та правилами доступу.
+
+peerline-host підтверджує корисність такого поділу: composable services, один host, Iroh ALPN, WebSocket і Unix socket, окрема admission policy для кожного mount, persistent key та graceful shutdown.
+
+2.1. Протоколи вузла
+
+Я б зафіксував такі ALPN:
+
+vida-control/1
+vida-sync/1
+vida-object/1
+vida-realtime/1
+vida-agent/1
+vida-automation/1
+vida-control/1
+device certificates;
+membership;
+grants і revocations;
+scope catalog;
+schemas;
+key envelopes;
+protocol negotiation;
+capability discovery.
+vida-sync/1
+version vectors;
+operation ranges;
+snapshots;
+acknowledgements;
+domain conflicts;
+selective sync.
+vida-object/1
+пошук object providers;
+transfer manifests;
+missing-object queries;
+pack transfer;
+pin/unpin;
+replication;
+repair.
+
+Фактичне передавання байтів на першому етапі може виконувати iroh-blobs.
+
+vida-realtime/1
+presence;
+курсори;
+активний блок документа;
+typing status;
+live preview;
+короткоживучі повідомлення;
+realtime collaboration hints.
+vida-agent/1
+каталог агентів;
+маршрутизація повідомлень;
+mailbox;
+delivery/claim/result receipts;
+capabilities;
+agent presence.
+vida-automation/1
+запуск детермінованих правил;
+capability requests;
+effects;
+execution receipts;
+відновлення suspended executions.
+2.2. Один Endpoint — не одна глобальна identity
+
+За замовчуванням один процес або device runtime використовує один Iroh Endpoint для всіх ALPN. Але архітектура повинна дозволяти окремі Endpoint identities для:
+
+різних користувацьких профілів;
+ізольованих організацій;
+enterprise-контурів;
+анонімних порталів;
+сервісних вузлів.
+
+Тобто правило таке:
+
+Один Endpoint на одну мережеву identity boundary, а не один Endpoint на всю інсталяцію назавжди.
+
+3. Файлове сховище треба суттєво допрацювати
+
+Це найбільша зміна порівняно з попередньою архітектурою.
+
+Раніше були:
+
+AttachmentManifest
+ └─ chunks
+
+Цього достатньо для вкладення, але недостатньо для:
+
+повного файлового сховища;
+великих дерев каталогів;
+версій папок;
+deduplication;
+часткового завантаження;
+site/app package;
+snapshot workspace;
+перевикористання даних;
+розподілених keeper/object nodes.
+3.1. Нова канонічна object model
+
+Потрібна власна Merkle-модель:
+
+BlobChunk
+    ↓
+FileNode
+    ↓
+DirectoryNode / ProllyTree
+    ↓
+TreeCommit
+    ↓
+Ref
+BlobChunk
+
+Незмінна частина вмісту.
+
+FileNode
+
+Містить:
+
+розмір;
+MIME;
+chunk references;
+content hash;
+optional encryption metadata;
+індекс для range access.
+DirectoryNode
+
+Містить імена та посилання на:
+
+файли;
+підкаталоги;
+symlinks;
+application objects;
+package resources.
+
+Для великих каталогів варто використовувати prolly-tree або подібну immutable sorted tree structure.
+
+TreeCommit
+TreeCommit
+ ├─ rootDirectoryId
+ ├─ parentCommitIds
+ ├─ author
+ ├─ timestamp
+ ├─ message
+ ├─ scopeId
+ └─ signature
+
+Це не Git-репозиторій у прямому сенсі, але модель схожа.
+
+Ref
+
+Mutable signed pointer:
+
+workspace/main  → TreeCommit A
+project/x       → TreeCommit B
+app/package/v3  → TreeCommit C
+backup/2026-09  → TreeCommit D
+
+amber-store/core демонструє робочу модель immutable Merkle filesystem: content-defined chunking, FileNode, prolly trees для великих директорій, deterministic CBOR, append-only packstore та окремі references.
+
+3.2. iroh-blobs залишається транспортом, а не файловою моделлю
+
+iroh-blobs корисний для:
+
+content addressing через BLAKE3;
+verified streaming;
+range requests;
+resumable downloads;
+transfer integrity.
+
+Але його collection — це впорядкована послідовність hashes; документація прямо зазначає, що collections не можна запитувати як вкладені графи. Тому він не повинен визначати формат нашого дерева каталогів.
+
+Правильний поділ:
+
+Vida Object DAG
+        ↓
+ObjectStore abstraction
+        ├─ LocalPackStore
+        ├─ IrohBlobsProvider
+        ├─ KeeperProvider
+        ├─ S3Provider
+        └─ DistributedClusterProvider
+
+Тобто:
+
+канонічна структура файлів — наша;
+спосіб фізичного збереження і передавання — змінний provider.
+3.3. Три площини object storage
+
+З dstore варто перенести сам принцип поділу:
+
+Площина	Що містить
+Data plane	Незмінні chunks, nodes, packs
+Catalog plane	Refs, placement view, leases, replication policy
+Maintenance plane	Repair, scrub, rebalance, GC
+
+dstore реалізує weighted rendezvous hashing, CASPaxos catalog, rebalancing і cluster-wide mark-and-sweep. Це сильний архітектурний референс. Водночас сам проєкт називає себе першою реалізацією і ще має незавершені recovery, gateway та access-control частини, тому робити його production-залежністю зараз не слід.
+
+Важливе обмеження
+
+CASPaxos із dstore доречний для:
+
+cluster view;
+placement;
+mutable refs;
+leases;
+GC coordination.
+
+Але не для задач, сторінок, статусів і коментарів. Домен PersonalVida залишається CRDT/oplog-based.
+
+4. Потрібно ввести офіційні профілі вузлів
+
+Попередня архітектура розрізняла desktop, mobile, web і keeper, але тепер це треба зробити формально.
+
+4.1. Full Node
+
+Desktop, home server, робоча станція:
+
+FullNode
+ ├─ full domain replica
+ ├─ local object store
+ ├─ SQLite/FTS
+ ├─ background sync
+ ├─ agent runtime
+ └─ optional keeper
+4.2. Mobile Node
+
+Android/iOS:
+
+MobileNode
+ ├─ selected scopes
+ ├─ metadata-first sync
+ ├─ limited object cache
+ ├─ OS notification scheduler
+ ├─ foreground/background lifecycle
+ └─ optional foreground sync service
+
+Офіційні Iroh Kotlin bindings уже працюють на JVM і Android; для Android native artifacts поки потрібно збирати bindings із source. Документація рекомендує shutdown Endpoint при backgrounding, зберігати secret key, rebind із тією ж identity при поверненні, а для постійної роботи використовувати foreground service.
+
+iroh-android-native додатково демонструє практичну структуру:
+
+Rust engine;
+JNI bridge;
+AAR;
+stable Endpoint ID;
+foreground daemon;
+blobs;
+локальний індекс;
+epidemic sync без hub.
+Архітектурне рішення
+
+Desktop:
+
+.NET UI → gRPC/UDS/Named Pipe → Rust VidaNodeHost
+
+Android:
+
+.NET Android / native Android shell
+        ↓ FFI
+Rust vida-core cdylib
+
+На Android не варто запускати окремий sidecar process.
+
+4.3. Browser Node
+
+Браузер не стає рівноправним full node у першій версії:
+
+BrowserNode
+ ├─ IndexedDB / OPFS
+ ├─ WASM projection/merge subset
+ ├─ relay-based Iroh connection
+ └─ keeper-backed durable sync
+
+Офіційна документація Iroh досі вказує, що браузер не може виконувати UDP hole punching і тому Iroh-з’єднання з браузера проходять через relay.
+
+bevy_iroh показує можливість додаткового WebRTC path між browser і native peer. Це варто передбачити як оптимізацію для media/realtime, але не робити основою durable sync.
+
+4.4. Edge Node
+
+iroh-co2-monitor підтверджує, що Iroh Endpoint може працювати навіть на ESP32-C61 із PSRAM, обслуговувати власний RPC-протокол через QUIC і взаємодіяти з WASM browser-клієнтом. Водночас проєкт потребує спеціально адаптованого dependency graph і окремого memory management.
+
+Тому вводимо:
+
+EdgeNode
+ ├─ stable device identity
+ ├─ small RPC subset
+ ├─ telemetry
+ ├─ commands
+ ├─ cached compact views
+ └─ no full CRDT/oplog/object replica
+
+Edge-пристрій не повинен запускати:
+
+повний workspace;
+SQLite;
+rich-text CRDT;
+повне object storage;
+low-code designer.
+
+Для нього потрібний окремий vida-wire-lite crate з мінімальною кількістю залежностей.
+
+4.5. Keeper/Object Node
+KeeperNode
+ ├─ encrypted operation packs
+ ├─ encrypted snapshots
+ ├─ encrypted objects
+ ├─ replication
+ ├─ availability
+ ├─ retention
+ └─ no application plaintext
+
+Keeper може одночасно бути object provider, але це окремі capabilities.
+
+5. Durable sync і realtime потрібно остаточно розділити
+
+Раніше gossip уже розглядався як notification mechanism. Свіжі проєкти підтверджують, що це треба зробити формально.
+
+Durable plane
+
+Передає:
+
+operations;
+snapshots;
+documents;
+attachments;
+schema packages;
+audit events;
+delivery receipts.
+
+Вимоги:
+
+повторюваність;
+integrity;
+persistent acknowledgement;
+resume;
+idempotency;
+anti-entropy.
+Realtime plane
+
+Передає:
+
+presence;
+cursor position;
+typing;
+current selection;
+live preview;
+transient telemetry;
+voice/video/screen frames.
+
+Вимоги:
+
+low latency;
+bounded queues;
+можливість пропустити застаріле;
+backpressure;
+швидке переключення direct/relay.
+
+bevy_iroh використовує окремі механізми для room gossip, typed messages, direct streams, QUIC datagrams і media. openstream підтримує обмежені черги та відкидає старі кадри, якщо pipeline відстає, щоб не накопичувати latency.
+
+Отже:
+
+Gossip повідомляє, що щось змінило, але не є джерелом істини і не гарантує durable delivery.
+
+6. Relay architecture треба оновити
+
+Попереднє рішення «два dedicated relays» правильне, але надто статичне.
+
+Тепер потрібний компонент:
+
+RelayManager
+ ├─ relay profiles
+ ├─ startup health checks
+ ├─ authenticated relay credentials
+ ├─ regional preference
+ ├─ direct/relayed telemetry
+ ├─ outage diagnostics
+ └─ failover observation
+
+flexaccess-iroh показує практичні патерни:
+
+startup relay probe;
+виключення недоступного relay перед bind;
+home-relay failover;
+повернення relay після відновлення;
+endpoint-bound authentication transcript.
+
+Водночас не слід дублювати те, що вже робить Iroh. Поточна офіційна документація зазначає, що Iroh clients автоматично перемикаються між relays, а для production рекомендуються dedicated або authenticated shared relays і щонайменше два регіони.
+
+Тому наше рішення:
+
+Iroh відповідає за path selection і network failover;
+RelayManager відповідає за конфігурацію, health, метрики, tenant policy і діагностику;
+власну реалізацію failover додаємо лише там, де integration tests виявлять реальну проблему.
+7. Шифрування треба зробити дворівневим
+
+Попередня модель:
+
+Workspace
+ └─ scopes
+     └─ key epochs
+
+залишається правильною.
+
+Але diaswarm показує додатковий корисний pattern: immutable segments, окремий content key на segment і key wrapping для кожного reader. Blind peer може зберігати та роздавати ciphertext, не маючи можливості його відкрити; відкликання діє лише на майбутні segments, а вже завантажені дані відкликати неможливо. Сам проєкт прямо попереджає, що його криптографія не проходила review, тому переносити реалізацію не можна.
+
+7.1. Нормальні workspace-дані
+ScopeKey epoch N
+
+Підходить для:
+
+проєктів;
+задач;
+сторінок;
+shared spaces;
+package data.
+7.2. Чутливі append-only streams
+Segment
+ ├─ segmentKey
+ ├─ encrypted records
+ └─ recipient KeyEnvelopes
+
+Підходить для:
+
+зовнішнього sharing;
+audit logs;
+медичних або фінансових даних;
+приватних повідомлень;
+історії agent execution;
+тимчасових external participants.
+7.3. Явно зафіксовані обмеження
+
+Модель безпеки повинна прямо говорити:
+
+revocation не видаляє вже отримані дані;
+keeper бачить розміри, частоту та час передач;
+relay може бачити network metadata;
+неможливо довести, що peer видалив локальну копію;
+read operations на локальній копії можуть бути невидимими;
+ticket або EndpointAddr є адресою, а не автоматичним правом доступу.
+8. AgentLink змінює агентний контур, але не storage core
+
+Тепер знайдений точний проєкт — 704986409/AgentLink. Він використовує:
+
+Avalonia desktop UI;
+Rust Iroh bridge;
+persistent Endpoint key;
+local MCP service;
+local agent registry;
+explicit node trust;
+explicit agent sharing;
+directory synchronization;
+message IDs;
+routing receipts;
+stable identity на основі node + agent instance.
+
+Це підтверджує, що в VIDA потрібно додати окремий Agent Directory і Durable Agent Mailbox.
+
+8.1. Модель агента
+AgentInstance
+ ├─ agentId
+ ├─ ownerDeviceId
+ ├─ provider
+ ├─ role
+ ├─ capabilities
+ ├─ availability
+ ├─ sharingPolicy
+ └─ runtimeEndpoint
+
+Ідентифікатор:
+
+deviceId / stableAgentInstanceId
+
+Назва Codex, Claude або Developer Agent не може бути primary key.
+
+8.2. Повідомлення агента
+AgentMessage
+ ├─ messageId
+ ├─ conversationId
+ ├─ fromAgentId
+ ├─ toAgentId
+ ├─ replyTo
+ ├─ payloadRef
+ ├─ expiresAt
+ ├─ requestedCapabilities
+ └─ signature
+
+Стани:
+
+Created
+→ AcceptedByRemoteNode
+→ StoredInMailbox
+→ ClaimedByAgent
+→ Running
+→ ResultProduced
+→ Acknowledged
+8.3. MCP не повинен бути wire-протоколом між вузлами
+
+Правильний поділ:
+
+Codex / Claude / інший Agent
+          ↓ local MCP
+      Vida Agent Service
+          ↓ vida-agent/1
+      Remote Vida Node
+          ↓ local MCP/runtime adapter
+      Remote Agent
+
+MCP — локальний integration adapter. Мережевий протокол VIDA має залишатися власним, versioned і transport-neutral.
+
+8.4. Що не переносимо з AgentLink
+не переходимо автоматично на Avalonia лише через цей проєкт;
+не використовуємо newline JSON через stdin/stdout як production IPC для data core;
+не дозволяємо remote message автоматично виконувати команди;
+network delivery не прирівнюємо до виконання задачі.
+
+AgentLink добре підтверджує sidecar pattern, але в VIDA локальна межа має бути typed:
+
+gRPC over UDS / Named Pipes
+або
+native FFI на mobile
+9. WASM business rules треба зробити більш формальними
+
+arena0 використовує content-addressed deterministic WASM programs, capability-oriented sandbox, typed effects і signed replayable receipts. Але проєкт позначений як very alpha, а його P2P networking ще перебуває в роботі.
+
+З нього варто взяти архітектурний pattern, а не runtime.
+
+9.1. Нова модель автоматизації
+AutomationPackage
+ ├─ wasmContentId
+ ├─ interfaceSchema
+ ├─ stateSchema
+ ├─ capabilityManifest
+ ├─ determinismProfile
+ ├─ packageSignature
+ └─ version
+9.2. Розділення pure logic та effects
+Input Event
+    ↓
+Deterministic WASM State Machine
+    ↓
+Requested Effects
+    ↓
+Capability/Permission Check
+    ↓
+Effect Executor
+    ↓
+Signed Execution Receipt
+
+WASM-модуль не повинен напряму:
+
+звертатися в інтернет;
+читати весь workspace;
+запускати process;
+писати файли;
+надсилати повідомлення;
+змінювати права.
+
+Він лише повертає typed effect requests.
+
+9.3. Execution receipt
+ExecutionReceipt
+ ├─ automationId
+ ├─ wasmHash
+ ├─ inputHash
+ ├─ previousStateHash
+ ├─ outputHash
+ ├─ requestedEffects
+ ├─ acceptedEffects
+ ├─ executor
+ ├─ timestamp
+ └─ signature
+
+Це дозволить:
+
+replay;
+audit;
+deterministic tests;
+порівняння виконання на різних вузлах;
+marketplace verification;
+agent evals.
+
+N-of-N agreement із arena0 потрібне лише для спеціальних міжорганізаційних контрактів, voting або shared approvals. Для звичайних задач і workflow це зайва складність.
+
+10. Iroh не замінює orchestration та provisioning
+
+ingot_cluster поєднує Iroh і Zenoh, але прямо зазначає: ці transport overlays можуть знаходити та з’єднувати вже запущені вузли, проте не запускають і не provision-ять їх.
+
+Тому попередня серверна архітектура зберігається:
+
+Iroh
+ └─ device/peer connectivity та data transfer
+
+Aspire
+ └─ local development topology
+
+Dapr
+ └─ backend service invocation, workflows, pub/sub, secrets
+
+Kubernetes / containers / systemd
+ └─ deployment та process lifecycle
+
+Zenoh зараз додавати в core не потрібно. Його можна пізніше розглянути як optional adapter для:
+
+industrial edge;
+high-frequency telemetry;
+brokered LAN;
+unreliable embedded networks.
+11. Оновлена цільова архітектура
+┌─────────────────────────────────────────────────────────────┐
+│                  .NET 10 Application Layer                  │
+│ Blazor / native shell / desktop / mobile / browser         │
+│ Tasks │ Notes │ Projects │ Low-code │ Agents │ Marketplace │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+              gRPC/UDS/Named Pipes або native FFI
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│                     VIDA NODE HOST                          │
+│                                                             │
+│ Identity & certificates       Platform lifecycle            │
+│ Admission policies            Relay policy                  │
+│ Protocol negotiation          Observability                 │
+│                                                             │
+│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────────┐ │
+│ │ Control  │ │ Sync     │ │ Object   │ │ Realtime       │ │
+│ │ service  │ │ service  │ │ service  │ │ service        │ │
+│ └──────────┘ └──────────┘ └──────────┘ └────────────────┘ │
+│ ┌──────────┐ ┌───────────────────────────────────────────┐ │
+│ │ Agent    │ │ WASM Automation + Effect Executor         │ │
+│ │ service  │ │                                           │ │
+│ └──────────┘ └───────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│ Durable Domain Plane                                        │
+│ Signed oplog → CRDT merge → snapshots → conflicts           │
+├─────────────────────────────────────────────────────────────┤
+│ Object Plane                                                │
+│ Chunk → FileNode → DirectoryTree → TreeCommit → Ref         │
+│ LocalPackStore / IrohBlobs / Keeper / S3 / Cluster          │
+├─────────────────────────────────────────────────────────────┤
+│ Derived Local Plane                                         │
+│ SQLite │ FTS │ vector index │ schedules │ cached views      │
+├─────────────────────────────────────────────────────────────┤
+│ Iroh Endpoint + Router                                      │
+│ control │ sync │ object │ realtime │ agent │ automation     │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+       ┌─────────────────────┼──────────────────────┐
+       ▼                     ▼                      ▼
+  Other clients       Blind keepers          Object nodes
+       │                     │                      │
+       └──────────── Dedicated relay pool ─────────┘
+                             │
+                    Coordination/Authority
+12. Пріоритет реалізації
+P0 — змінити зараз
+Перетворити Rust sidecar на VidaNodeHost.
+Зафіксувати ALPN-межі між control, sync, object, realtime та agents.
+Створити власний vida-object Merkle format.
+Відділити object model від iroh-blobs.
+Створити ObjectStore provider abstraction.
+Ввести admission policy для кожного протоколу.
+Ввести Full/Mobile/Browser/Edge/Keeper node profiles.
+Додати RelayManager і network diagnostics.
+Зберегти gRPC/typed IPC на desktop та передбачити native FFI на mobile.
+P1 — після стабілізації локального ядра
+Blind keeper.
+Scope key rotation.
+Segment encryption для external sharing.
+Durable agent mailbox.
+MCP adapter.
+Presence і cursors.
+Content-addressed WASM packages.
+Capability-based effect executor.
+Signed execution receipts.
+P2 — не раніше масштабування
+Distributed object cluster за принципами dstore.
+Weighted rendezvous placement.
+Consensus catalog для storage refs.
+Multi-provider replication.
+Browser WebRTC acceleration.
+Voice/video/screen collaboration.
+ESP32 edge profile.
+Zenoh edge adapter.
+Multi-party WASM agreement protocols.
+13. Що категорично не треба змінювати через нові проєкти
+Питання	Рішення
+Перейти з .NET UI на Rust UI	Ні
+Перейти на Avalonia лише через AgentLink	Ні
+Використати iroh-docs як основну БД	Ні
+Зберігати весь workspace одним CRDT-документом	Ні
+Замість domain oplog використовувати CASPaxos	Ні
+Зробити dstore обов’язковою залежністю	Ні
+Копіювати криптографію diaswarm	Ні
+Зробити gossip гарантованою чергою	Ні
+Виконувати remote agent messages автоматично	Ні
+Використовувати MCP як P2P wire protocol	Ні
+Додавати Zenoh у базове ядро	Ні
+Робити browser основною full replica	Ні
+Запускати повний workspace на ESP32	Ні
+Відмовлятися від SQLite read model	Ні
+Фіксуватися на конкретному CRDT engine	Ні
+Остаточна архітектурна конфігурація v0.2
+.NET 10 UI та application layer
+        +
+Rust VidaNodeHost
+        +
+власний signed domain oplog
+        +
+CRDT adapters
+        +
+snapshots і conflict engine
+        +
+власний Merkle Object Store
+        +
+SQLite/FTS derived projections
+        +
+Iroh Endpoint/Router
+        +
+окремі control/sync/object/realtime/agent ALPN
+        +
+iroh-blobs як transfer provider
+        +
+encrypted scope/segment keys
+        +
+blind keepers
+        +
+configurable dedicated relay pool
+        +
+WASM capability runtime
+        +
+окремий backend authority для строгих інваріантів
+
+Найважливіший підсумок:
+
+Iroh треба сприймати не як механізм синхронізації одного сховища, а як транспортну основу локального вузла VIDA, на якому незалежно працюють доменний sync, object storage, realtime, агенти й автоматизації.
+
+Саме це є головним оновленням після аналізу свіжих проєктів. Основна модель PersonalVida залишається правильною.

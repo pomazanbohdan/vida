@@ -1,0 +1,542 @@
+воскресенье 21:42
+Загугли рвнтайми черг виконання з відстрочкою за часом для нашого продукту. Актуальні, розвиток, підтримка, існують проекти які використовують
+
+Так. Я подивився не лише звичайні cron-бібліотеки, а весь клас persistent/delayed queues + durable execution runtimes, які можуть бути корисні нашій Rust-платформі.
+
+Станом на 13 вересня 2026 року я б звузив вибір до чотирьох технологій: Apalis, Duroxide, Restate і NATS JetStream. Temporal варто тримати як еталон/альтернативу, але не як базовий runtime нашого продукту.
+
+Що саме нам потрібно
+
+Для нашої архітектури є два різні завдання:
+
+Рівень	Приклад	Що потрібно
+Delayed job	«виконати цей Rhai/WASM handler о 18:30»	run_at, queue, retry
+Recurring job	«кожного дня о 08:00»	cron / recurring schedule
+Durable workflow	«запустити → почекати 3 дні → отримати event → продовжити»	durable timer + persisted state
+Distributed execution	завдання може виконати інший вузол	leases, retries, deduplication
+Local-first execution	ноутбук/телефон був вимкнений	persistence + missed-job policy
+Plugin runtime	виконати Wasmtime/Rhai код	handler reference + payload + sandbox
+
+Простий tokio::sleep() або tokio-cron-scheduler для цього недостатній: після завершення процесу таймер зникає.
+
+1. Apalis — найкращий готовий Rust job queue для нас
+
+Зараз це, на мою думку, найкраща практична основа саме для черги виконання задач.
+
+Apalis Rust-first, підтримує retries, rate limiting, timeouts, idempotency, scheduling, priorities, result tracking, distributed backends і власний Web UI. Є SQLite, PostgreSQL, Redis, MySQL, memory та розширюваний Backend/Storage API.
+
+Особливо цікавий новий apalis-sqlite: він уже має:
+
+run_after, persistence, retries/backoff, heartbeat, orphan recovery, priorities, low-latency SQLite hooks і shared storage для різних типів задач.
+
+Наприклад, модель буквально така:
+
+Task::builder(payload)
+    .run_after(Duration::from_secs(3600))
+    .priority(10)
+    .max_attempts(5)
+    .build()
+
+Тобто це дуже близько до нашого:
+
+Execution
+ ├─ handler = wasm://app/tasks/send_message
+ ├─ payload = ...
+ ├─ run_at = 2026-09-14T08:00Z
+ ├─ priority = 10
+ ├─ retry_policy
+ └─ idempotency_key
+
+Проєкт активно розвивається: основний репозиторій мав оновлення 25 липня 2026, SQLite/Postgres/cron компоненти — 27 липня; гілка 1.0 дійшла до 1.0.0-rc.9.
+
+І тут є важлива відповідь на твоє питання «чи є проєкти, які реально використовують?». Так. Серед опублікованих користувачів Apalis є Ryot, Hyprnote, Oxy, OpenZeppelin Relayer, Universal Inbox, Hatsu та інші; автори також наводять використання у Vodafone Oman.
+
+Більше того, apalis-workflow уже додає distributed/resumable sequential і DAG workflows.
+
+Для нашого продукту
+
+9/10 для job runtime.
+
+Його можна вбудувати прямо в Rust application:
+
+Our Runtime
+   │
+   ├── Apalis Worker
+   │      │
+   │      ├── Native handler
+   │      ├── Wasmtime handler
+   │      └── Rhai handler
+   │
+   └── Storage
+          ├── local SQLite
+          └── наш власний backend
+
+І мені особливо подобається, що backend абстрагований. Тобто пізніше ми можемо зробити:
+
+apalis-our-storage
+       ↓
+наш binary/log structured storage
+
+замість прив'язки до PostgreSQL.
+
+2. Microsoft Duroxide — можливо, ще цікавіший runtime для всієї логіки
+
+Оце несподівано дуже сильний кандидат саме під нашу платформу.
+
+Duroxide — lightweight embeddable durable execution runtime для Rust, тепер знаходиться в організації Microsoft. Він працює in-process на Tokio, не вимагає окремого сервера і має SQLite provider та абстракцію Provider для власного сховища.
+
+Його ключова ідея:
+
+async fn workflow(ctx: Context) {
+    activity_a().await;
+
+    ctx.schedule_timer(...).await;
+
+    activity_b().await;
+}
+
+Якщо додаток упав посередині або був вимкнений 30 днів, runtime відтворює history і продовжує виконання.
+
+Він уже підтримує:
+
+durable timers;
+retries/backoff;
+sub-orchestrations;
+external events;
+fan-out/fan-in;
+cancellation;
+worker specialization;
+durable KV;
+saga/compensation;
+SQLite або власний storage provider.
+
+Проєкт дуже живий: v0.1.30 вийшов 29 липня 2026 року, repository має сотні комітів і зараз знаходиться під Microsoft.
+
+MIT license.
+
+Але є важливий мінус: Microsoft прямо позначає його як Preview. Публічного списку великих production users я не знайшов.
+
+Чому він дуже цікавий нам
+
+Тому що він потенційно може стати не просто:
+
+Task Queue
+
+а:
+
+Application Execution Runtime
+
+Наприклад:
+
+#[workflow]
+async fn publish_news(ctx: Context, article: Article) {
+    validate(article).await?;
+
+    ctx.timer(Duration::from_hours(2)).await;
+
+    let approval = ctx.wait_event("editor.approved").await?;
+
+    ctx.activity("wasm://cms/publish", approval).await?;
+}
+
+Тобто логіка може бути описана Rhai/WASM, а Duroxide управляє її життєвим циклом.
+
+Для нашої low-code/app платформи це дуже природна модель.
+
+Оцінка
+
+9.5/10 архітектурно.
+
+Але зараз:
+
+7/10 production maturity.
+
+Я б обов'язково зробив spike/prototype.
+
+3. Restate — найцікавіший distributed durable runtime
+
+Restate вирішує вже значно більшу задачу.
+
+У Rust SDK є прямо:
+
+ctx.service_client::<Service>()
+    .handler(...)
+    .send_after(Duration::from_secs(5000));
+
+а також durable sleep:
+
+ctx.sleep(Duration::from_secs(10)).await?;
+
+Таймер переживає crash/restart, бо зберігається Restate Server.
+
+Це не просто scheduler. Restate дає:
+
+Durable RPC
+Durable messages
+Delayed messages
+Timers
+State
+Retries
+Signals
+Awakeables
+Workflows
+Virtual Objects
+Idempotency
+
+Розвиток дуже активний. Restate Server 1.7.x вийшов улітку 2026 року, а Rust SDK 0.11.0 — 21 липня 2026 року.
+
+Rust SDK при цьому офіційно все ще active development і може ламати API між релізами.
+
+Production уже серйозний: Restate заявляє BYOC deployment у кількох клієнтів із понад 100k durable actions/sec.
+
+Але Restate вже не embedded runtime. У кластері є replicated durable log, partition processors, RocksDB caches та object-store snapshots.
+
+Тобто:
+
+App → Restate → workers/services
+
+а не:
+
+App
+ └─ embedded scheduler
+Ще один нюанс — ліцензія
+
+Restate Server зараз BUSL 1.1, не класична open-source ліцензія. Є досить широкий Additional Use Grant, і навіть публічна workflow-платформа з власним GUI/DSL/API прямо дозволена, якщо користувачі не отримують прямий Restate Platform Service API. Але це все одно треба враховувати для нашого marketplace/SaaS сценарію.
+
+Для нас
+
+Я б розглядав Restate як:
+
+Cloud / Relay Execution Layer
+
+але не як локальний runtime кожного клієнта.
+
+4. NATS JetStream — дуже цікавий для федеративного/server layer
+
+Тут у 2025–2026 роках сталася важлива зміна.
+
+NATS Server 2.12 отримав native delayed message scheduling:
+
+publish now → deliver automatically at future time.
+
+У NATS 2.14 це розширили до server-side scheduling та recurring schedules.
+
+Тобто тепер NATS може виконувати роль:
+
+durable distributed delayed queue
+
+без RabbitMQ-delayed-plugin і без окремого scheduler service.
+
+NATS також дуже зрілий: CNCF, Apache 2.0, ~20k GitHub stars, реліз 2.14.6 був 27 серпня 2026 року, а 2.14.7-RC1 — 10 вересня.
+
+Є офіційний Tokio-based Rust client async-nats; актуальний 0.50.0 вийшов у липні 2026.
+
+Але NATS — це не execution runtime.
+
+Він знає:
+
+message
+subject
+schedule
+consumer
+ack
+redelivery
+
+але не:
+
+WASM workflow
+step A
+wait
+step B
+compensation
+workflow state
+
+Це повинні реалізувати ми.
+
+Для нашої федеративної архітектури він може бути дуже корисним як:
+
+Relay
+  │
+  └─ JetStream
+       ├─ delayed messages
+       ├─ recurring messages
+       ├─ distributed worker queues
+       └─ events
+5. Temporal — технологічний еталон, але для нас занадто важкий
+
+Temporal — найзріліша система цього класу.
+
+У травні 2026 року офіційний повнофункціональний Rust SDK перейшов у Public Preview.
+
+У ньому є durable timers:
+
+ctx.timer(Duration::from_secs(60)).await;
+
+Temporal має величезне production використання: Snap, OpenAI, GitLab, Cloudflare, Vodafone, DoorDash, Netflix, Checkr, Retool та інші.
+
+GitHub Temporal Server має близько 23k stars і активно оновлювався буквально у вересні 2026 року.
+
+Але self-hosted production Temporal вимагає окремого Temporal Service та Cassandra/MySQL/PostgreSQL.
+
+Для нашої:
+
+portable
+local-first
+Rust
+single-binary-ish
+edge/mobile
+
+архітектури це неправильний рівень складності.
+
+Я б використовував Temporal як джерело архітектурних патернів, а не як залежність.
+
+Інші Rust-проєкти
+
+Fang функціонально непоганий: PostgreSQL/SQLite/MySQL, scheduled-once, CRON, retries/backoff, unique jobs, Tokio workers. Є реальні приклади El Monitorro та weather bot.
+
+Але Apalis зараз має сильніше екосистемне покриття та більше production references.
+
+Effectum теж дуже близький нашій моделі: embedded SQLite, run_at, priorities, retries, checkpoints, recurring jobs, modify/cancel.
+
+Але останній crates.io release 0.7.0 вже старий — приблизно 2024 року — і екосистема дуже маленька.
+
+Є нові Durust та durare, обидва дуже цікаві архітектурно. Durust має SQLite/Postgres providers, timers, signals, child workflows; durare додає queues, cron, delays, deduplication, streams і DBOS-compatible model. Але це зовсім молоді проєкти з практично відсутнім production track record.
+
+Мій рейтинг саме для нашої платформи
+Runtime	Embedded	Rust-native	run_at / timer	Durable workflow	Custom storage	Distributed	Production maturity	Fit
+Duroxide	✅	✅	✅	✅✅	✅	⚠️	⚠️ Preview	9.5/10
+Apalis	✅	✅	✅✅	✅	✅	✅	✅	9/10
+Restate	❌	✅ server+SDK	✅✅	✅✅	❌	✅✅	✅	8/10 server
+NATS JetStream	❌*	Rust client	✅✅	❌	n/a	✅✅	✅✅	8/10 transport
+Temporal	❌	Rust SDK Preview	✅✅	✅✅	❌	✅✅	✅✅✅	6/10 для нас
+Fang	✅	✅	✅	❌	❌	⚠️	✅/⚠️	6.5/10
+Effectum	✅	✅	✅	❌	❌	❌	⚠️	6/10
+
+* NATS Server — маленький standalone binary, але не Rust in-process library.
+
+Що я пропоную для нашої архітектури
+
+Я б не обирав один runtime на всі випадки. Зробив би власний стабільний контракт Execution Runtime, а реалізації під ним:
+
+                Application / Plugin
+                         │
+                Execution API
+                         │
+        ┌────────────────┴────────────────┐
+        │                                 │
+ Simple delayed jobs              Durable workflows
+        │                                 │
+     Apalis                         Duroxide
+        │                                 │
+        └──────────────┬──────────────────┘
+                       │
+                Local Runtime Store
+                       │
+              SQLite initially
+                       │
+              custom provider later
+
+
+                Distributed boundary
+                       │
+              NATS JetStream
+                       │
+          relay / server / workers
+
+А Restate я б залишив як можливий окремий backend для великих SaaS/enterprise deployment.
+
+Для плагінів це тоді буде виглядати дуже чисто:
+
+schedule(
+    handler = "wasm://crm/reminder.wasm#execute",
+    run_at = "2026-09-20T08:00:00Z",
+    payload = {...},
+    retry = exponential(5),
+    idempotency_key = "...",
+)
+
+Runtime не повинен знати бізнес-логіку. Коли настає час:
+
+Queue
+ ↓
+Execution Dispatcher
+ ↓
+resolve(handler)
+ ├─ Rust native
+ ├─ Wasmtime
+ └─ Rhai
+ ↓
+permissions/capabilities
+ ↓
+execute
+ ↓
+result/event
+
+І це добре стикується з тим, що ми щойно обговорювали щодо Wasmtime + Rhai.
+
+Найважливіший висновок
+
+Я б зараз заклав Apalis як production-ready queue primitive, але паралельно дуже серйозно прототипував Duroxide.
+
+Якщо Duroxide пройде наші тести, є велика ймовірність, що він дозволить нам зробити набагато цікавішу архітектуру: не окремо queue + scheduler + workflow engine + wait/event system, а єдиний embedded durable execution runtime, поверх якого вже виконуватимуться native/Rhai/WASM застосунки. Це потенційно може суттєво спростити всю платформу.
+
+Потрібно лише те що вбудоване
+
+Microsoft Duroxide
+
+Він розвивається.
+
+
+
+Так. Якщо критерій жорсткий — лише вбудований runtime без окремого сервера, тоді список треба суттєво скоротити. І Microsoft Duroxide зараз виглядає одним із найцікавіших варіантів.
+
+Duroxide активно розвивається. Основний проєкт уже перенесений у microsoft/duroxide; старий репозиторій заархівований саме тому, що вся подальша розробка ведеться під Microsoft. Поточний core-реліз — v0.1.30 від 29 липня 2026 року. Сам проєкт усе ще офіційно має статус Preview.
+
+Ознаки, що це не покинутий експеримент:
+
+у 2026 році було багато релізів: 0.1.20 → 0.1.23 → 0.1.25 → 0.1.28 → 0.1.29 → 0.1.30;
+окремо активно розвивається PostgreSQL provider — duroxide-pg 0.1.35 вийшов 24 серпня 2026 року;
+існують і синхронно оновлюються Node.js та Python bindings, останні релізи яких уже використовують core 0.1.30;
+є відкриті задачі на розвиток runtime: absolute-deadline timers, event queues, forwarding events у sub-orchestrations тощо; тобто API ще розширюється.
+Чому Duroxide добре відповідає нашій вимозі
+
+Він саме embedded:
+
+Our Rust application
+│
+├─ UI
+├─ domain services
+├─ Wasmtime
+├─ Rhai
+│
+└─ Duroxide Runtime
+     ├─ orchestrations
+     ├─ activities
+     ├─ durable timers
+     ├─ events
+     ├─ retries
+     └─ persistence
+
+Runtime працює всередині нашого процесу на Tokio. Немає:
+
+Temporal Server
+Restate Server
+NATS Server
+RabbitMQ
+Kafka
+
+Duroxide прямо позиціонується як “lightweight, embeddable durable execution runtime for Rust”.
+
+І це принципово відрізняє його від більшості workflow-систем.
+
+Для відкладеного виконання
+
+Він закриває навіть більше, ніж нам спочатку потрібно:
+
+execute_now()
+execute_after(5 min)
+execute_at(deadline)
+retry()
+wait_for_event()
+wait_for_child()
+parallel()
+continue_after_restart()
+
+Наприклад:
+
+Task created
+    ↓
+workflow starts
+    ↓
+wait 3 hours
+    ↓
+application shuts down
+    ↓
+next day application starts
+    ↓
+Duroxide restores workflow
+    ↓
+handler executes
+
+Тобто нам не потрібно підтримувати активний Tokio timer протягом цих трьох годин.
+
+Це саме той патерн, який потрібний для:
+
+нагадувань
+відкладених повідомлень
+scheduled publications
+background jobs
+workflow timeout
+очікування approval
+retry інтеграцій
+automation rules
+low-code processes
+Але є один важливий нюанс
+
+На сьогодні Duroxide ще не 1.0.
+
+І відкриті issues показують типові проблеми молодого runtime. Наприклад, у липні з'явилися issues про shutdown дочірніх задач і можливе повторне виконання activity при retryable ACK failure.
+
+Для нас це не означає «не використовувати». Це означає:
+
+не прив'язувати Application API прямо до Duroxide API
+
+Я б зробив:
+
+trait DurableRuntime {
+    async fn start(...);
+    async fn signal(...);
+    async fn cancel(...);
+    async fn status(...);
+}
+
+і:
+
+platform API
+     ↓
+ExecutionRuntime abstraction
+     ↓
+Duroxide adapter
+
+Тоді Duroxide можна оновлювати або навіть замінити без зміни API наших застосунків.
+
+Що я б змінив у попередньому виборі
+
+Якщо умова:
+
+тільки те, що можна вбудувати без зовнішнього runtime/server
+
+то я б зараз досліджував лише приблизно таку групу:
+
+Проєкт	Embedded	Durable execution	Активність	Моя оцінка
+Microsoft Duroxide	✅	✅✅	✅✅	головний кандидат
+Apalis	✅	частково	✅	job queue
+Fang	✅	❌	помірна	job queue
+Effectum	✅	❌	слабша	SQLite jobs
+нові Durust/durare	✅	✅	дуже молоді	research
+
+Причому Apalis і Duroxide — не зовсім конкуренти.
+
+Apalis:
+
+job → execute → finished
+
+Duroxide:
+
+execute
+ ↓
+wait
+ ↓
+event
+ ↓
+execute
+ ↓
+timer
+ ↓
+restart machine
+ ↓
+continue
+
+Для нашої платформи другий варіант стратегічно цікавіший.
+
+Я б зараз поставив Duroxide на перше місце і детально дослідив саме його внутрішню архітектуру: storage model, replay semantics, timers, provider API, SQLite, overhead на тисячі/мільйони scheduled executions та наскільки реально під'єднати наш власний file/binary storage замість SQL. Саме це покаже, чи може Duroxide стати нашим єдиним embedded execution runtime замість окремих queue + scheduler + workflow engine.

@@ -1,0 +1,5323 @@
+Консолідована архітектура платформи
+
+Головне рішення: платформу потрібно будувати не навколо окремих сутностей на кшталт «задача», «нотатка» чи «форум», а навколо універсального ядра:
+
+Контури володіння даними — персональний простір або організація.
+Воркспейси — робочі середовища всередині контуру.
+Ресурси та записи — універсальні об’єкти, файли, колекції, сторінки.
+Типи об’єктів і зв’язків — системні або створені користувачем.
+Застосунки — пакети схем, сторінок, ролей, workflow та інтеграцій.
+Контракти доступу — безпечне підключення даних між просторами.
+Capability runtime — контроль того, що може робити встановлений застосунок.
+
+Задачі, нотатки, документи та проєкти мають постачатися як системні застосунки, реалізовані через той самий механізм пакетів, що й marketplace-застосунки. Вони встановлені за замовчуванням і мають підвищений рівень довіри, але не створюють окрему паралельну архітектуру.
+
+Ітерація 1. Межі системи та основні поняття
+1.1. Контур володіння — OwnershipScope
+
+Це головна межа:
+
+володіння даними;
+політик безпеки;
+шифрування;
+розміщення даних;
+встановлених застосунків;
+білінгу;
+retention-політик;
+аудиту.
+
+Типи контурів:
+
+Тип	Призначення
+Personal	Автоматично створюється для кожного користувача
+Organization	Створюється користувачем або адміністратором
+System	Системні каталоги, marketplace, службові дані
+
+Не потрібно вводити окремі контури Community, Forum, Website, OSBB. Це не нові типи tenant’ів, а застосунки та воркспейси всередині організаційного контуру.
+
+Організація має власні:
+
+групи й учасників;
+ролі;
+застосунки;
+схеми об’єктів;
+розширення схем;
+workflow;
+інтеграції;
+політики доступу;
+ключі шифрування;
+брендинг;
+домени;
+тариф і квоти.
+
+Персональний простір використовує ту саму модель, але за замовчуванням має одного власника.
+
+1.2. Воркспейс — Workspace
+
+Воркспейс — це не tenant і не власник даних. Це робоче середовище всередині контуру:
+
+персональний;
+командний;
+проєктний;
+керований застосунком;
+приватний;
+публічний;
+архівний.
+
+Воркспейс визначає:
+
+навігацію;
+набір підключених застосунків;
+локальні ролі;
+списки, дошки, календарі та сторінки;
+колекції ресурсів;
+локальні представлення даних;
+учасників, які не обов’язково є повними членами організації.
+1.3. Встановлення та екземпляр застосунку
+
+Потрібно розділити:
+
+AppInstallation
+
+Фіксує:
+
+який пакет встановлений;
+його версію;
+дозволені capabilities;
+залежності;
+ліцензію;
+довіру до видавця;
+застосовані міграції.
+AppInstance
+
+Фіксує конкретну конфігурацію застосунку:
+
+конкретний форум;
+конкретний сайт новин;
+конкретне ОСББ;
+конкретний чат;
+конкретний проєктний портал.
+
+Одна інсталяція пакета Forum може мати декілька екземплярів форумів.
+
+Organization Scope
+├── AppInstallation: Forum 2.4.1
+│   ├── AppInstance: Форум будинку №1
+│   └── AppInstance: Форум правління
+├── AppInstallation: News CMS 1.8.0
+│   └── AppInstance: Сайт ОСББ
+└── Workspaces
+    ├── Адміністрація
+    ├── Мешканці
+    └── Публічний портал
+1.4. Ресурс — універсальний об’єкт безпеки
+
+Resource — усе, до чого можна надати доступ:
+
+воркспейс;
+колекція;
+запис;
+файл;
+папка;
+сторінка;
+dashboard;
+app instance;
+workflow;
+форма;
+опублікований матеріал.
+
+Кожен ресурс має рівно один контур-власник.
+
+Один ресурс не повинен одночасно належати персональному простору й організації. Для підключення до інших просторів використовуються:
+
+гранти;
+mounts;
+контракти даних;
+копії;
+overlays;
+зв’язки.
+
+Це усуває невизначеність щодо видалення, аудиту, шифрування та права власності.
+
+ABP доцільно залишити модульним каркасом для trusted-модулів платформи. Він підтримує модульність і multi-tenancy, але ABP Tenant, OwnershipScope і Workspace не слід механічно ототожнювати. OwnershipScope має залишатися канонічною предметною моделлю платформи.
+
+Ітерація 2. Дефолтні сутності
+2.1. Сутності ядра
+
+Ці сутності існують незалежно від встановлених застосунків.
+
+Група	Сутності
+Ідентичність	Principal, User, ServicePrincipal, Group, GroupMember
+Контури	OwnershipScope, Organization, ScopeMembership, ScopeSettings
+Робоче середовище	Workspace, WorkspaceMembership, Collection, ResourceMount
+Дані	Resource, Record, RecordRevision, TypeDefinition, TypeVersion
+Зв’язки	RelationType, RelationInstance
+Доступ	PermissionDefinition, RoleDefinition, RoleBinding, DirectGrant, DataAccessContract, ShareLink
+Застосунки	AppDefinition, AppVersion, AppInstallation, AppInstance, AppBinding
+Workflow	AutomationDefinition, WorkflowDefinition, WorkflowInstance, WorkItem, Schedule
+Файли	Blob, FileAsset, BlobReference, EncryptionEnvelope, SyncReplica
+Події	DomainEvent, OutboxEvent, Subscription, AuditEntry
+Платформа	Feature, Entitlement, Quota, Notification
+2.2. Дефолтні системні застосунки
+Core.Capture
+InboxItem;
+швидке збереження тексту;
+посилання;
+файл;
+голосова нотатка;
+перетворення в задачу, нотатку або документ.
+Core.Tasks
+Task;
+Project;
+Milestone;
+checklist;
+статус;
+пріоритет;
+дедлайн;
+виконавці;
+повторення;
+залежності;
+підзадачі.
+Core.Knowledge
+Note;
+Document;
+Page;
+Collection;
+Bookmark;
+Template.
+
+Різниця:
+
+нотатка — легкий швидкий контент;
+документ — версії, погодження, публікація, шаблони;
+сторінка — композиція блоків, віджетів та інших ресурсів.
+
+Вони можуть використовувати один формат блокового контенту, але мають різні lifecycle та політики.
+
+Core.Files
+FileAsset;
+Folder;
+FileVersion;
+preview;
+attachment;
+content hash.
+Core.Calendar
+CalendarEvent;
+Reminder;
+recurrence;
+availability;
+зв’язки з задачами, проєктами й документами.
+Core.People
+Contact;
+ContactGroup;
+ExternalOrganizationRecord.
+
+Тут важливо розділити:
+
+Principal/User — реальний користувач платформи;
+Contact — предметний запис про людину;
+Organization Scope — tenant платформи;
+OrganizationRecord — клієнт, контрагент або інша організація як бізнес-об’єкт.
+Core.Collaboration
+Comment;
+Mention;
+Reaction;
+Subscription;
+ActivityItem;
+Notification.
+Core.Views
+SavedView;
+Filter;
+Board;
+CalendarView;
+ListView;
+Form;
+Dashboard;
+PageLayout.
+2.3. Що не потрібно додавати в ядро
+
+Не варто вбудовувати в kernel:
+
+форум;
+чат;
+CRM;
+CMS;
+голосування;
+ОСББ;
+help desk;
+фінанси;
+склад;
+HR.
+
+Вони мають будуватися як системні або marketplace-застосунки на універсальних primitives.
+
+Ітерація 3. Універсальна модель об’єктів
+3.1. Базова модель запису
+
+Логічно запис складається з двох частин.
+
+Resource
+- Id
+- OwnerScopeId
+- HomeWorkspaceId?
+- ParentResourceId?
+- ResourceKind
+- OwnerPrincipalId
+- CreatedAt
+- UpdatedAt
+- DeletedAt?
+- Revision
+- SecurityClassification
+- SyncMode
+
+Record
+- ResourceId
+- TypeVersionId
+- LifecycleState
+- Title
+- Data
+- SearchProjection
+- ExtensionSetId?
+
+Resource відповідає за:
+
+володіння;
+ієрархію;
+доступ;
+аудит;
+видалення;
+sync;
+mounts.
+
+Record відповідає за предметні поля.
+
+3.2. Гібридне зберігання
+
+Не варто використовувати:
+
+чистий EAV;
+окрему фізичну таблицю для кожного користувацького типу;
+тільки schemaless JSON;
+event sourcing для всіх сутностей.
+
+Оптимальна модель:
+
+Універсальна таблиця records.
+Системні поля — типізовані SQL-колонки.
+Користувацькі поля — JSON/JSONB.
+Вибрані поля — індексні проєкції.
+Для критичних або високонавантажених типів — спеціалізовані projection-таблиці.
+
+Наприклад:
+
+Task має projection для status, due_at, priority, assignee;
+Message має append-only storage;
+Document має окремий CRDT/content store;
+FileAsset посилається на content-addressed blob;
+інші custom records залишаються в універсальному store.
+
+PostgreSQL підтримує індексування jsonb, зокрема GIN-індекси, а Row Level Security дозволяє обмежувати видимість і зміну рядків. У цій архітектурі RLS слід використовувати для захисту межі контуру як defense-in-depth, але не як єдиний механізм складної графової авторизації.
+
+3.3. Підтримка PostgreSQL і MSSQL
+
+Формат застосунків і типів має залишатися незалежним від БД.
+
+Потрібні адаптери:
+
+IRecordStore
+IRecordQueryCompiler
+IIndexPlanner
+IRowIsolationProvider
+ISchemaMigrationProvider
+
+Референсна реалізація:
+
+PostgreSQL;
+JSONB;
+GIN/expression indexes;
+RLS;
+generated columns;
+partitioning за потреби.
+
+MSSQL-адаптер:
+
+JSON columns;
+computed columns;
+provider-specific indexes;
+власна реалізація row filtering.
+
+Не потрібно зводити всю платформу до найменшого спільного знаменника двох БД. Package format залишається однаковим, а physical query/index plan — provider-specific.
+
+3.4. Розміщення tenant-даних
+
+ScopePlacement визначає, де фізично зберігається контур:
+
+shared database;
+окремий schema;
+окрема БД;
+окремий кластер;
+локальний вузол;
+hybrid/local-first.
+
+Невеликі персональні та організаційні контури можуть працювати в shared DB. Великі організації можуть бути перенесені до окремої БД без зміни ID або package model.
+
+Ітерація 4. Власні типи об’єктів
+4.1. ObjectTypeDefinition
+
+Кожен тип містить:
+
+стабільний namespaced ID;
+версію;
+базовий тип;
+data schema;
+UI schema;
+список зв’язків;
+lifecycle;
+дії;
+permissions;
+індексну політику;
+search policy;
+audit policy;
+retention policy;
+sync policy;
+локалізації.
+
+Приклад namespaced ID:
+
+core.task
+core.document
+forum.thread
+forum.post
+osbb.apartment
+osbb.meter-reading
+local.org-0193.procurement-request
+
+Data schema доцільно будувати на JSON Schema 2020-12, додаючи власні x-* vocabularies для UI, permissions, indexing, sync та computed fields. JSON Schema відокремлює структуру й валідацію даних від конкретного UI та підтримує композицію схем.
+
+4.2. Типи полів
+Категорія	Типи
+Текст	short text, long text, rich/block text, Markdown, code
+Числа	integer, decimal, percent, money, measurement
+Логічні	boolean, tri-state
+Час	date, local date, time, datetime, duration, recurrence
+Варіанти	enum, multi-enum, status, color, icon
+Контакти	email, phone, URL, address, geo
+Структури	object, list, map, table
+Файли	file, image, audio, video, attachment
+Посилання	object reference, polymorphic reference, external reference
+Учасники	user, principal, group, organization, app principal
+Обчислювані	formula, lookup, rollup, aggregate, sequence
+Системні	created by, updated by, revision, owner, lifecycle
+Захищені	encrypted value, secret reference, masked value
+Інтеграційні	external ID, connector reference, webhook reference
+
+Для кожного поля задаються:
+
+required;
+default;
+validation;
+min/max;
+uniqueness scope;
+localization;
+index mode;
+full-text mode;
+classification;
+field-level permissions;
+audit mode;
+retention;
+encryption;
+sync conflict strategy.
+
+Secret не повинен зберігати відкритий секрет у JSON. Він зберігає лише посилання на secret store.
+
+4.3. Data schema та UI schema мають бути окремими
+
+Один тип може мати:
+
+коротку форму;
+повну форму;
+мобільну форму;
+публічну форму;
+форму модератора;
+форму лише для читання;
+список;
+kanban;
+calendar;
+dashboard.
+
+Тому:
+
+DataSchema != FormSchema != PageLayout != ViewDefinition
+
+Зміна форми не повинна створювати нову версію data schema.
+
+4.4. Власні типи створюються як локальний застосунок
+
+Коли користувач через low-code UI створює:
+
+тип;
+поле;
+зв’язок;
+сторінку;
+роль;
+workflow,
+
+платформа фактично редагує локальний пакет:
+
+local.<scope-id>.<app-id>
+
+Це забезпечує:
+
+версіонування;
+export/import;
+тестування;
+міграції;
+подальшу публікацію в marketplace;
+відсутність «магічної конфігурації» поза package system.
+4.5. Розширення існуючих типів
+
+Не можна прямо змінювати schema стороннього застосунку. Використовується TypeExtension.
+
+Base type:
+  forum.thread
+
+Organization extension:
+  local.my-org.forum-extension
+    + sponsor
+    + internalPriority
+    + responsibleModerator
+
+Порядок композиції:
+
+Platform base
+→ Base app
+→ Publisher extensions
+→ Organization extensions
+→ App-instance configuration
+→ Workspace views
+→ User preferences
+
+Правила:
+
+base fields не видаляються локальним extension;
+нові поля мають власний namespace;
+тип базового поля не змінюється без міграції;
+локальні extensions оновлюються незалежно;
+оновлення base app не перезаписує локальні поля;
+workspace-рівень зазвичай змінює views/forms, а не основну persistent schema.
+Ітерація 5. Власні зв’язки
+5.1. Три різні категорії зв’язків
+
+Їх не можна змішувати.
+
+1. Системна ієрархія
+scope → workspace;
+workspace → collection;
+collection → resource;
+app instance → managed workspaces.
+
+Вона впливає на навігацію та може впливати на успадкування доступу.
+
+2. Предметні зв’язки
+задача належить проєкту;
+квартира знаходиться в будинку;
+стаття має автора;
+заявка пов’язана з обладнанням.
+
+Вони самі по собі не надають доступ.
+
+3. Authorization relations
+owner;
+viewer;
+editor;
+member;
+moderator;
+delegated administrator.
+
+Вони використовуються системою доступу.
+
+Предметний зв’язок може бути позначений як authorizationBearing, але лише якщо app package явно задає правило компіляції в authorization relation.
+
+Наприклад:
+
+Apartment --resident--> User
+
+може породжувати:
+
+User has viewer access to Apartment
+
+Але зв’язок:
+
+Apartment --locatedIn--> Building
+
+не повинен автоматично надавати доступ до всіх квартир будинку.
+
+5.2. RelationTypeDefinition
+
+Тип зв’язку визначає:
+
+типи лівого та правого endpoint;
+напрямок;
+inverse name;
+cardinality;
+required/optional;
+унікальність;
+payload schema;
+temporal validity;
+delete behavior;
+cross-scope policy;
+permission propagation;
+sync strategy;
+ownership/composition.
+
+Підтримувані категорії:
+
+one-to-one;
+one-to-many;
+many-to-many;
+directed;
+symmetric;
+containment;
+association;
+dependency;
+membership;
+temporal relation.
+
+RelationInstance може мати власні поля:
+
+User --residentOf--> Apartment
+- role: owner | tenant | family-member
+- validFrom
+- validTo
+- primary
+- verified
+5.3. Cross-scope relations
+
+Зв’язок між різними контурами дозволяється лише якщо:
+
+Користувач має link на source.
+Користувач має link або create relation на target.
+Тип зв’язку дозволяє cross-scope.
+Існує відповідний DataAccessContract.
+Жодна сторона не порушує app capability policy.
+
+Cross-scope relation:
+
+не передає ownership;
+не створює каскадне видалення;
+не надає автоматично доступ;
+не відкриває приховані поля;
+після revoke перетворюється на недоступний handle або tombstone.
+Ітерація 6. Права доступу
+6.1. Типи principals
+
+Доступ може отримати:
+
+користувач;
+група;
+організація;
+учасники певного воркспейсу;
+роль app instance;
+service account;
+app installation;
+workflow instance;
+share link;
+anonymous/public principal.
+6.2. Рівні авторизації
+Рівень	Приклад
+Platform	Можна створювати організації
+Entitlement	Організація придбала застосунок
+Scope	Користувач є членом організації
+Workspace	Користувач є редактором воркспейсу
+App instance	Користувач є модератором форуму
+Collection	Користувач бачить певну папку
+Resource	Користувач може редагувати документ
+Action	Користувач може виконати publish
+Field	Користувач бачить телефон, але не паспортні дані
+State	Поле можна змінювати лише в статусі Draft
+Context	Доступ діє до певної дати або лише в контексті організації
+6.3. Модель рішення
+ALLOW =
+    PlatformEntitlement
+  ∧ ActiveAccount
+  ∧ ScopeBoundary
+  ∧ AppCapability
+  ∧ RelationshipAccess
+  ∧ RoleActionPermission
+  ∧ StatePolicy
+  ∧ FieldPolicy
+  ∧ DataAccessContract
+  ∧ NOT HardDeny
+
+Наприклад:
+
+застосунок має capability читати core.task;
+організація має entitlement на застосунок;
+користувач має роль ProjectMember;
+персональний власник відкрив лише title, status, dueAt;
+користувач може змінювати тільки status.
+
+Результат: організація не бачить приватний description або attachments навіть якщо користувач є адміністратором app instance.
+
+6.4. Рекомендована реалізація
+ZITADEL — identity та B2B directory
+
+Використовується для:
+
+authentication;
+MFA;
+SSO;
+identity providers;
+організаційних користувачів;
+external users;
+delegated role management;
+project grants.
+
+ZITADEL дозволяє делегувати іншій організації обмежений набір ролей проєкту або надати ролі зовнішнім користувачам. Це добре відповідає onboarding між організаціями, але object-level права платформи повинні залишатися у власному authorization layer.
+
+OpenFGA — граф відносин
+
+Використовується для:
+
+членства;
+груп;
+вкладених воркспейсів;
+ownership;
+прямого sharing;
+успадкування;
+parent-child access;
+delegated access;
+cross-organization relations.
+
+OpenFGA реалізує relationship-based authorization, підтримує conditions і contextual tuples, зокрема authorization у контексті конкретної організації.
+
+Policy Compiler — дії, поля й стани
+
+Окремий вузький policy runtime відповідає за:
+
+custom permission IDs;
+app-specific roles;
+object state;
+field visibility;
+field editability;
+purpose;
+request context;
+conditional actions.
+
+Це не повинен бути другий загальний authorization graph. Він отримує результати relationship check і застосовує типізовані правила.
+
+Casbin.NET можна залишити внутрішньою реалізацією цього шару, але:
+
+app packages не повинні залежати від синтаксису Casbin;
+канонічним форматом має бути власний typed policy AST;
+OpenFGA залишається джерелом relationship truth.
+Database RLS — останній захисний бар’єр
+
+RLS або provider-specific row filtering захищає від випадкового читання чужого OwnershipScope.
+
+Він не замінює:
+
+OpenFGA;
+field policies;
+app capabilities;
+data contracts.
+6.5. Generic authorization model
+
+Не потрібно додавати до OpenFGA окремий object type для кожного користувацького типу.
+
+Стабільні authorization types:
+
+user
+group
+scope
+workspace
+collection
+app_instance
+resource
+role_binding
+share_contract
+
+А forum.thread, osbb.apartment, custom.invoice залишаються предметними типами у Schema Registry.
+
+OpenFGA-моделі є immutable і версіонуються; modular models дозволяють розділяти модель на частини. Тому authorization model має змінюватися лише при зміні основних security primitives, а не після створення кожного custom type.
+
+6.6. Permission catalog
+
+Усі permission IDs namespaced:
+
+core.task.read
+core.task.update
+core.task.complete
+core.document.publish
+
+forum.thread.create
+forum.post.moderate
+forum.user.mute
+
+osbb.apartment.read
+osbb.meter.submit
+osbb.invoice.approve
+
+UI може мати власні permission IDs:
+
+ui.forum.moderation.open
+ui.osbb.billing.export
+
+Але приховування кнопки ніколи не замінює server-side перевірку.
+
+За замовчуванням елемент із permission requirement невидимий або disabled, доки сервер не підтвердив permission.
+
+6.7. Ролі
+Контур
+Owner;
+SecurityAdmin;
+AppAdmin;
+BillingAdmin;
+Member;
+Guest.
+Воркспейс
+Manager;
+Editor;
+Contributor;
+Commenter;
+Viewer.
+Ресурс
+Owner;
+Editor;
+Commenter;
+Viewer;
+Linker;
+ShareManager.
+App instance
+
+Власні ролі:
+
+moderator;
+publisher;
+resident;
+accountant;
+dispatcher;
+operator.
+
+Ролі — це versioned permission bundles. Організація може створювати власні ролі, але не повинна змінювати семантику системних ролей.
+
+6.8. Field-level security
+
+Для кожного поля задається:
+
+read;
+write;
+filter;
+search;
+export;
+audit;
+mask.
+
+Класифікації:
+
+Public
+Member
+Confidential
+Private
+Secret
+
+API повертає лише дозволені поля. Пошуковий індекс і workflow events також не повинні містити поля, яких app principal не може читати.
+
+6.9. Пошук з урахуванням прав
+
+Не слід робити OpenFGA ListObjects єдиним способом побудови кожного списку. Його продуктивність залежить від складності моделі та кількості relations.
+
+Потрібні:
+
+SQL/search filter за scope/workspace/type.
+Матеріалізована AccessProjection.
+Фінальний authorization check для чутливих операцій.
+Сильна перевірка перед write/export/share.
+
+Офіційна документація OpenFGA окремо попереджає, що продуктивність ListObjects залежить від складності relations і кількості потенційних результатів.
+
+В authorization tuples не потрібно зберігати email, ПІБ або інші персональні дані — лише opaque IDs.
+
+Ітерація 7. Підключення персональних даних до організацій
+7.1. П’ять режимів підключення
+Режим	Власник	Результат
+Grant	Source	Інша сторона отримує права на source
+Mount	Source	Ресурс з’являється в target workspace
+Contribute	Source	App instance отримує обмежений data contract
+Copy/Fork	Target	Створюється новий запис із provenance
+Transfer	Target	Ownership явно переноситься
+
+Ці режими не слід маскувати однією кнопкою «поділитися».
+
+7.2. DataAccessContract
+
+Контракт описує, що персональний простір дозволяє організації або застосунку.
+
+DataAccessContract
+- SourceScopeId
+- TargetScopeId
+- TargetAppInstanceId?
+- ResourceSelector
+- AllowedTypes
+- AllowedFields
+- AllowedActions
+- Purpose
+- ValidFrom
+- ValidUntil
+- OfflineCopyAllowed
+- ExportAllowed
+- OnwardSharingAllowed
+- RetentionPolicy
+- RevocationMode
+- Status
+
+ResourceSelector може бути:
+
+конкретний ресурс;
+колекція;
+набір ресурсів;
+saved filter;
+тип;
+окреме поле профілю.
+7.3. Доступ є перетином, а не сумою
+Effective target access =
+    Source contract
+  ∩ Target participant role
+  ∩ App capabilities
+  ∩ Object policy
+  ∩ Field policy
+
+Організація не може через власну роль розширити доступ понад те, що дозволив source.
+
+7.4. Приклад: персональна задача в організаційному проєкті
+
+У персональному просторі є задача:
+
+Title: Підготувати звіт
+Description: Приватні робочі нотатки
+DueAt: 2026-09-03
+Status: InProgress
+Attachments: приватний документ
+
+Користувач підключає її до організаційного проєкту.
+
+Контракт дозволяє:
+
+title: read;
+dueAt: read;
+status: read/write;
+comments: create;
+description: hidden;
+attachments: hidden;
+share: denied.
+
+В організаційному воркспейсі створюється ResourceMount.
+
+Організація може додати власний overlay:
+
+OrgOverlay
+- sprint
+- teamPriority
+- internalReviewer
+- billingCode
+
+Ці поля належать організації й не змінюють персональну задачу.
+
+Після revoke:
+
+mount стає недоступним;
+організаційний overlay може залишитися відповідно до retention policy;
+source-дані більше не повертаються;
+derived projections очищаються;
+workflow subscriptions вимикаються.
+7.5. Дані профілю
+
+Потрібно розділити:
+
+Глобальну identity.
+Персональний профіль користувача.
+Організаційний MemberProfile.
+Дані, передані через контракт.
+Дані, які організація створила самостійно.
+
+Наприклад, ОСББ може отримати:
+
+ім’я;
+телефон;
+email;
+зв’язок із квартирою.
+
+Але не отримує:
+
+особисті нотатки;
+приватні контакти;
+календар;
+документи;
+інші організації користувача.
+7.6. Участь без повного членства в організації
+
+Потрібно підтримати окремі membership-рівні:
+
+ScopeMembership;
+WorkspaceMembership;
+AppParticipation;
+ResourceGrant.
+
+Користувач може бути учасником форуму або чату організації, але:
+
+не бачити список членів організації;
+не бачити інші воркспейси;
+не отримувати загальну роль Organization Member;
+не бачити організаційні типи й застосунки.
+7.7. Делегування іншій організації
+
+Організація A може дозволити організації B:
+
+підключати власних користувачів;
+призначати лише Viewer і Contributor;
+не призначати Admin;
+керувати учасниками конкретного app instance.
+
+Це реалізується через DelegationGrant із максимальним набором ролей.
+
+Ітерація 8. Застосунки та marketplace
+8.1. Модель застосунку
+AppDefinition
+└── AppVersion
+    └── AppInstallation
+        ├── AppInstance
+        │   ├── AppSurface
+        │   ├── WorkspaceBinding
+        │   ├── ParticipantRole
+        │   ├── TypeExtension
+        │   └── WorkflowBinding
+        └── CapabilityGrant
+AppDefinition
+
+Marketplace listing:
+
+ID;
+publisher;
+назва;
+категорія;
+опис;
+pricing model;
+privacy declaration;
+support;
+trust level.
+AppVersion
+
+Immutable package:
+
+version;
+dependencies;
+schemas;
+migrations;
+permissions;
+workflows;
+assets;
+code;
+signatures;
+compatibility.
+AppInstallation
+
+Контурне встановлення:
+
+consent;
+ліцензія;
+capabilities;
+version pin;
+update channel;
+service principal.
+AppInstance
+
+Конкретний бізнес-контекст і дані.
+
+8.2. Що містить app package
+app.yaml
+schemas/
+relations/
+permissions/
+roles/
+commands/
+ui/pages/
+ui/forms/
+ui/views/
+workspaces/
+workflows/
+events/
+connectors/
+locales/
+migrations/
+assets/
+wasm/
+tests/
+sbom/
+
+Скорочений manifest:
+
+id: com.example.osbb
+version: 1.4.0
+installationScopes:
+  - organization
+
+creates:
+  workspaces:
+    - administration
+    - residents
+    - public-portal
+
+capabilities:
+  data:
+    read:
+      - osbb.building
+      - osbb.apartment
+    write:
+      - osbb.request
+      - osbb.meter-reading
+  events:
+    subscribe:
+      - record.created
+      - record.state-changed
+  network:
+    domains:
+      - payments.example
+  jobs: true
+
+permissions:
+  - osbb.app.manage
+  - osbb.request.route
+  - osbb.invoice.approve
+8.3. Застосунок як композиція
+
+App package може містити:
+
+типи об’єктів;
+зв’язки;
+workspace templates;
+ролі;
+permission catalog;
+сторінки;
+форми;
+dashboards;
+lifecycle;
+rules;
+workflow;
+commands;
+event subscriptions;
+public surfaces;
+integrations.
+
+Саме так реалізується «комбінація схем, воркспейсів і прав».
+
+8.4. App surfaces
+
+Один app instance може мати різні поверхні:
+
+Surface	Приклад
+Internal	Адміністративна сторінка
+Participant	Портал мешканця
+Public	Сайт новин
+Embedded	Віджет у dashboard
+API	Зовнішнє API
+Realtime	Чат або live feed
+Mobile	Спеціальний мобільний маршрут
+8.5. Розширення застосунків
+
+Extension package:
+
+id: local.my-org.forum-extra
+extends:
+  app: com.vendor.forum
+  version: ">=2.4 <3.0"
+
+Може додати:
+
+поля;
+views;
+сторінки;
+actions;
+workflow;
+event handlers;
+інтеграції;
+теми;
+локалізації.
+
+Не може без нового consent:
+
+розширити network access;
+читати нові типи;
+читати нові поля;
+отримати secrets;
+змінити базові permissions;
+отримати фонове виконання.
+8.6. Рівні локального розширення
+Рівень	Дозволено
+User	Власні views, shortcuts, client rules
+Workspace	Форми, сторінки, views, локальні automations
+App instance	Поля, ролі, workflow, instance configuration
+Organization	Нові типи, інтеграції, permissions, shared extensions
+Publisher	Повне extension package
+
+Зовнішній participant не може розширювати app instance без окремого app.extend.
+
+8.7. Trust levels
+1. Declarative
+schemas;
+views;
+forms;
+permissions;
+workflow;
+formulas.
+
+Найбезпечніший рівень. Marketplace v1 варто починати саме з нього.
+
+2. Sandboxed WebAssembly
+
+Для:
+
+формул;
+конвертерів;
+validators;
+document generators;
+спеціалізованої бізнес-логіки.
+
+WebAssembly Component Model орієнтований на модульні interoperable components, але host має явно обмежувати capabilities. Wasmtime не слід вважати абсолютною security boundary: runtime потрібно регулярно оновлювати, встановлювати CPU/memory/time limits і для ризикового коду використовувати окремий процес або node. У 2026 році Wasmtime публікував критичні sandbox-related advisories, що додатково підтверджує необхідність defense-in-depth.
+
+Marketplace WASM-код не отримує напряму:
+
+DB;
+filesystem;
+network;
+secrets;
+user token.
+
+Він отримує лише host capabilities:
+
+records.read
+records.write
+events.publish
+files.read
+http.request.allowed-domain
+secrets.use-without-reveal
+3. External connector
+
+Окремий сервіс:
+
+OAuth;
+webhook;
+app credentials;
+egress allowlist;
+rate limits.
+4. Trusted native module
+first-party;
+self-hosted administrator;
+перевірений publisher;
+окремий deployment.
+
+Публічний marketplace не повинен дозволяти завантажувати довільні .NET assemblies у головний процес.
+
+8.8. Застосунок отримує власного principal
+
+При встановленні створюється:
+
+ServicePrincipal: app-installation/<installation-id>
+
+Усі дії app виконуються від його імені.
+
+App principal має лише:
+
+оголошені capabilities;
+дозволені типи;
+дозволені поля;
+дозволені app instances;
+дозволені network destinations;
+квоти.
+
+У нього немає «прав власника організації» через сам факт встановлення.
+
+8.9. Package distribution
+
+App packages доцільно зберігати як OCI artifacts:
+
+immutable digest;
+metadata;
+layers;
+signatures;
+attestations;
+SBOM;
+provenance;
+related artifacts.
+
+OCI 1.1 формалізував packaging non-container artifacts і зв’язування signatures та attestations через subject/referrers.
+
+8.10. Встановлення
+
+Процес:
+
+Завантажити immutable package.
+Перевірити publisher/signature.
+Перевірити compatibility.
+Побудувати permission/capability diff.
+Показати consent.
+Створити app service principal.
+Перевірити package tests.
+Застосувати схеми й міграції.
+Створити app instance.
+Увімкнути schedules і subscriptions.
+Активувати UI surfaces.
+8.11. Оновлення
+
+App instance pin’иться до версії.
+
+Оновлення підтримує:
+
+preview diff;
+migration dry-run;
+backup;
+canary на окремому instance;
+staged rollout;
+rollback;
+re-consent для нових capabilities.
+
+Новий network access або доступ до нових даних не можна додавати silent update’ом.
+
+8.12. Видалення
+
+Uninstall:
+
+Вимикає app.
+Відкликає service principal.
+Зупиняє jobs і workflow triggers.
+Відкликає tokens.
+Архівує app instances.
+Пропонує export/delete згідно з retention.
+
+Дані не повинні каскадно видалятися автоматично.
+
+8.13. Developer mode і product mode
+Developer mode
+package source у файлах;
+hot reload для schemas, UI, views, workflow, localization;
+local unsigned packages;
+migration preview;
+test data;
+app debugger.
+Product mode
+immutable signed package;
+version pin;
+controlled migrations;
+audit;
+capabilities;
+marketplace update channel.
+
+Trusted .NET-код компілюється окремо. Declarative та UI-зміни не потребують повної перекомпіляції платформи.
+
+Ітерація 9. Легкий workflow engine
+
+Потрібно розділити три поняття, але показувати їх в одному дизайнері.
+
+9.1. Рівень 1: Business Rule
+
+Синхронне виконання в межах команди.
+
+Використовується для:
+
+default values;
+validation;
+required fields;
+computed fields;
+guards;
+дозволених переходів статусу.
+
+Business Rule:
+
+deterministic;
+без network;
+без довгих очікувань;
+без side effects;
+виконується в транзакції.
+9.2. Рівень 2: Automation
+
+Коротка асинхронна реакція:
+
+When task status becomes Completed
+If project is not archived
+Then create activity item
+And notify project owner
+
+Підходить для:
+
+notification;
+створення пов’язаного запису;
+оновлення поля;
+створення relation;
+webhook;
+запуску background action.
+9.3. Рівень 3: Durable Workflow
+
+Для:
+
+approval;
+очікування;
+timer;
+SLA;
+parallel branches;
+human task;
+compensation;
+external events;
+довгих інтеграцій.
+9.4. Єдина модель для користувача
+Trigger
+→ Conditions
+→ Steps
+→ Optional Wait/Approval
+→ Result
+
+Типи trigger:
+
+record created;
+record updated;
+field changed;
+state changed;
+relation added;
+comment added;
+scheduled;
+manual command;
+webhook;
+form submitted;
+access contract changed;
+app installed.
+
+Типи кроків:
+
+condition;
+switch;
+update record;
+create record;
+create relation;
+assign;
+notify;
+request approval;
+wait;
+delay;
+foreach;
+parallel;
+call app command;
+HTTP connector;
+publish event;
+invoke subworkflow;
+compensate.
+9.5. Lifecycle окремо від workflow
+
+Статусна модель об’єкта:
+
+Draft → Review → Approved → Published
+
+задається як LifecycleDefinition.
+
+Transition містить:
+
+source state;
+target state;
+permission;
+guard;
+required fields;
+synchronous rules.
+
+Workflow запускається після успішного переходу для side effects.
+
+Не можна робити так, щоб валідність критичного статусу залежала від успішності асинхронного workflow.
+
+9.6. Runtime
+
+Рекомендована модель:
+
+generic declarative graph interpreter;
+Dapr Workflow як durable execution runtime;
+activity workers для side effects;
+event/outbox triggers;
+definition snapshot pinned до instance.
+
+Dapr Workflow підтримує event-sourced execution state, durable retries, timers, pause/resume, external events і розподілене виконання workflow activities.
+
+Generic orchestrator не повинен під час replay довільно читати БД або викликати зовнішні API. Він працює з зафіксованою версією graph, а side effects виконуються activities.
+
+9.7. Гарантії виконання
+
+Activities потрібно вважати at-least-once.
+
+Кожний side effect отримує idempotency key:
+
+workflowInstanceId + nodeId + iteration + attemptScope
+
+Потрібні:
+
+retry;
+exponential backoff;
+timeout;
+dead-letter;
+compensation;
+cancellation;
+pause/resume;
+max loop count;
+max execution depth;
+quotas.
+
+Не потрібно обіцяти «exactly once» для зовнішніх API.
+
+9.8. Run-as model
+
+Workflow запускається як:
+
+triggering user;
+app service principal;
+system principal;
+спеціальний delegated workflow principal.
+
+За замовчуванням:
+
+manual workflow — від імені користувача;
+scheduled workflow — від імені app installation;
+external webhook — від імені connector principal.
+
+Кожен крок перевіряє права під час виконання. Workflow не зберігає назавжди права, які користувач уже втратив.
+
+9.9. Human tasks
+
+Approval створює WorkItem:
+
+assignee;
+candidate group;
+deadline;
+escalation;
+decision form;
+allowed outcomes;
+delegation;
+audit.
+
+WorkItem можна показувати в загальному Inbox поряд із задачами.
+
+9.10. Event delivery
+
+Зміна record і створення domain event повинні бути в одній транзакції через outbox.
+
+Dapr підтримує transactional outbox для state/pub-sub сценаріїв, а його pub/sub використовує CloudEvents envelope.
+
+App event payload має бути мінімальним:
+
+event type
+resource ID
+scope ID
+revision
+changed field IDs
+correlation
+
+Повні дані app отримує через звичайний authorized read. Це запобігає витоку прихованих полів через event bus.
+
+9.11. Elsa
+
+Elsa доцільно залишити як опційний Advanced Workflow app для:
+
+складних integration workflows;
+custom activities;
+спеціального workflow studio;
+advanced operator tooling.
+
+Elsa підтримує versioned definitions, persisted instances, custom activities і multitenancy, але не потрібно робити його обов’язковою моделлю для простих користувацьких automations.
+
+Ітерація 10. Iroh, файли та локальна синхронізація
+10.1. Роль Iroh
+
+Iroh повинен відповідати за:
+
+P2P connectivity;
+NAT traversal;
+encrypted transport;
+blob transfer;
+content-addressed files;
+CRDT/document synchronization;
+sync між локальними пристроями та вузлами.
+
+Iroh не повинен бути єдиною системою:
+
+authorization;
+schema registry;
+пошуку;
+бізнес-транзакцій;
+фінансових даних;
+workflow state;
+permissions.
+
+Iroh Documents надає CRDT key-value synchronization, Iroh Blobs — передачу content-addressed blobs, а Automerge protocol може використовуватися для синхронізації collaborative documents.
+
+10.2. Канонічне розділення
+PostgreSQL:
+- metadata
+- schema
+- relations
+- permissions
+- app state
+- workflow state
+- indexes
+- audit
+
+Iroh / Object Storage:
+- binary blobs
+- document CRDT payload
+- snapshots
+- large attachments
+- replication
+
+Iroh Collections не слід використовувати як заміну graph database або вкладеної структури воркспейсів: collections у blobs — це послідовності hash references, а не повноцінна queryable object graph.
+
+10.3. Інтеграція з .NET
+
+Актуальні офіційні bindings Iroh охоплюють Rust, Python, Swift, Kotlin, JavaScript і C; офіційного C# binding у переліку немає. Тому для .NET-платформи оптимальний варіант — окремий Rust Sync Node, доступний через local gRPC або Unix domain socket.
+
+.NET Core Platform
+        │ gRPC/UDS
+        ▼
+Rust Iroh Sync Node
+        ├── iroh-blobs
+        ├── iroh-docs / Automerge
+        ├── peer connections
+        └── relay connections
+
+На Android можна використовувати Kotlin binding у native sync layer.
+
+10.4. Sync modes для типів
+
+Кожен type/field визначає sync strategy.
+
+Режим	Використання
+ServerAuthoritative	Permissions, invoices, votes, payments
+OptimisticCommandSync	Tasks, projects, structured records
+CRDTText	Notes, collaborative documents
+AppendOnly	Messages, audit, activity
+LastWriteWins	Некритичні preferences
+SetMerge	Tags, reactions
+ManualConflict	Критичні конфлікти
+
+Не потрібно CRDT-мерджити:
+
+права;
+app capabilities;
+оплату;
+фінансові суми;
+статуси погодження;
+результати голосування;
+ownership.
+10.5. Offline commands
+
+Offline client зберігає:
+
+Command
+- CommandId
+- PrincipalId
+- ScopeId
+- ResourceId
+- ExpectedRevision
+- Payload
+- CreatedAt
+- DeviceId
+
+Після підключення сервер:
+
+Перевіряє поточні права.
+Перевіряє revision.
+Застосовує conflict strategy.
+Записує audit.
+Публікує events.
+Повертає reconciliation result.
+10.6. Шифрування
+blob шифрується до передачі;
+ключі відокремлені за scope;
+app отримує key envelope лише в межах capability;
+shared resource може мати окремий content key;
+revoke супроводжується key rotation для майбутніх версій.
+
+Фізично неможливо «відкликати» вже розшифровану копію, яку користувач законно завантажив. Тому DataAccessContract повинен окремо контролювати:
+
+offline copy;
+export;
+download;
+retention.
+
+E2EE варто робити опційним на рівні workspace/app instance, оскільки воно обмежує:
+
+серверний пошук;
+workflow;
+moderation;
+public publishing;
+AI-функції.
+Ітерація 11. Фізична архітектура
+11.1. Trusted platform modules
+
+У .NET modular host:
+
+identity adapter;
+scopes;
+organizations;
+workspaces;
+object runtime;
+schema registry;
+relation runtime;
+authorization gateway;
+package manager;
+app runtime;
+page/form/view runtime;
+workflow API;
+audit;
+entitlements;
+notifications.
+
+ABP можна використати для:
+
+module boundaries;
+application services;
+UoW;
+validation;
+API conventions;
+localization;
+feature system;
+admin modules.
+
+Marketplace apps не повинні автоматично ставати ABP modules.
+
+11.2. Модульний моноліт спочатку
+
+У dev та першому production:
+
+один .NET host;
+логічно розділені модулі;
+одна або кілька БД;
+OpenFGA;
+ZITADEL;
+Dapr;
+Rust sync node;
+Redis.
+
+Окремими процесами відразу варто залишити:
+
+Iroh sync;
+OpenFGA;
+identity;
+untrusted WASM;
+public renderer;
+realtime gateway за потреби.
+11.3. Подальше виділення сервісів
+
+Розділяти за навантаженням, а не за кожним app package:
+
+Search;
+Workflow Workers;
+Realtime/Chat;
+Public Renderer;
+File/Sync;
+Marketplace Registry;
+Integration Workers.
+
+Dapr Workflow підтримує activities і child workflows у різних app IDs, тому durable process можна розподілити після фізичного виділення модулів.
+
+11.4. Cross-scope operations
+
+В одній БД операція може бути транзакційною.
+
+Між різними scope placements використовується saga:
+
+Requested
+→ SourceGranted
+→ TargetMounted
+→ Active
+
+Для revoke:
+
+RevocationRequested
+→ LocalAccessFence
+→ AuthorizationTupleRemoved
+→ TargetProjectionCleared
+→ Revoked
+
+Cross-scope link registry зберігає лише:
+
+opaque IDs;
+status;
+contract ID;
+source/target scope;
+revisions.
+
+Він не зберігає повні payloads.
+
+Ітерація 12. Реалізація прикладних застосунків
+12.1. Форум
+Типи
+Forum;
+Category;
+Thread;
+Post;
+Reaction;
+Subscription;
+Report;
+ModerationAction.
+Ролі
+administrator;
+moderator;
+member;
+restricted member;
+guest.
+Особливості
+публічне або приватне читання;
+moderation workflow;
+rate limits;
+report queue;
+subscriptions;
+search;
+reputation як extension.
+
+Форум здебільшого працює на generic record runtime.
+
+12.2. Чат
+Типи
+Channel;
+Thread;
+Message;
+Attachment;
+Reaction;
+ReadMarker.
+Спеціалізовані capabilities
+realtime gateway;
+presence у Redis;
+append-only message storage;
+message fan-out;
+push notifications;
+retention;
+optional E2EE.
+
+Чат представлений як app, але його high-volume message storage не обов’язково має бути generic records.
+
+12.3. Сайт новин
+Типи
+Site;
+Article;
+Category;
+AuthorProfile;
+MediaAsset;
+Edition;
+Redirect;
+SEOSettings.
+Workflow
+Draft
+→ Editorial Review
+→ Approved
+→ Scheduled
+→ Published
+→ Archived
+Public publishing
+
+Публічна сторінка не повинна напряму читати internal records під anonymous principal.
+
+Використовується:
+
+Internal Article
+→ Publish command
+→ Sanitized PublicationSnapshot
+→ Public Renderer
+→ CDN
+
+Це запобігає випадковому витоку hidden fields або internal comments.
+
+12.4. Управління ОСББ
+Типи
+Building;
+Entrance;
+Apartment;
+ResidentMembership;
+ServiceRequest;
+Equipment;
+Meter;
+MeterReading;
+Invoice;
+Payment;
+Vote;
+Meeting;
+Decision;
+Announcement;
+Document.
+Воркспейси
+адміністрація;
+бухгалтерія;
+диспетчерська;
+мешканці;
+публічний портал.
+Права
+правління бачить організаційні дані;
+бухгалтер бачить фінанси;
+диспетчер бачить заявки;
+мешканець бачить свою квартиру;
+орендар бачить лише дозволену частину;
+учасник голосування визначається relation snapshot на момент початку голосування.
+Підключення персональних даних
+
+Персональний користувач може надати app instance:
+
+ім’я;
+телефон;
+email;
+notification preferences;
+зв’язок із квартирою.
+
+Організація окремо зберігає власні:
+
+billing account;
+борг;
+історію заявок;
+показники;
+документи;
+участь у голосуваннях.
+
+При revoke персонального профілю організаційні правомірно створені records не зникають автоматично, але подальше читання source fields припиняється.
+
+Ітерація 13. Marketplace governance
+13.1. Вимоги до package publication
+
+Перед публікацією:
+
+schema validation;
+permission assertions;
+migration tests;
+upgrade/downgrade tests;
+dependency check;
+capability review;
+SBOM;
+provenance;
+vulnerability scan;
+privacy declaration;
+data export support;
+uninstall behavior;
+resource quota test.
+13.2. Категорії перевірки
+Рівень	Перевірка
+Declarative	Автоматична
+Read-only data app	Автоматична + privacy
+Data write app	Розширена
+Network connector	Domain/secret review
+Public renderer	XSS/content-security review
+Payment/identity app	Ручна
+Native module	Лише trusted channel
+13.3. Capability diff
+
+Користувач бачить не абстрактне «застосунок хоче доступ до даних», а точний diff:
+
+Новий доступ:
++ читання osbb.apartment: [id, number]
++ створення osbb.service-request
++ підписка на record.created
++ HTTP до api.payment-provider.example
+- немає доступу до персональних нотаток
+- немає доступу до файлів інших застосунків
+13.4. Entitlements
+
+Право користуватися платним застосунком і право читати конкретний ресурс — різні речі.
+
+Entitlement: чи доступна функція/застосунок
+Authorization: що конкретно може зробити principal
+
+Білінг може бути:
+
+per scope;
+per app instance;
+per active participant;
+per usage;
+one-time license.
+Ітерація 14. Критичні інваріанти
+
+Ці правила потрібно зафіксувати як ADR і перевіряти архітектурними тестами.
+
+Кожен ресурс має рівно один owner scope.
+Workspace не є tenant.
+Предметний зв’язок не надає доступ автоматично.
+Cross-scope link не передає ownership.
+Усі записи змінюються через command layer.
+UI permission не замінює server authorization.
+App installation не отримує ambient authority.
+Кожен app має власного service principal.
+Нові capabilities вимагають повторного consent.
+Custom types створюються як local app package.
+Base app schema не редагується напряму — лише extension.
+Schema, workflow, app і authorization versions immutable.
+Workflow не може підвищувати привілеї.
+Critical state не визначається асинхронним workflow.
+CRDT не використовується для permission, фінансів і voting authority.
+Public site читає publication snapshot, а не внутрішні records.
+Marketplace code не має прямого доступу до БД.
+App uninstall не видаляє дані автоматично.
+Cross-scope операції не використовують distributed transaction — лише saga/outbox.
+Authorization tuples не містять PII.
+Послідовність реалізації
+Етап 0. Контракти ядра
+
+Зафіксувати:
+
+OwnershipScope;
+Workspace;
+Resource;
+Principal;
+TypeDefinition;
+RelationDefinition;
+AuthorizationDecision;
+AppPackage;
+Command;
+DomainEvent.
+Етап 1. Мінімальне ядро
+
+Реалізувати:
+
+personal scope auto-provisioning;
+organizations;
+memberships і groups;
+workspaces;
+resources;
+records;
+files;
+schema registry;
+basic direct sharing;
+authorization gateway;
+audit/outbox;
+system package loader.
+Етап 2. Дефолтні застосунки
+Inbox;
+Tasks;
+Projects;
+Notes;
+Documents;
+Files;
+Calendar;
+Comments;
+Views/forms.
+
+Вони мають використовувати той самий runtime, що й майбутній marketplace.
+
+Етап 3. Low-code schema/app builder
+custom types;
+fields;
+relations;
+forms;
+views;
+pages;
+roles;
+lifecycle;
+local packages;
+export/import.
+Етап 4. Cross-scope data model
+mounts;
+contracts;
+overlays;
+partial field sharing;
+external app participants;
+delegated organization access;
+revoke propagation.
+Етап 5. Automation
+synchronous rules;
+event automations;
+Dapr durable workflows;
+approvals;
+schedules;
+workflow trace.
+Етап 6. App runtime
+installations;
+instances;
+service principals;
+capabilities;
+dependencies;
+extensions;
+app surfaces;
+update/uninstall lifecycle.
+Етап 7. Marketplace
+OCI registry;
+package signatures;
+publisher accounts;
+review pipeline;
+permission diff;
+licensing;
+update channels;
+ratings і support metadata.
+Етап 8. Спеціалізовані capabilities
+realtime/chat;
+public site renderer;
+payments connectors;
+advanced search;
+advanced Elsa workflow app;
+WASM extensions;
+Iroh local-first sync.
+Підсумкова цільова модель
+Platform
+├── Identity & Directory
+├── Ownership Scopes
+│   ├── Personal
+│   └── Organizations
+├── Workspaces
+├── Universal Resource Runtime
+├── Schema & Relation Registry
+├── Authorization
+│   ├── ReBAC graph
+│   ├── Action/field/state policies
+│   ├── App capabilities
+│   └── Data access contracts
+├── System Apps
+│   ├── Tasks
+│   ├── Notes
+│   ├── Documents
+│   ├── Projects
+│   ├── Files
+│   └── Calendar
+├── Low-code App Builder
+├── Automation & Workflow
+├── Package/App Runtime
+├── Marketplace
+├── Local-first Sync
+└── Specialized Capabilities
+    ├── Realtime/Chat
+    ├── Public Sites
+    ├── Search
+    └── External Integrations
+
+Для першої реалізації найважливішими є чотири рішення: один owner scope на ресурс, custom data як hybrid JSON + projections, доступ як перетин ReBAC/policies/capabilities/contracts та всі кастомізації як versioned app packages. Саме вони дозволяють надалі додати marketplace, не перебудовуючи персональні простори, організації, права й типи об’єктів.
+
+пт, 28 авг. в 9:07
+Не потрібно баз даних за типом постгрес, платформа повинна бути "мобільна" та переносна, можуть бути релеї, головна адмінка всього проекту, , мсркетплейс і інші допоміжні сервіси. 
+Також потрібно продумати перевикористання даних одних ресурсів іншими, наприклад головний адресний довідник міста в інших застосунки.
+
+Також продумай варіант створення "сайтів" на базі додатків, відокремлених наприклад saas побудови порталів, там може бути зовнішня інфраструктура для мастер даних s3 та БД. Продумай ітераційно 
+Оновлена цільова архітектура PersonalVida
+
+Попередню PostgreSQL-центричну частину потрібно відкинути. Для цієї платформи центральна серверна БД не повинна бути канонічним місцем зберігання користувацьких або організаційних даних.
+
+Нова базова модель:
+
+Переносне local-first ядро → зашифровані vault-контейнери → content-addressed об’єкти й журнали змін → локальні відновлювані індекси → синхронізація між вузлами → необов’язковий глобальний control plane.
+
+При цьому:
+
+персональний простір може повністю жити на телефоні або ноутбуці;
+організація може мати власний домашній вузол, NAS, VPS або хмарну репліку;
+Iroh-релеї допомагають встановити з’єднання, але не володіють даними;
+маркетплейс, глобальна адмінка, білінг, сайти та інші сервіси існують окремо;
+окремий SaaS порталів може використовувати S3, SQL/NoSQL БД, CDN і зовнішні API;
+жоден застосунок не повинен залежати від фізичного типу сховища;
+усі сутності, схеми, застосунки та дані можна експортувати й перенести.
+Ітерація 1. Нова фундаментальна модель
+1.1. Що змінюється
+Було в попередній моделі	Стає
+Центральна PostgreSQL/MSSQL	Переносний Vault
+Рядок у таблиці	Версійований ресурс
+Транзакція БД	Підписаний atomic commit
+Сервер як джерело істини	Власник ресурсу або authority node
+Серверний індекс	Локальна відновлювана проєкція
+OpenFGA як обов’язковий сервіс	Локальний authorization graph із підписаних політик
+Dapr як обов’язковий workflow runtime	Переносний workflow log та змінний executor
+App має свої таблиці	App працює через Resource/Data Contract API
+Один cloud deployment	Телефон, desktop, NAS, VPS, SaaS, self-hosted
+Центр керує даними	Центр керує довірою, каталогами й сервісами
+1.2. Головні поняття
+Realm
+
+Адміністративний домен платформи:
+
+офіційний PersonalVida Cloud;
+enterprise/self-hosted інсталяція;
+міський або державний вузол;
+незалежна федерація.
+
+Realm містить:
+
+кореневі ключі довіри;
+каталог застосунків;
+каталог типів і контрактів;
+реєстр видавців;
+relay map;
+глобальну адмінку;
+site/portal control plane;
+білінг і ліцензування.
+
+Але Realm не є власником vault-даних користувача.
+
+OwnershipScope
+
+Логічний власник даних:
+
+персональний простір;
+організація;
+системний scope;
+publisher scope;
+site scope, якщо сайт створює власні дані.
+ScopeVault
+
+Переносне канонічне сховище scope.
+
+Один логічний scope може складатися з декількох фізичних сегментів:
+
+Personal Scope
+├── Core segment
+├── Tasks segment
+├── Notes segment
+├── Files segment
+├── Private segment
+├── Shared projections
+└── Installed app segments
+VaultSegment
+
+Окрема одиниця:
+
+шифрування;
+реплікації;
+доступу;
+підписки;
+архівації;
+переміщення;
+garbage collection.
+
+Сегмент може відповідати:
+
+застосунку;
+воркспейсу;
+рівню конфіденційності;
+великому довіднику;
+публічній частині;
+workflow state.
+Workspace
+
+Лише композиція:
+
+навігації;
+представлень;
+змонтованих ресурсів;
+застосунків;
+локальних ролей.
+
+Воркспейс не визначає фізичне сховище й не є tenant’ом.
+
+Resource
+
+Логічний об’єкт:
+
+задача;
+нотатка;
+документ;
+файл;
+повідомлення;
+сторінка;
+квартира;
+адреса;
+застосунок;
+workflow;
+набір даних;
+сайт.
+Dataset
+
+Версійований набір сутностей із:
+
+контрактом;
+схемою;
+publisher;
+immutable releases;
+snapshots;
+delta feed;
+provenance;
+ліцензією;
+політикою оновлення.
+DataProduct
+
+Опублікований Dataset, призначений для повторного використання іншими застосунками.
+
+Ітерація 2. Переносний формат Vault
+2.1. Vault — не серверна БД
+
+Канонічний vault можна фізично представити як:
+
+каталог;
+єдиний переносний bundle;
+набір pack-файлів;
+S3-compatible prefix;
+сховище на NAS;
+мобільний application container;
+encrypted backup;
+read-only release archive.
+
+Орієнтовна структура:
+
+scope.vida/
+├── vault.manifest.cbor
+├── refs/
+│   ├── segments/
+│   ├── resources/
+│   └── releases/
+├── objects/
+│   └── <content-hash>
+├── packs/
+│   └── <pack-hash>.pack
+├── snapshots/
+│   └── <snapshot-hash>
+├── schemas/
+├── policies/
+├── packages/
+├── workflows/
+├── indexes/             # можна повністю видалити й перебудувати
+└── diagnostics/
+
+Ключі не повинні відкрито лежати у vault:
+
+OS Secure Storage
+Hardware-backed keystore
+Encrypted recovery package
+Trusted-device recovery
+Optional organization escrow
+2.2. Базові фізичні primitives
+Immutable object
+
+Будь-який незмінний контент:
+
+manifest;
+schema;
+command;
+delta;
+snapshot;
+relation block;
+workflow receipt;
+app package;
+blob.
+
+ID об’єкта дорівнює хешу його канонічного представлення.
+
+Commit
+
+Підписаний набір змін:
+
+Commit
+- commitId
+- parentCommitIds[]
+- scopeId
+- segmentId
+- actorPrincipalId
+- actorDeviceId
+- authorityEpoch
+- timestamp / HLC
+- schemaVersions[]
+- operations[]
+- capabilityProofHash
+- signature
+
+Операції:
+
+CreateResource
+PatchFacet
+AddRelation
+RemoveRelation
+GrantCapability
+RevokeCapability
+PublishRelease
+CreateOverlay
+RecordWorkflowStep
+Ref
+
+Короткий вказівник на актуальний commit або release.
+
+Snapshot
+
+Компактне представлення стану на певний commit.
+
+Pack
+
+Контейнер для багатьох дрібних immutable objects. Він потрібен, щоб не створювати сотні тисяч окремих файлів на мобільному пристрої або в S3.
+
+Index
+
+Похідна локальна структура:
+
+B-tree;
+full-text;
+graph adjacency;
+geo-index;
+timeline;
+lookup by type;
+lookup by relation.
+
+Index ніколи не є канонічним.
+
+Для native reference implementation можна використати redb: це вбудоване portable ACID key-value сховище на pure Rust. Воно використовується лише як локальний projection/index store, тому його можна замінити без міграції канонічних даних.
+
+2.3. Atomic commit без серверної БД
+
+Локальна операція:
+
+Створити immutable operation objects.
+Створити commit.
+Записати об’єкти.
+Перевірити підписи й schema.
+Атомарно змінити локальний head ref.
+Оновити локальні projections.
+Запланувати синхронізацію.
+
+На файловій системі атомарність останнього кроку забезпечується atomic replace/rename або маленькою транзакцією embedded store.
+
+2.4. Commit DAG
+
+Коміти утворюють DAG:
+
+A ── B ── C
+      └── D ── M
+           ↑
+        інший пристрій
+
+Ресурс може мати:
+
+один лінійний writer;
+декілька writers із deterministic merge;
+CRDT;
+authority-only режим;
+manual conflict resolution.
+2.5. Стратегії конкуренції
+Стратегія	Приклади
+CRDTMap	метадані нотатки
+CRDTText	спільний документ
+ObservedSet	теги, реакції
+Counter	лічильники
+FieldLWW	некритичні налаштування
+StrictRevision	статус погодження
+AuthorityOnly	оплата, голосування, permissions
+AppendOnly	повідомлення, audit
+ManualConflict	суперечливі бізнес-дані
+
+Automerge доцільно використовувати для блокового тексту та справді collaborative JSON-like документів, а не для всіх об’єктів платформи. Він розрахований на local-first роботу, локальні зміни та подальшу синхронізацію реплік.
+
+2.6. Формати
+Дані	Формат
+Підписані commits/manifests	Deterministic CBOR
+RPC, commands, deltas	Protobuf
+Авторські app manifests	YAML/JSON → canonical CBOR
+Collaborative documents	Automerge binary
+Звичайні blobs	Оригінальні encrypted bytes
+Великі таблиці	Parquet
+Географічні набори	GeoParquet
+Потокові batches	Arrow IPC
+App/site extensions	WebAssembly Components
+Marketplace distribution	OCI artifacts
+Статичні сайти	HTML/CSS/JS/assets
+
+Parquet є переносним column-oriented форматом для ефективного зберігання й вибіркового читання великих наборів даних, а GeoParquet стандартизує геометрію та CRS у Parquet-файлах.
+
+Ітерація 3. Resource facets і реальна field-level безпека
+
+У local-first системі не можна просто віддати іншому користувачеві encrypted blob, а потім приховати частину полів у UI. Якщо отримувач отримав ключ, він фізично має всі дані.
+
+Тому logical resource потрібно розкладати на facets.
+
+Task
+├── PublicFacet
+│   ├── title
+│   ├── status
+│   └── dueAt
+├── ContentFacet
+│   └── description
+├── PrivateFacet
+│   └── privateNotes
+├── AttachmentsFacet
+└── OrganizationOverlay
+
+Кожен facet має:
+
+окремий stream;
+окремий encryption key;
+окремі права;
+окрему replication policy.
+3.1. Два способи часткового sharing
+Наперед визначені facets
+
+Тип об’єкта розподіляє поля за security groups:
+
+public
+member
+confidential
+private
+secret
+Матеріалізована shared projection
+
+Коли потрібна довільна комбінація полів:
+
+Personal Task
+      │
+      ├── title
+      ├── status
+      └── dueAt
+           │
+           ▼
+SharedProjection resource
+
+Організація синхронізує саме projection, а не вихідну задачу.
+
+Так забезпечуються:
+
+offline access;
+field-level privacy;
+revoke для майбутніх версій;
+незалежні organization overlays.
+
+Повністю стерти вже розшифровану й законно завантажену копію неможливо. Тому окремо контролюються:
+
+download;
+offline storage;
+export;
+retention;
+re-sharing.
+Ітерація 4. Portable Runtime
+4.1. Рекомендований технологічний поділ
+Vida Core — Rust
+
+Відповідає за:
+
+vault format;
+object store;
+hashing;
+encryption;
+key envelopes;
+commits;
+snapshots;
+sync protocol;
+Iroh;
+embedded indexes;
+Wasm runtime;
+package verification;
+local authorization;
+data product distribution.
+.NET Platform Host
+
+Відповідає за:
+
+application services;
+low-code designer;
+app builder;
+administrative UI;
+Blazor/MAUI shell;
+workflow designer;
+hosted control plane;
+portal control plane;
+integration workers;
+business modules.
+Mobile/native adapters
+Android: Kotlin/Rust binding;
+iOS: Swift/Rust binding;
+desktop/server: C ABI, generated FFI або локальний gRPC/UDS;
+browser: окремий Wasm/web adapter.
+
+Iroh зараз має офіційні bindings для Rust, Swift, Kotlin, JavaScript, Python і C та підтримує iOS і Android. Це робить окремий Rust networking/storage core практичнішим, ніж дублювання протоколів у .NET, Kotlin і Swift.
+
+4.2. Основні runtime interfaces
+IVaultStore
+IObjectStore
+ICommitStore
+IProjectionStore
+ISchemaRegistry
+IRelationIndex
+ISyncTransport
+IAddressLookup
+ICapabilityVerifier
+IKeyEnvelopeService
+IDataSourceProvider
+IDataProductPublisher
+IWorkflowExecutor
+IComputeHost
+IHostingProvider
+
+Жоден app package не бачить:
+
+raw filesystem;
+SQL;
+S3 SDK;
+Iroh endpoint;
+encryption keys;
+embedded index engine.
+
+Він працює лише через capability-controlled runtime APIs.
+
+4.3. Storage providers
+LocalFileProvider
+MobileContainerProvider
+MemoryProvider
+S3CompatibleProvider
+WebDavProvider
+IrohBlobProvider
+EncryptedBackupProvider
+ExternalObjectProvider
+
+Для Rust core можна використати Apache OpenDAL як реалізацію storage abstraction: він надає єдиний API до local filesystem, S3-compatible та багатьох інших backends. Це зручний кандидат, але не частина формату vault.
+
+Ітерація 5. Мережева топологія і релеї
+5.1. Різні види вузлів
+Вузол	Функція
+Client Node	Телефон, ноутбук, desktop
+Scope Authority Node	Приймає strict commands конкретного scope
+Availability Node	Тримає encrypted replica для доступності
+Transport Relay	Передає encrypted packets
+Discovery Node	Зіставляє Endpoint ID з адресою/relay
+Mailbox Node	Store-and-forward encrypted envelopes
+Worker Node	Workflow, integrations, builds
+Site Runtime	Обслуговує публічний сайт або портал
+Control Plane	Каталоги, trust, billing, admin
+Marketplace Mirror	Кеш застосунків і data products
+5.2. Transport Relay не є data server
+
+Iroh намагається встановити пряме QUIC-з’єднання, а relay використовує як fallback. Relay не розшифровує трафік і не зберігає application state; self-hosted або dedicated relays можна замінювати незалежно від даних.
+
+Тому потрібне розділення:
+
+Transport Relay
+- stateless
+- encrypted packets
+- NAT traversal fallback
+
+Availability Node
+- encrypted blobs
+- commits
+- snapshots
+- offline delivery
+
+Authority Node
+- strict command validation
+- sequential state
+- workflow coordination
+5.3. Mailbox
+
+Коли цільовий вузол offline:
+
+sender завантажує encrypted envelope;
+mailbox не знає payload;
+envelope має TTL;
+recipient забирає його після появи online;
+великі blobs залишаються на availability nodes;
+mailbox передає лише heads, commands і wake-up hints.
+5.4. Discovery
+
+Можливі режими:
+
+realm DNS/Pkarr;
+self-hosted DNS/Pkarr;
+DHT;
+LAN/mDNS;
+QR/ticket;
+manually configured endpoints.
+
+Iroh підтримує signed address records через DNS/Pkarr, а також окремий DHT-based lookup, тому офіційний discovery service не повинен бути єдиною точкою доступу.
+
+5.5. Browser
+
+Браузерний runtime може використовувати Iroh через WebAssembly, але через обмеження браузерної sandbox-моделі його з’єднання мають проходити через relay. Тому повний sovereign node краще запускати як native mobile/desktop app, а browser використовувати як web replica або portal client.
+
+5.6. Sync protocol
+
+Пропоновані ALPN protocols:
+
+vida/sync/1
+vida/blob/1
+vida/commands/1
+vida/events/1
+vida/mailbox/1
+vida/authority/1
+vida/dataset/1
+
+Синхронізація:
+
+Встановлення authenticated Iroh connection.
+Передача capability proof.
+Обмін доступними segment heads.
+Порівняння commit DAG.
+Передача відсутніх commits.
+Передача manifests.
+Lazy transfer blobs.
+Перевірка signatures та schema.
+Merge або authority validation.
+Оновлення projections.
+
+Iroh позиціонується саме як набір composable networking protocols: encrypted connections, blobs, gossip, documents та можливість будувати власні протоколи поверх ALPN.
+
+Ітерація 6. Глобальна адмінка всього проєкту
+6.1. Realm Control Plane
+
+Це окремий службовий контур.
+
+Глобальні сервіси
+account directory;
+device enrollment;
+organization registry;
+publisher registry;
+namespace registry;
+marketplace catalog;
+data product catalog;
+schema/data contract catalog;
+relay fleet;
+discovery;
+app signing;
+app revocation;
+trust lists;
+licenses;
+billing;
+quotas;
+portal/site fleet;
+domain/TLS management;
+telemetry;
+diagnostics;
+abuse management;
+support access;
+release channels.
+6.2. Глобальні адміністративні ролі
+Роль	Доступ
+ProjectRoot	Offline threshold-managed root keys
+TrustAdmin	Publishers, signing, revocations
+MarketplaceModerator	App review
+PlatformOps	Control plane services
+RelayOps	Relay/discovery fleet
+SiteOps	Portal runtimes
+BillingAdmin	Entitlements and invoices
+SupportAgent	Metadata та explicit support grants
+SecurityAuditor	Audit, без data decryption
+6.3. Режими довіри до головної адміністрації
+Sovereign
+
+Глобальна адмінка:
+
+не має data keys;
+не читає vault;
+не може видати собі доступ;
+бачить лише service metadata.
+Managed
+
+Користувач або організація дозволяє:
+
+recovery escrow;
+support access;
+hosted backups;
+managed authority node.
+Regulated
+
+Критичний доступ можливий лише через:
+
+explicit organization policy;
+threshold approval;
+break-glass grant;
+time limit;
+повний audit.
+
+Головна адмінка може заблокувати:
+
+publisher;
+app update;
+relay token;
+marketplace listing;
+hosted site;
+abusive account.
+
+Але не повинна мати прихованого універсального ключа до всіх персональних vault.
+
+6.4. Відмова control plane
+
+При недоступності realm:
+
+локальні дані працюють;
+peer-to-peer sync працює за відомими endpoint IDs;
+LAN sync працює;
+installed apps працюють;
+existing signed licenses працюють протягом grace period;
+self-hosted relays працюють;
+сайти продовжують працювати у власному data plane.
+
+Тимчасово недоступні:
+
+нові marketplace installs;
+account recovery;
+новий device enrollment;
+нові purchases;
+publisher verification;
+нові domains.
+6.5. Безпечні marketplace updates
+
+Доцільна комбінація:
+
+OCI — зберігання immutable app/data artifacts;
+TUF — trust metadata, delegated publishers, rollback/freeze protection;
+signatures/attestations/SBOM — як OCI referrers;
+Iroh/HTTP/S3 — доставка payload.
+
+OCI 1.1 формалізує non-container artifacts і зв’язування signatures та attestations через subject/referrers. TUF розділяє Root, Targets, Snapshot і Timestamp metadata та захищає клієнтів від rollback і mix-and-match атак.
+
+Ітерація 7. Повторне використання даних між застосунками
+
+Це потрібно зробити не через «доступ до таблиць іншого app», а через типізовані data contracts і data ports.
+
+7.1. Нові primitives
+DataContractDefinition
+
+Описує семантичний API даних:
+
+entity types;
+required fields;
+optional fields;
+commands;
+events;
+lookup semantics;
+identity semantics;
+version compatibility;
+subscription modes;
+offline support.
+
+Приклади:
+
+core.people.directory/1
+core.files.library/1
+core.calendar.schedule/1
+geo.address-directory/1
+geo.building-directory/1
+finance.payment-provider/1
+cms.publication-source/1
+DataPort
+
+App-декларація:
+
+requires:
+  geo.address-directory/1
+
+provides:
+  osbb.building-directory/1
+DataBinding
+
+Конкретне підключення:
+
+Required contract:
+  geo.address-directory/1
+
+Bound provider:
+  ua.kyiv.city-addresses
+
+Mode:
+  mounted-replica
+
+Partition:
+  Kyiv / Shevchenkivskyi district
+7.2. App manifest
+dataPorts:
+  requires:
+    - name: addresses
+      contract: vida.geo.address-directory/1
+      version: "^1.2"
+      access:
+        - resolve
+        - search
+        - subscribe
+      replication:
+        - mounted-replica
+        - pinned-snapshot
+
+  provides:
+    - name: buildings
+      contract: vida.osbb.building-directory/1
+      version: "1.0"
+
+App не знає:
+
+де фізично лежить довідник;
+чи це vault;
+чи S3;
+чи зовнішня БД;
+чи HTTP API;
+чи локальна копія;
+чи data marketplace.
+7.3. Режими повторного використання
+Режим	Семантика
+LiveReference	Resolve entity за стабільним ID
+MountedReplica	Локальна read-only репліка
+MaterializedProjection	Підмножина rows/fields
+PinnedSnapshot	Незмінна конкретна release
+Overlay	Локальні поля поверх master entities
+DerivedDataset	Новий набір із lineage
+Fork	Незалежна копія
+FederatedQuery	Віддалений query
+Contribution	Пропозиція змін master owner
+CommandDelegation	Виклик команд provider app
+7.4. Стабільні entity references
+EntityRef
+- contractId
+- datasetId
+- entityId
+- optionalPinnedRelease
+- optionalAsOfDate
+- fallbackDisplayValue
+
+Приклад:
+
+dataset: ua.kyiv.city-addresses
+entity: street/0193f4...
+release: floating
+fallback: "вул. Хрещатик"
+
+fallbackDisplayValue потрібен для:
+
+offline rendering;
+історичних документів;
+тимчасово недоступного dataset;
+audit.
+7.5. Overlay
+
+Consumer не змінює master entity.
+
+Master Building
+- buildingId
+- officialAddress
+- geometry
+
+OSBB Overlay
+- buildingId
+- managementCode
+- serviceZone
+- responsibleManager
+- intercomModel
+
+Overlay:
+
+належить ОСББ;
+оновлюється незалежно;
+не входить до міського master dataset;
+може мати приватні поля;
+може бути видалений без зміни base entity.
+7.6. Derived dataset
+
+Наприклад:
+
+City Address Directory
+       +
+OSBB Buildings
+       +
+Emergency Zones
+       ↓
+Derived Service Area Dataset
+
+Derived dataset обов’язково містить lineage:
+
+source datasets
+source releases
+transform component
+creation time
+publisher
+license compatibility
+Ітерація 8. Головний адресний довідник міста
+8.1. Логічна структура
+Country
+└── Region
+    └── Municipality
+        ├── District
+        ├── Settlement
+        ├── Street
+        ├── AddressPoint
+        ├── Building
+        ├── Entrance
+        └── PostalZone
+
+Не потрібно включати в публічний адресний master:
+
+мешканців;
+власників;
+орендарів;
+телефони;
+борги;
+номери особових рахунків.
+
+Це окремі приватні datasets, які лише посилаються на BuildingId, EntranceId або AddressPointId.
+
+8.2. Data product
+DataProduct:
+  ua.kyiv.address-directory
+
+Implements:
+  vida.geo.address-directory/1
+
+Publisher:
+  Kyiv City Authority
+
+Release:
+  2026.08.1
+
+Release містить:
+
+schema;
+signed manifest;
+partitions;
+records snapshot;
+geometry;
+aliases;
+tombstones;
+changes since previous release;
+license;
+data quality;
+publisher signatures.
+8.3. Partitioning
+
+Не потрібно завантажувати весь довідник України на кожен телефон.
+
+Можливе partitioning:
+
+область;
+громада;
+район;
+geohash;
+bounding box;
+alphabetical street ranges;
+selected entity types.
+ua/
+├── kyiv-city/
+│   ├── holosiivskyi/
+│   ├── shevchenkivskyi/
+│   └── podilskyi/
+└── kyiv-region/
+8.4. Distribution
+
+Для великого довідника:
+
+datapackage.json / canonical manifest
+schemas/
+releases/2026.08.1/
+  streets.parquet
+  buildings.geoparquet
+  aliases.parquet
+  tombstones.parquet
+  deltas/
+
+Frictionless Data Package задає модель descriptor + resources + schema + publisher/license metadata, тому його структуру можна використати як зовнішньо сумісний профіль, додавши власні signatures, partitions і delta feeds.
+
+8.5. Зміна адреси
+
+Не потрібно змінювати entity ID при перейменуванні вулиці.
+
+StreetId: street/0193...
+Name:
+  до 2026-05-01: Стара назва
+  з 2026-05-01: Нова назва
+
+Підтримувані операції:
+
+rename;
+move;
+merge;
+split;
+deprecate;
+replace;
+alias;
+correction.
+Floating reference
+
+Показує актуальну назву.
+
+Pinned reference
+
+Показує назву з конкретного release.
+
+As-of reference
+
+Показує значення на конкретну дату.
+
+Це важливо для:
+
+договорів;
+рахунків;
+судових документів;
+історичних записів;
+логістики.
+8.6. Використання в інших apps
+ОСББ
+
+Зберігає:
+
+buildingRef
+entranceRef
+apartmentNumber
+Доставка
+
+Зберігає:
+
+addressPointRef
+entranceRef
+deliveryInstructions
+Міські звернення
+
+Зберігає:
+
+addressRef
+problemGeometry
+serviceZoneOverlay
+Новинний портал
+
+Може прив’язувати публікацію до:
+
+districtRef
+streetRef
+buildingRef
+8.7. Виправлення master data
+
+Consumer не редагує master напряму.
+
+ContributionRequest
+- targetEntityRef
+- proposedChanges
+- evidence
+- contributor
+- status
+- reviewDecision
+
+Workflow:
+
+Submitted
+→ Automated Validation
+→ Moderator Review
+→ Accepted / Rejected
+→ Next Dataset Release
+Ітерація 9. Apps як споживачі та постачальники даних
+9.1. App package
+app.yaml
+schemas/
+contracts/
+data-ports/
+commands/
+events/
+relations/
+permissions/
+roles/
+ui/
+workflows/
+migrations/
+transforms/
+site-surfaces/
+wasm/
+locales/
+assets/
+tests/
+sbom/
+9.2. System apps
+
+Дефолтні задачі, нотатки, документи, файли та календар залишаються системними застосунками:
+
+Core.Tasks
+Core.Knowledge
+Core.Files
+Core.Calendar
+Core.People
+Core.Collaboration
+Core.Views
+
+Вони використовують той самий portable runtime, що й marketplace apps.
+
+9.3. Заборона прямого доступу між apps
+
+Неправильно:
+
+Forum app reads Tasks app files
+OSBB app queries Contacts storage
+CMS app opens another app's vault segment
+
+Правильно:
+
+Forum app
+  requires core.people.directory/1
+
+OSBB app
+  requires geo.address-directory/1
+
+CMS app
+  requires core.files.library/1
+9.4. App principal
+
+Кожна інсталяція app має:
+
+власний principal ID;
+власну keypair;
+capability token;
+дозволені data bindings;
+network allowlist;
+compute quotas;
+workflow quotas.
+9.5. App extensions
+
+Extension може:
+
+додати type;
+додати overlay;
+додати сторінку;
+додати workflow;
+підключити новий provider;
+додати site surface.
+
+Extension не може без нового consent:
+
+прочитати новий dataset;
+отримати нові private facets;
+підключитися до нового domain;
+отримати secrets;
+змінити ownership;
+отримати background execution.
+9.6. WebAssembly Components
+
+Sandboxed app logic доцільно оформлювати як WebAssembly Components із WIT interfaces. Component Model дає portable binary format, типізовані imports/exports і можливість статично бачити, до яких host capabilities має доступ компонент.
+
+Наприклад:
+
+imports:
+  vida:records/read
+  vida:records/write
+  vida:datasets/resolve
+  vida:events/publish
+
+немає imports:
+  wasi:filesystem
+  wasi:sockets
+  vida:secrets/read
+Ітерація 10. Сайти на базі застосунків
+10.1. Сайт — не окремий тип app
+
+Site — це композиція:
+
+SiteProject
+├── App surfaces
+├── Routes
+├── Navigation
+├── Theme
+├── Data bindings
+├── Publication rules
+├── Audience
+├── Domain
+└── Hosting target
+
+Один сайт може складатися з:
+
+новинного app;
+форуму;
+чату;
+ОСББ;
+каталогу;
+форм;
+personal cabinet;
+зовнішнього payment app.
+10.2. Модель
+SiteProject
+├── SiteSurfaceBinding[]
+├── SiteDataBinding[]
+├── SiteRoleBinding[]
+├── DomainBinding[]
+├── HostingBinding
+├── BuildConfiguration
+├── PublicationChannel[]
+└── SiteRelease[]
+SiteSurfaceBinding
+
+Підключає app surface:
+
+/news        → News app
+/forum       → Forum app
+/account     → Resident Portal app
+/requests    → Service Request app
+SiteDataBinding
+
+Підключає дані:
+
+articles     → native dataset
+addresses    → city master dataset
+payments     → external SQL provider
+media        → S3
+users        → hosted identity provider
+10.3. Варіанти сайтів
+Варіант	Характеристика
+Static site	HTML/CSS/JS + immutable snapshots
+Static + forms	Static frontend + command gateway
+Dynamic portal	Auth, personalized data, server runtime
+Realtime portal	Forum/chat/presence
+Dedicated site	Окремий runtime і сховище
+Pooled SaaS	Спільна runtime fleet
+Self-hosted	Експортований deployment bundle
+Headless	API/data only
+Hybrid	Static public + dynamic private cabinet
+10.4. Static site
+
+Підходить для:
+
+новин;
+документації;
+публічного каталогу;
+лендингів;
+відкритих даних;
+статичних сторінок ОСББ.
+
+Pipeline:
+
+App Instance
+→ Publication Query
+→ Sanitized Snapshot
+→ Site Build
+→ Immutable SiteRelease
+→ S3/CDN/local hosting
+
+Public renderer не читає приватний vault напряму.
+
+10.5. Dynamic portal
+
+Підходить для:
+
+особистого кабінету;
+ОСББ;
+заявок;
+оплат;
+голосувань;
+форумів;
+чатів.
+Browser
+→ Site Gateway
+→ Authentication
+→ Capability check
+→ Data binding
+→ Authority node or external backend
+10.6. Site release
+site-release/
+├── release.manifest.cbor
+├── app-lock.json
+├── routes.json
+├── navigation.json
+├── publication-snapshots/
+├── assets/
+├── static/
+├── functions/
+│   └── *.wasm
+├── schemas/
+├── data-bindings.json
+└── signatures/
+
+Кожен release:
+
+immutable;
+content-addressed;
+signed;
+rollbackable;
+deployable в інший hosting provider.
+10.7. Один app instance — декілька сайтів
+OSBB App Instance
+├── Internal Admin Site
+├── Resident Portal
+├── Public News Site
+└── Mobile Surface
+
+Вони можуть мати:
+
+різні routes;
+різні facets;
+різні roles;
+різні publication snapshots;
+різні domains.
+Ітерація 11. Окремий SaaS для побудови порталів
+11.1. Portal SaaS Control Plane
+
+Відповідає за:
+
+site projects;
+visual builder;
+templates;
+themes;
+domain registration;
+TLS;
+builds;
+deployment;
+runtime selection;
+data source configuration;
+secrets;
+billing;
+quotas;
+logs;
+metrics;
+backups;
+custom domains;
+app marketplace integration.
+11.2. Portal SaaS Data Plane
+
+Складається з:
+
+Static Renderer
+Dynamic Site Runtime
+Command Gateway
+Auth Gateway
+Realtime Gateway
+Search Projection
+Background Workers
+Build Workers
+Object Storage
+External Data Adapters
+11.3. Рівні ізоляції
+Shared static
+спільний CDN;
+немає server state;
+найдешевший.
+Pooled runtime
+спільна worker fleet;
+окремі encrypted site segments;
+per-site quotas.
+Dedicated runtime
+окремий container/VM;
+окремі keys;
+окремі data bindings;
+окремі logs.
+Customer cloud
+deployment у cloud клієнта;
+SaaS control plane тільки керує release metadata.
+Fully detached
+експорт release;
+подальша робота без офіційного SaaS.
+Ітерація 12. Зовнішня інфраструктура для master data
+
+SaaS порталів може використовувати зовнішню БД або S3 як master. Це не суперечить portable core, якщо app працює через DataSourceProvider.
+
+12.1. Unified provider contract
+IDataSourceProvider
+- describeContract()
+- listReleases()
+- resolveEntity()
+- query()
+- fetchPartition()
+- subscribeChanges()
+- executeCommand()
+- publishContribution()
+- exportSnapshot()
+- getCheckpoint()
+- health()
+12.2. Типи providers
+Provider	Приклад
+NativeVaultProvider	PersonalVida vault
+S3DatasetProvider	Parquet/GeoParquet releases
+SqlProvider	PostgreSQL, MSSQL, MySQL
+ApiProvider	REST/GraphQL
+EventStreamProvider	Kafka/Redpanda/NATS
+FileProvider	CSV/JSON/Data Package
+FederatedProvider	Інший PersonalVida realm
+ComputedProvider	Derived/virtual dataset
+
+App не має залежати від конкретного provider.
+
+12.3. S3 як master data store
+
+Для S3 не потрібно зберігати «живий каталог із випадкових JSON-файлів».
+
+Правильна модель:
+
+Immutable data objects
+Immutable release manifests
+Immutable partitions
+Immutable deltas
+Small mutable latest pointer
+
+Публікація release:
+
+Завантажити всі data objects.
+Завантажити partitions.
+Завантажити delta segments.
+Створити signed release manifest.
+Завантажити manifest.
+Останнім оновити latest pointer.
+Consumers працюють із конкретним manifest hash.
+
+Тому вони ніколи не бачать частково опублікований release.
+
+12.4. SQL БД як зовнішній master
+
+SQL дозволяється як реалізація конкретного hosted provider:
+
+External DB
+→ Provider Adapter
+→ Data Contract
+→ Apps
+
+Заборонено:
+
+App
+→ прямий SQL
+→ конкретні таблиці
+
+Adapter відповідає за:
+
+stable entity IDs;
+schema mapping;
+permissions;
+pagination;
+commands;
+CDC або polling;
+snapshots;
+export;
+conflict policy.
+12.5. Source-of-truth policy
+
+Кожен binding явно задає:
+
+authority:
+  native-vault
+  external-provider
+  site-runtime
+  publisher
+
+sync:
+  read-only
+  publish-only
+  one-way-in
+  one-way-out
+  bidirectional
+
+consistency:
+  snapshot
+  eventual
+  strict-command
+  append-only
+
+Bidirectional sync не повинен бути default.
+
+12.6. Приклади
+Міський адресний довідник
+Master: S3 GeoParquet
+Index: Hosted geo/search service
+Portable clients: Regional mounted replicas
+Updates: Signed releases + deltas
+Billing ОСББ
+Master: External accounting DB
+PersonalVida: Read-only account projection
+Commands: Pay / dispute / request statement
+Export: Periodic portable snapshot
+Новини
+Master: PersonalVida CMS vault
+Public site: Static publication snapshots
+Assets: S3
+Search: Disposable hosted index
+Форум
+Master: Hosted portal runtime
+Portable export: Threads/posts snapshot + attachment blobs
+Mobile app: Subscribed replica
+Ітерація 13. Portability grades
+
+Marketplace повинен показувати не лише permissions, а й залежність від зовнішньої інфраструктури.
+
+Grade	Значення
+A — Sovereign	Усі дані й runtime переносні
+B — Portable Hosted	Hosted provider, але повний export/snapshot
+C — Connector Dependent	Потрібен зовнішній provider
+D — Service Locked	Немає повного portable export
+
+App manifest:
+
+portability:
+  grade: B
+  export:
+    schemas: true
+    records: true
+    blobs: true
+    history: partial
+    workflows: true
+  externalDependencies:
+    - payment-provider
+
+При uninstall або migration користувач повинен бачити:
+
+що експортується;
+що втратиться;
+які зовнішні залежності залишаються;
+чи можна self-host;
+чи зберігається історія.
+Ітерація 14. Права без центрального authorization server
+14.1. Ідентичності
+
+Потрібно розділити:
+
+Account Identity
+Device Identity
+Scope Identity
+Organization Authority
+App Installation Identity
+Site Runtime Identity
+Workflow Identity
+Iroh Endpoint Identity
+
+Iroh Endpoint ID не повинен бути довічним user ID.
+
+14.2. Policy stream
+
+Кожен scope має підписаний журнал:
+
+PolicyStream
+- memberships
+- groups
+- roles
+- grants
+- revocations
+- app capabilities
+- data bindings
+- facet access
+- authority sets
+- key rotations
+
+Локальний runtime будує з нього:
+
+ACL index;
+ReBAC graph;
+role projection;
+resource/facet access;
+app capability map.
+14.3. Capability tokens
+
+Для RPC, sync та app delegation практично використовувати Biscuit tokens:
+
+public-key verification;
+offline verification;
+attenuation;
+time/resource/action restrictions;
+revocation identifiers;
+Rust, C#, JavaScript та інші implementations.
+
+Biscuit дозволяє holder’у самостійно звузити token, не отримуючи ширших прав, наприклад до read конкретного dataset partition протягом однієї години.
+
+Приклад:
+
+App token:
+  read geo.address-directory
+  only dataset ua.kyiv.addresses
+  only partition shevchenkivskyi
+  no export
+  expires 2026-08-29
+14.4. Offline revocation
+
+Повністю миттєва revocation неможлива для відключеного пристрою.
+
+Тому права мають freshness class:
+
+Ризик	Offline policy
+Public read	Довгий cache period
+Member read	Короткий token
+Comment/create draft	Offline queue
+Update shared task	Перевірка при sync
+Grant access	Fresh authority required
+Payment	Online authority required
+Vote finalization	Online authority required
+Key rotation	Authority quorum
+14.5. Organization authority
+
+Для критичних організаційних операцій:
+
+AuthoritySet
+- Admin A
+- Admin B
+- Admin C
+- threshold: 2 of 3
+
+Threshold можна вимагати для:
+
+зміни root keys;
+видалення організації;
+зміни data retention;
+передачі ownership;
+встановлення trusted native app;
+support escrow.
+Ітерація 15. Lightweight workflow у portable архітектурі
+15.1. Три рівні
+Rule
+synchronous;
+deterministic;
+validation;
+computed fields;
+transition guards;
+без network.
+Automation
+event-driven;
+коротка;
+може створити resource;
+notification;
+projection;
+webhook;
+app command.
+Durable Workflow
+approvals;
+timers;
+human tasks;
+external calls;
+parallel branches;
+compensation;
+long-running state.
+15.2. Workflow state
+
+Workflow instance — звичайний portable resource:
+
+WorkflowInstance
+├── DefinitionVersion
+├── InputSnapshot
+├── ExecutionAuthority
+├── StepLog
+├── SideEffectReceipts
+├── PendingTimers
+├── WorkItems
+└── Result
+15.3. Execution authority
+
+У кожний момент є один executor epoch:
+
+ExecutionAuthority
+- nodeId
+- epoch
+- leaseStart
+- leaseUntil
+- signature
+
+Можливі executors:
+
+поточний телефон;
+desktop;
+organization home node;
+site runtime;
+hosted worker;
+external orchestrator adapter.
+
+Workflow state не слід CRDT-мерджити між двома активними executors.
+
+15.4. Timers
+
+Без always-on node:
+
+timer fires on next wake-up
+
+Із organization/site worker:
+
+timer fires near scheduled time
+
+Workflow definition повинна мати:
+
+timerRequirement:
+  best-effort
+  always-on-required
+15.5. Side effects
+
+Кожен side effect:
+
+idempotencyKey =
+  workflowInstanceId
+  + nodeId
+  + iteration
+
+Після виконання зберігається receipt:
+
+SideEffectReceipt
+- requestHash
+- provider
+- externalOperationId
+- resultHash
+- executedAt
+- signature
+15.6. Hosted engines
+
+Dapr, Elsa, Restate або інший engine можуть використовуватися як hosted execution provider, але:
+
+не є канонічним форматом workflow;
+workflow definition залишається portable;
+state має бути exportable;
+результат і receipts повертаються у vault;
+app package не залежить від конкретного orchestration engine.
+Ітерація 16. Сценарії розгортання
+16.1. Один пристрій, повністю offline
+Mobile/Desktop
+├── Vida Core
+├── Local Vault
+├── Local Index
+└── Installed Apps
+
+Немає:
+
+акаунта;
+relay;
+cloud;
+БД;
+marketplace connection після install.
+16.2. Персональна multi-device система
+Phone
+Desktop
+Home Node
+Public or own relay
+Optional encrypted cloud replica
+16.3. Організація в локальній мережі
+Organization Authority Node
+LAN discovery
+Employee devices
+Local marketplace mirror
+No public internet requirement
+16.4. Hybrid organization
+Local Authority Node
+Cloud Relay
+Cloud Availability Replica
+Hosted Workflow Worker
+Portable employee devices
+16.5. SaaS portal
+Portal Control Plane
+Portal Data Plane
+S3
+Optional external DB
+CDN
+Site Gateway
+Portable exports
+16.6. Fully self-hosted realm
+Realm Control Plane
+Marketplace Mirror
+Relay Fleet
+Discovery
+Site Runtime
+Organization Nodes
+16.7. Федерація
+Official Realm
+Municipal Realm
+Enterprise Realm
+Community Realm
+
+Вони обмінюються:
+
+signed app catalogs;
+data product catalogs;
+publisher trust statements;
+namespace mappings;
+optional cross-realm identity proofs.
+
+Vault IDs при переході між realms не змінюються.
+
+Ітерація 17. Рекомендована фізична архітектура
+Ітерація 18. Критичні архітектурні інваріанти
+Канонічні user/org data не залежать від PostgreSQL або іншого server DB.
+Кожен scope можна експортувати як portable vault.
+Resource IDs не містять hostname, database ID або physical path.
+Кожен ресурс має одного логічного owner scope.
+Фізична репліка не змінює ownership.
+Workspace не є фізичним сховищем.
+Усі локальні indexes можна видалити й перебудувати.
+Relay не зберігає application data.
+Availability node і relay — різні ролі.
+Control plane не є джерелом істини для scope data.
+Global admin не має implicit decrypt access.
+App не має прямого доступу до filesystem, vault або external DB.
+Повторне використання даних відбувається через data contracts.
+Cross-app reference використовує stable entity ID.
+Master data не модифікується consumer overlays.
+Offline field-level sharing використовує facets або projections.
+Published dataset releases immutable.
+Published site releases immutable.
+External provider зобов’язаний оголосити portability/export capabilities.
+Bidirectional sync не вмикається без explicit conflict policy.
+Strict business state має одного authority.
+Workflow execution state не є CRDT.
+Cross-scope і cross-provider операції використовують saga, а не distributed transaction.
+Marketplace update trust відокремлений від artifact storage.
+Втрата офіційного cloud не призводить до втрати локальних даних.
+Ітерація 19. Послідовність реалізації
+Етап 0. Формальні специфікації
+
+Зафіксувати:
+
+Vault Format v1;
+Commit Format v1;
+Resource ID;
+Scope ID;
+Segment ID;
+canonical serialization;
+key hierarchy;
+sync protocol;
+Data Contract Format;
+App Package Format;
+Site Release Format;
+capability vocabulary.
+Етап 1. Vida Core
+
+Реалізувати:
+
+object store;
+pack files;
+commits;
+refs;
+snapshots;
+local projection store;
+encryption;
+key envelopes;
+portable export/import;
+integrity verification.
+Етап 2. Синхронізація
+Iroh transport;
+direct sync;
+relay fallback;
+LAN discovery;
+missing-object exchange;
+encrypted availability replica;
+mailbox;
+partial subscriptions.
+Етап 3. Resource runtime
+custom types;
+facets;
+relations;
+schema versions;
+commands;
+merge strategies;
+views;
+local query;
+full-text і geo index providers.
+Етап 4. Права
+principals;
+scope authority;
+policy stream;
+groups;
+roles;
+signed grants;
+Biscuit tokens;
+revocation epochs;
+app principals;
+cross-scope contracts.
+Етап 5. Дефолтні apps
+Tasks;
+Notes;
+Documents;
+Files;
+Calendar;
+Contacts;
+Comments;
+Views.
+Етап 6. Data fabric
+data contracts;
+data ports;
+bindings;
+datasets;
+releases;
+snapshots;
+overlays;
+contributions;
+external providers.
+Етап 7. Marketplace
+OCI packages;
+TUF metadata;
+publisher keys;
+app/data product catalog;
+permissions diff;
+portability grades;
+mirrors;
+offline install bundle.
+Етап 8. Portal builder
+site composition;
+routes;
+themes;
+app surfaces;
+static build;
+dynamic gateway;
+domains;
+deployment providers;
+export/self-host.
+Етап 9. Workflow
+synchronous rules;
+automations;
+durable step log;
+authority leases;
+timers;
+human work items;
+hosted executor adapters.
+Рекомендований наскрізний vertical slice
+
+Першим комплексним сценарієм варто реалізувати:
+
+Міський адресний Data Product
+          ↓
+OSBB application
+          ↓
+Resident portal
+          ↓
+Public news site
+
+Він одночасно перевірить:
+
+portable vault;
+organization scope;
+data contract;
+великий external/S3 dataset;
+GeoParquet;
+mounted replica;
+overlays;
+private resident data;
+ролі;
+app package;
+static site;
+dynamic portal;
+workflow заявки;
+marketplace;
+migration між hosting providers.
+Acceptance flow
+Користувач створює personal vault без cloud.
+Створює організацію ОСББ.
+Встановлює OSBB app.
+App вимагає geo.address-directory/1.
+Організація підключає міський адресний dataset.
+Завантажується лише потрібний район.
+ОСББ створює overlay для свого будинку.
+Мешканці підключаються тільки до resident portal.
+Публічні новини компілюються в static site.
+Заявки й голосування обслуговує organization authority node.
+S3 або portal SaaS вимикається.
+Локальна система продовжує працювати.
+Site project експортується й розгортається в іншому hosting.
+Organization vault переноситься на інший NAS/VPS без ETL.
+Підсумкове рішення
+
+Цільову платформу потрібно розділити на чотири незалежні площини:
+
+1. Portable Data Plane
+   Vaults, resources, commits, blobs, indexes, sync
+
+2. Application Plane
+   Apps, schemas, data contracts, workflows, UI surfaces
+
+3. Realm Control Plane
+   Global admin, trust, marketplace, relays, billing, catalogs
+
+4. Portal Hosting Plane
+   Sites, domains, builds, CDN, S3, external DB, gateways
+
+Головне правило:
+
+Застосунок повинен працювати з логічними ресурсами та data contracts однаково, незалежно від того, чи дані знаходяться на телефоні, NAS, у peer-to-peer vault, S3, зовнішній БД або hosted portal runtime.
+
+Саме така модель одночасно забезпечує:
+
+local-first;
+offline-first;
+мобільність;
+фізичну переносність;
+self-hosting;
+організації;
+marketplace;
+повторне використання master data;
+публічні сайти;
+SaaS порталів;
+зовнішні масштабовані сховища;
+відсутність прив’язки ядра до централізованої БД.
+чт, 10 сент. в 0:35
+На основі знайдених проектів за 2 тижні чи потрібно оновити архітектуру?
+Висновок
+
+Так, архітектуру потрібно оновити, але не перебудовувати з нуля.
+
+Знайдені й перевірені за період приблизно 27 серпня — 10 вересня 2026 року проєкти підтверджують правильність основного напряму:
+
+немає обов’язкової центральної БД;
+дані належать персональному або організаційному простору;
+Vault переносний;
+об’єкти й файли можуть розповсюджуватися через Iroh;
+релеї не є власниками даних;
+застосунки працюють через контракти, а не через прямий доступ до сховища;
+master data, сайти й SaaS можуть використовувати зовнішню інфраструктуру;
+індекси, пошук та аналітичні представлення можна перебудувати.
+
+Однак нові проєкти показали, що попередня модель була надто універсальною у чотирьох місцях:
+
+Vault не повинен означати один універсальний commit-DAG для всіх типів даних.
+Iroh endpoint, relay policy та ALPN-протоколи повинні належати окремому Node Host, а не застосункам.
+Потрібно формально розділити semantic data, blobs, datasets, realtime media, strict ledgers і projections.
+Workflow потрібно розділити на звичайні процеси, AI-agent jobs і багатосторонні agreement sessions.
+
+Тобто потрібна PersonalVida Portable Architecture vNext, але зі збереженням попередніх фундаментальних рішень.
+
+Ітерація 1. Що залишається без змін
+1.1. ScopeVault залишається головною межею переносності
+
+Кожен персональний або організаційний простір має переносний ScopeVault.
+
+Він залишається:
+
+межею володіння;
+межею ключів;
+одиницею експорту;
+одиницею резервного копіювання;
+одиницею перенесення між пристроями, VPS, NAS або realms;
+коренем для ресурсів, політик, застосунків і data bindings.
+
+Але тепер Vault треба визначити не як одну конкретну storage engine, а як переносний контейнер із декількома профілями сховищ.
+
+1.2. Один ресурс — один логічний власник
+
+Інваріант залишається:
+
+Кожен Resource має рівно один OwnerScope.
+
+Інші простори можуть отримати:
+
+reference;
+mount;
+projection;
+data contract;
+encrypted replica;
+overlay;
+fork.
+
+Але фізична репліка або використання ресурсу в іншому застосунку не змінює ownership.
+
+1.3. Data Contracts залишаються єдиним способом перевикористання даних
+
+Міський адресний довідник, каталог людей, файли, платежі, календарі або інші ресурси не повинні відкривати внутрішнє сховище застосункам.
+
+Зберігається модель:
+
+Provider
+→ Data Contract
+→ Data Port
+→ Data Binding
+→ Consumer App
+
+Consumer не має знати, де фізично розташовані дані:
+
+у локальному vault;
+в Iroh-репліці;
+у S3;
+у Parquet;
+у DuckDB;
+у зовнішній SQL-БД;
+у зовнішньому API.
+1.4. Control Plane не стає джерелом істини для користувацьких даних
+
+Головна адмінка, marketplace, billing, discovery, relay fleet і portal SaaS залишаються окремими службовими площинами.
+
+Втрата глобального control plane не повинна блокувати:
+
+локальне читання;
+локальне редагування;
+роботу встановлених застосунків;
+peer-to-peer sync за відомими адресами;
+локальні organization nodes;
+self-hosted сайти.
+Ітерація 2. Vault потрібно перетворити на контейнер профільних сховищ
+2.1. Проблема попередньої моделі
+
+Раніше всі зміни логічно проходили через однакові immutable commits. Це добре для переносності, але погано масштабується на різні навантаження:
+
+задача;
+спільний документ;
+чат із мільйонами повідомлень;
+відеопотік;
+міський адресний довідник;
+голосування;
+журнал доступу;
+великий файл.
+
+У них різні:
+
+моделі конфліктів;
+retention;
+способи індексації;
+granularities;
+гарантії узгодженості;
+правила видалення;
+механізми синхронізації.
+2.2. Нова модель ScopeVault
+ScopeVault
+├── ScopeManifest
+├── IdentityAndPolicyStreams
+├── SemanticStores
+│   ├── RecordLogs
+│   ├── CRDTDocuments
+│   ├── AppendStreams
+│   └── StrictLedgers
+├── ObjectStore
+│   ├── Blobs
+│   ├── Packs
+│   ├── Snapshots
+│   └── PackageArtifacts
+├── DatasetMounts
+├── ApplicationState
+├── PackageLock
+└── RebuildableProjections
+
+ScopeManifest пов’язує всі частини в одну переносну одиницю, але не примушує їх використовувати однаковий внутрішній алгоритм.
+
+2.3. Профілі даних
+Профіль	Приклади	Модель
+RecordLog	задачі, контакти, заявки	signed commands + revisions
+CRDTDocument	нотатки, сторінки, спільні документи	Automerge/Loro-подібний CRDT
+AppendStream	повідомлення, activity, audit	append-only segments
+BlobObject	файли, зображення, архіви	content-addressed chunks
+DatasetRelease	адреси, класифікатори, open data	immutable signed releases
+StrictLedger	права, платежі, голоси, ownership	single/quorum authority
+EphemeralRoom	presence, typing, live cursors	gossip, TTL, без vault history
+MediaSession	голос, відео, screen sharing	direct/relayed streams
+
+Це одна з головних змін архітектури.
+
+2.4. Що підтвердили нові проєкти
+
+dstore показує практичну модель distributed content-addressed storage з placement, repair, rebalance і garbage collection, але сам проєкт ще має незакриті security та recovery питання. Тому його варто використовувати як референс для майбутнього Availability Fabric, а не як канонічне сховище PersonalVida. Ringdrop окремо демонструє crash-safe відновлення передачі та верифікацію частин файлу до запису.
+
+diaswarm практично підтверджує, що недовірений вузол може тримати й віддавати ciphertext, не маючи можливості його прочитати. Він також показує реальну семантику відкликання: користувач перестає отримувати ключі нових сегментів, але вже завантажену розшифровану копію відкликати неможливо.
+
+Ітерація 3. Додати Node Host і окрему Protocol Plane
+3.1. Застосунок не повинен створювати власний Iroh endpoint
+
+Знайдені проєкти показують більш правильну модель:
+
+Physical Node
+└── Vida Node Host
+    ├── Endpoint Manager
+    ├── Relay Manager
+    ├── ALPN Router
+    ├── Service Registry
+    ├── Local IPC
+    ├── Admission Layer
+    ├── Lifecycle Manager
+    └── Diagnostics
+
+Застосунок реєструє сервіс у Node Host, але не:
+
+створює власний endpoint;
+вибирає relay;
+зберігає endpoint key;
+відкриває довільний порт;
+реалізує NAT traversal;
+керує discovery.
+
+peerline-host демонструє практичну модель одного composable host із сервісами, ALPN routing, UDS/WebSocket/Iroh transports, service registry та graceful shutdown. flexaccess-iroh додатково показує relay probing, failover і прив’язану до endpoint identity application-authentication.
+
+Iroh маршрутизує прикладні протоколи за ALPN, а endpoint ticket містить інформацію для знаходження endpoint, але сам по собі не повинен трактуватися як повна предметна авторизація.
+
+3.2. Один endpoint на фізичний вузол
+
+За замовчуванням:
+
+1 фізичний пристрій
+→ 1 persistent Node Identity
+→ 1 Iroh Endpoint
+→ багато versioned application protocols
+
+Окремі endpoint identities допускаються для:
+
+жорсткої security isolation;
+анонімного/public surface;
+регульованих організацій;
+окремого site runtime;
+тестового середовища;
+тимчасової sandbox-сесії.
+
+Але створювати endpoint на кожен застосунок або workspace не потрібно.
+
+3.3. Ідентичності треба остаточно розділити
+AccountId       ≠ DeviceId
+DeviceId        ≠ EndpointId
+EndpointId      ≠ ScopeId
+ScopeId         ≠ AppPrincipalId
+AppPrincipalId  ≠ SitePrincipalId
+
+Endpoint key може бути:
+
+перевиданий;
+скомпрометований;
+перенесений;
+замінений під час перевстановлення.
+
+При цьому user, scope і resource IDs повинні залишатися стабільними.
+
+3.4. Реєстр протоколів
+
+Пропонований namespace:
+
+vida/sync-records/1
+vida/sync-crdt/1
+vida/blob/1
+vida/dataset/1
+vida/commands/1
+vida/events/1
+vida/mailbox/1
+vida/room/1
+vida/media/1
+vida/query/1
+vida/pairing/1
+vida/authority/1
+
+Кожен протокол має:
+
+ALPN;
+semantic version;
+capability negotiation;
+maximum message size;
+authentication profile;
+rate limits;
+compatibility policy;
+golden test vectors.
+
+Marketplace-застосунок не повинен самовільно займати глобальний ALPN namespace.
+
+Ітерація 4. Ввести формальні Runtime Profiles
+
+Одна й та сама збірка не повинна намагатися однаково працювати на ESP32, Android, desktop, NAS і browser.
+
+4.1. Основні профілі
+Профіль	Можливості
+FullNode	Повний vault, projections, apps, workflows, sync
+MobileNode	Часткові репліки, embedded core, offline commands
+BrowserClient	Web cache/projection, relay або gateway access
+EdgeMicroNode	Sensors, commands, bounded event spool
+AvailabilityNode	Зберігання ciphertext без ключів читання
+AuthorityNode	Strict commands, permissions, voting, payments
+QueryNode	DuckDB/Arrow/Parquet, geo/search projections
+SiteNode	Dynamic portals, forms, public/private surfaces
+WorkerNode	Workflow, connectors, AI jobs, builds
+4.2. ESP32 та інші constrained devices
+
+iroh-co2-monitor показує, що Iroh endpoint може працювати навіть на ESP32-класі пристроїв і взаємодіяти з browser UI. Але це підтверджує саме модель тонкого edge node, а не запуск повного ScopeVault, low-code runtime або marketplace на мікроконтролері.
+
+На ESP32 повинні бути:
+
+Device Identity
+Device Schema
+Small Event Spool
+Sensor Streams
+Command Handler
+Configuration Snapshot
+Iroh Transport
+Firmware Manifest
+
+Не повинні бути:
+
+повний schema registry;
+повний authorization graph;
+універсальні індекси;
+document CRDT;
+marketplace runtime;
+портал;
+довготривалий workflow engine.
+4.3. Android та iOS
+
+iroh-android-native підтверджує практичну модель Rust engine → JNI → Kotlin bridge → foreground/background Android service. Офіційні рекомендації Iroh також вказують, що mobile lifecycle треба враховувати окремо: ОС може призупиняти sockets, тому endpoint має коректно завершуватися, повторно bind’итися та використовувати збережений secret.
+
+Рекомендована модель:
+
+Rust Vida Core вбудований як library;
+JNI/Kotlin на Android;
+Swift binding на iOS;
+WorkManager/BackgroundTasks для періодичного sync;
+foreground service лише для явно увімкненого always-on режиму;
+локальний журнал offline commands;
+partial replication за workspace/type/filter;
+явний показ data age.
+4.4. Browser
+
+Browser не повинен бути основним authority node.
+
+Через sandbox і мережеві обмеження browser Iroh переважно працює через relay; прямий browser fast path доцільно реалізовувати окремим WebRTC adapter. Це підтверджують офіційні обмеження Iroh у browser і експерименти з iroh-webrtc-transport.
+
+Browser профіль:
+
+BrowserClient
+├── IndexedDB/OPFS cache
+├── Temporary projections
+├── WebSocket/Iroh relay bridge
+├── Optional WebRTC
+├── Encrypted session keys
+└── No implicit long-term authority
+Ітерація 5. Перебудувати безпеку навколо чітких шарів
+5.1. П’ять рівнів перевірки
+1. Transport Authentication
+2. Connection Admission
+3. Service Capability
+4. Scope/Resource/Facet Authorization
+5. Business Rule
+
+Приклад:
+
+Iroh підтвердив EndpointId
+→ Node Host дозволив виклик vida/blob/1
+→ AppPrincipal має capability blob.read
+→ Principal має read до конкретного FileFacet
+→ Retention/Classification policy дозволяє download
+
+Перевірка endpoint identity не замінює permission check.
+
+5.2. Необхідно типізувати tickets
+
+Різні проєкти використовують слово ticket і як адресу, і як credential. pun прямо використовує possession of ticket як capability, а quackhole вкладає в ticket також token, який фактично дає доступ. Це зручно для окремих інструментів, але небезпечно як неявна загальна модель платформи.
+
+У PersonalVida потрібно розділити:
+
+Тип	Семантика
+LocatorTicket	Як знайти endpoint; не дає предметного доступу
+PairingInvite	Одноразове підключення пристрою або учасника
+CapabilityTicket	Явна обмежена bearer-capability
+BlobTicket	Hash, size, providers; доступ перевіряється окремо
+DatasetTicket	Release і partitions
+SessionTicket	Приєднання до room/agreement session
+
+CapabilityTicket має містити:
+
+audience;
+actions;
+resource selector;
+expiration;
+nonce;
+delegation depth;
+offline/export policy;
+revocation reference.
+5.3. KeyEpoch і реальна семантика відкликання
+
+Для кожного facet або encrypted segment:
+
+KeyEpoch
+- EpochId
+- SegmentId
+- CreatedAt
+- EncryptionAlgorithm
+- RecipientWraps[]
+- PreviousEpoch?
+- RevocationReason?
+
+Після revoke:
+
+Створюється новий epoch.
+Нові дані шифруються новим ключем.
+Відкликаний principal не отримує нового key wrap.
+Старі encrypted copies залишаються технічно доступними тому, хто вже мав ключ.
+Search/projection caches очищаються настільки, наскільки це можливо.
+
+Треба прямо заборонити в UI та документації обіцянки:
+
+«повністю відкликати вже завантажений файл»;
+«гарантовано видалити всі копії»;
+«заборонити читання вже розшифрованого ресурсу».
+5.4. Relay policy
+
+Додати:
+
+RelayPolicy
+- mode: automatic | private-only | public-fallback | disabled
+- preferredRelays[]
+- minimumHealthyRelays
+- healthProbeInterval
+- failoverPolicy
+- allowedRegions[]
+- organizationRestrictions
+- metadataSensitivity
+
+Також потрібна діагностика:
+
+direct чи relay path;
+активний home relay;
+latency;
+reconnects;
+остання успішна синхронізація;
+вік даних;
+причина fallback.
+Ітерація 6. Додати Availability Fabric, але не робити його обов’язковим
+6.1. Відокремлення ролей
+Transport Relay
+- передає encrypted packets
+- не зберігає scope state
+
+Mailbox Node
+- короткостроково зберігає encrypted envelopes
+
+Availability Node
+- зберігає ciphertext, blobs, commits, snapshots
+
+Authority Node
+- перевіряє strict commands і визначає порядок
+
+Query Node
+- будує projections та виконує дозволені queries
+6.2. Перший етап
+
+На початку достатньо:
+
+Personal devices
++ один optional home/cloud availability node
++ public/private relay
+
+Не потрібно відразу будувати складний кластер.
+
+6.3. Майбутній кластер
+
+Після появи реального навантаження:
+
+Availability Fabric
+├── Weighted Placement
+├── Failure Domains
+├── Replication Factor
+├── Repair
+├── Node Drain
+├── Rebalancing
+├── Storage Quotas
+└── Exact/Quarantine GC
+
+Consensus потрібен лише для невеликої службової інформації:
+
+topology;
+placement epochs;
+leases;
+current ref heads;
+repair ownership.
+
+Не потрібно проводити consensus для кожної задачі, нотатки або повідомлення.
+
+6.4. Garbage collection
+
+GC має враховувати:
+
+current heads;
+pinned snapshots;
+активні app/site releases;
+legal hold;
+retention;
+open contracts;
+offline-device grace period;
+incomplete transfers;
+workflow receipts;
+dataset dependencies.
+
+Видалення:
+
+Reachability scan
+→ Quarantine
+→ Grace period
+→ Recheck
+→ Physical deletion
+
+Це запобігатиме видаленню об’єктів, на які ще посилається давно offline-пристрій.
+
+Ітерація 7. Додати окрему Query & Projection Plane
+7.1. DuckDB не як canonical DB, а як переносний query engine
+
+quackhole показує, що DuckDB instance можна підключати через Iroh без відкритих inbound ports, зокрема з browser-клієнта. Для PersonalVida це підтверджує корисність окремого portable query layer, але не необхідність відкривати застосункам raw SQL.
+
+Нова площина:
+
+Query & Projection Plane
+├── Local Indexes
+├── Full-text Index
+├── Relation/Graph Projection
+├── Geo Index
+├── DuckDB
+├── Arrow
+├── Parquet/GeoParquet
+└── Remote Query Adapter
+7.2. Apps використовують typed query AST
+
+Заборонено:
+
+Marketplace App
+→ ATTACH remote database
+→ arbitrary SQL
+
+Правильно:
+
+Marketplace App
+→ DataContract.Query
+→ Typed Query AST
+→ Authorization rewrite
+→ Local or Remote Query Provider
+→ Field-filtered result
+
+Приклад:
+
+query:
+  source: vida.geo.address-directory/1
+  select:
+    - entityId
+    - streetName
+    - buildingNumber
+    - geometry
+  where:
+    districtId: $district
+  orderBy:
+    - streetName
+  limit: 100
+
+Runtime може скомпілювати це в:
+
+DuckDB SQL;
+local index lookup;
+remote provider query;
+federated query plan.
+
+Але app не отримує unrestricted SQL access.
+
+7.3. Оновлений міський адресний довідник
+Signed DataProduct Release
+├── Dataset Manifest
+├── Entity Schemas
+├── Parquet partitions
+├── GeoParquet partitions
+├── Search indexes
+├── Delta segments
+├── Tombstones
+├── Aliases
+└── Data quality report
+
+DataBinding доповнюється:
+
+DeliveryMode:
+  snapshot | delta | local-query | remote-query
+
+Caching:
+  none | selected-partitions | full
+
+Version:
+  pinned | floating | as-of
+
+Execution:
+  local | remote | hybrid
+
+Freshness:
+  maximumAge
+  updatePolicy
+
+Для ОСББ:
+
+Міський Building
+       +
+OSBB-owned BuildingOverlay
+       +
+Private ResidentMembership
+
+Master entity не змінюється consumer-застосунком.
+
+Ітерація 8. Відокремити Realtime Plane від довготривалих ресурсів
+
+bevy_iroh і openstream показують практичну різницю між room discovery/presence, direct peer streams і довготривалими даними. У таких системах gossip використовується для membership та presence, а великі або latency-sensitive потоки йдуть окремими streams.
+
+8.1. Чат
+Chat
+├── Channel metadata        → RecordLog
+├── Messages                → AppendStream
+├── Attachments             → BlobObject
+├── Reactions               → Append/ObservedSet
+├── Presence                → EphemeralRoom
+├── Typing indicators       → EphemeralRoom
+├── Read markers            → lightweight state
+└── Voice/video             → MediaSession
+
+Не потрібно зберігати typing indicators або presence у portable vault history.
+
+8.2. Media
+MediaSession
+- SessionId
+- RoomId
+- Participants
+- Codecs
+- Stream descriptors
+- Relay/direct policy
+- Recording policy
+- Consent state
+
+Сам audio/video потік:
+
+не проходить через generic record sync;
+не стає commit на кожен packet;
+не зберігається без явної recording policy;
+може використовувати Iroh stream, WebRTC або спеціалізований gateway.
+8.3. Browser fast path
+
+Для browser-порталів:
+
+Iroh/WebSocket signaling
+→ WebRTC negotiation
+→ direct or TURN media/data channel
+
+Це має бути optional transport adapter, а не залежність semantic core.
+
+Ітерація 9. Розділити чотири види виконання
+9.1. Rule
+синхронна;
+deterministic;
+без network;
+validation;
+calculated fields;
+transition guards.
+9.2. Automation
+реакція на event;
+коротка;
+notification;
+create/update resource;
+webhook;
+projection;
+app command.
+9.3. DurableWorkflow
+single authority;
+approvals;
+timers;
+human tasks;
+external activities;
+retries;
+compensation;
+idempotency.
+9.4. AgentJob
+
+AI-agent не потрібно маскувати під deterministic workflow.
+
+AgentJob
+- JobDefinitionVersion
+- InputSnapshot
+- ModelPolicy
+- ToolCapabilities
+- ExecutionLease
+- Checkpoints
+- ProposedEffects[]
+- ApprovalPolicy
+- EffectReceipts[]
+- OutputArtifacts[]
+- CostAndUsage
+
+AgentLink демонструє корисні патерни: durable jobs, workers на різних вузлах, checkpoints, approval gates, idempotency та effect receipts. Але це ранній проєкт, тому доцільно перенести модель, а не залежність.
+
+AI-agent:
+
+може запропонувати command;
+може підготувати patch;
+може створити draft;
+не отримує ambient authority;
+side effect виконується capability runtime;
+критичний side effect може вимагати людини.
+9.5. AgreementSession
+
+Це окремий вид багатостороннього процесу:
+
+голосування ОСББ;
+тендер;
+розподіл робіт;
+погодження між двома організаціями;
+commit-reveal;
+спільно підписаний результат.
+
+arena0 експериментує з content-addressed deterministic Wasm state machines, перевіркою переходів усіма учасниками та canonical signed receipts. Проєкт прямо позначений як дуже ранній, а його P2P частина ще розвивається, тому це архітектурний референс для майбутнього AgreementSession, але не production dependency.
+
+Різниця:
+
+DurableWorkflow
+→ один authority визначає стан
+
+AgreementSession
+→ учасники погоджують програму й підтверджують переходи
+Ітерація 10. Оновити дефолтні застосунки
+10.1. Core.Tasks варто замінити на Core.Work
+
+Twenty підтверджує модель versioned apps, у яких objects, fields, views і logic визначаються через SDK. Plane оперує work items, cycles, modules, pages та analytics, а OpenProject включає portfolios, tasks, bugs, roadmaps, Gantt, time, cost, meetings і collaboration. Це означає, що Task занадто вузька базова абстракція.
+
+Нова модель:
+
+Core.Work
+├── WorkItem
+├── Project
+├── Portfolio
+├── Cycle
+├── Milestone
+├── Release
+├── Dependency
+├── Estimate
+├── TimeEntry
+├── CostEntry
+├── SavedView
+├── Board
+└── Roadmap
+
+WorkItem розширюється типами:
+
+Task
+Bug
+Request
+Incident
+Risk
+Decision
+Approval
+Idea
+Story
+Epic
+Maintenance
+
+Не всі ці типи повинні встановлюватися за замовчуванням. Але вони використовують спільний контракт.
+
+10.2. Додати Core.Forms
+
+Formbricks показує, що forms/surveys мають декілька каналів: in-app, website, link, email, targeting, templates і integrations. Для платформи порталів це не marketplace-дрібниця, а фундаментальний офіційний застосунок.
+
+Core.Forms
+├── FormDefinition
+├── FormVersion
+├── FormField
+├── FormSubmission
+├── Audience
+├── Distribution
+├── Trigger
+├── SubmissionSession
+├── ValidationPolicy
+└── FieldMapping
+
+Форма може:
+
+створити record;
+оновити record;
+запустити workflow;
+створити contribution request;
+бути public;
+бути authenticated;
+працювати offline;
+бути частиною site surface.
+10.3. Додати Core.Documents.Trust
+
+Documenso підтверджує, що підпис документа — це не просто зміна статусу на Signed, а окрема trust infrastructure з документом, підписантами, placement, evidence та audit trail.
+
+DocumentVersion
+→ SigningEnvelope
+   ├── Signer
+   ├── SigningOrder
+   ├── FieldPlacement
+   ├── ConsentEvidence
+   ├── SignatureEvidence
+   ├── DeliveryEvidence
+   └── AuditCertificate
+
+DocumentVersion, який підписується, має бути immutable.
+
+10.4. Додати опційний Core.Analytics
+
+PostHog показує цілісну площину для product/web analytics, events, feature flags, experiments, errors, logs, data pipelines і AI observability. Для PersonalVida це корисний окремий офіційний застосунок або hosted service, але не частина приватного Vault Kernel.
+
+Core.Analytics
+├── EventSchema
+├── EventStream
+├── MetricDefinition
+├── Funnel
+├── Cohort
+├── Experiment
+├── FeatureFlag
+├── Trace
+└── Dashboard
+
+За замовчуванням:
+
+telemetry opt-in;
+private data не передається;
+site analytics має окремий consent;
+self-hosted provider підтримується;
+raw events можна експортувати.
+10.5. Оновлений набір офіційних apps
+Core.Capture
+Core.Work
+Core.Knowledge
+Core.Documents
+Core.Files
+Core.Calendar
+Core.People
+Core.Collaboration
+Core.Views
+Core.Forms
+
+Optional official apps:
+Core.Documents.Trust
+Core.Analytics
+Core.Devices
+Core.Agents
+Core.Realtime
+Core.Sites
+
+Kernel залишається мінімальним. Навіть офіційні apps повинні використовувати package runtime.
+
+Ітерація 11. Розширити Data Contract v2
+
+Попереднього опису requires/provides недостатньо.
+
+11.1. Новий контракт
+id: vida.geo.address-directory
+version: 2.0
+
+entities:
+  - Street
+  - AddressPoint
+  - Building
+
+operations:
+  - resolve
+  - search
+  - query
+  - fetchPartition
+  - subscribeDelta
+  - proposeCorrection
+
+delivery:
+  - snapshot
+  - delta
+  - query
+
+storageProfiles:
+  - dataset-release
+
+consistency:
+  immutableReleases: true
+  floatingReferences: true
+  asOfReferences: true
+
+authority:
+  mode: publisher
+
+partitioning:
+  dimensions:
+    - municipality
+    - district
+    - geohash
+
+offline:
+  supported: true
+  maximumStaleness: P30D
+
+privacy:
+  classification: public
+
+portability:
+  fullExport: true
+11.2. Нові характеристики контракту
+
+Кожен Data Contract задає:
+
+delivery mode;
+storage profile;
+consistency;
+authority;
+partitioning;
+query capabilities;
+freshness SLA;
+offline mode;
+retention;
+privacy classification;
+export policy;
+lineage;
+subscription mode;
+command semantics;
+runtime requirements.
+11.3. Повторне використання різних видів даних
+Дані	Рекомендований режим
+Міський адресний довідник	immutable release + delta + query
+Каталог працівників	live reference + limited projection
+Файли	blob reference + capability
+Календар	subscribed record projection
+Платежі	strict command delegation
+Chat presence	room subscription
+Відео	media session
+Аналітика	append stream + query
+AI model	provider capability
+Device telemetry	append stream + partitions
+Ітерація 12. Розширити Marketplace
+12.1. Marketplace продає не лише apps
+
+Нові package kinds:
+
+Application
+ApplicationExtension
+DataProduct
+SiteTemplate
+FormTemplate
+WorkflowPack
+AgentPack
+AgreementProgram
+DeviceDriver
+Theme
+Connector
+QueryProvider
+StorageProvider
+TransportExtension
+
+TransportExtension, StorageProvider і native connectors мають бути доступні лише через підвищений trust channel.
+
+12.2. Оновлений manifest
+runtime:
+  profiles:
+    - full-node
+    - mobile-node
+    - browser-client
+  backgroundExecution: optional
+
+protocols:
+  consumes:
+    - vida/blob/1
+    - vida/dataset/1
+  provides:
+    - com.vendor.osbb/commands/1
+
+storage:
+  required:
+    - record-log
+    - blob-object
+  optional:
+    - append-stream
+
+dataPorts:
+  requires:
+    - vida.geo.address-directory/2
+  provides:
+    - vida.osbb.building-directory/1
+
+capabilities:
+  data: [...]
+  network: [...]
+  events: [...]
+  compute: [...]
+
+portability:
+  grade: A
+
+platformSupport:
+  desktop: true
+  mobile: true
+  browser: true
+  edge: false
+12.3. Compatibility lock
+
+App installation має pin’ити:
+
+Core Runtime Version
+WIT Interface Versions
+App Package Version
+Schema Versions
+Data Contract Versions
+Protocol Versions
+Dataset Releases
+Workflow Definition Versions
+Site Surface Versions
+12.4. Ліцензійна дисципліна
+
+Частина знайдених продуктів використовує AGPL. Їх можна використовувати як:
+
+функціональні референси;
+UX-референси;
+приклади предметної моделі;
+interoperability targets.
+
+Але переносити код або вбудовувати компоненти потрібно лише після окремого license review. Це особливо стосується Formbricks, Plane, Documenso та експериментального BLE transport.
+
+Ітерація 13. Оновити архітектуру сайтів і Portal SaaS
+
+Основна модель SiteProject залишається, але потрібно додати три різні режими експозиції даних.
+
+13.1. Режим 1 — PublicationSnapshot
+
+Для:
+
+новин;
+документації;
+відкритого каталогу;
+публічних сторінок ОСББ;
+лендингів.
+Private App Data
+→ Publication Policy
+→ Sanitized Snapshot
+→ Signed SiteRelease
+→ S3/CDN/static hosting
+13.2. Режим 2 — AuthenticatedProjection
+
+Для:
+
+особистого кабінету;
+заявок;
+рахунків;
+документів;
+resident portal;
+CRM portal.
+Browser
+→ Site Gateway
+→ Authentication
+→ Typed Query
+→ Projection
+→ Authorized Command
+→ Authority Node
+
+Browser не отримує повний organization vault.
+
+13.3. Режим 3 — RealtimeSurface
+
+Для:
+
+форуму;
+чату;
+live support;
+presence;
+голосу;
+відео.
+Site Surface
+→ Room Service
+→ Durable Message Stream
+→ Optional MediaSession
+13.4. Site runtime стає профілем Node Host
+SiteNode
+├── App Surface Router
+├── Auth Gateway
+├── Query Gateway
+├── Command Gateway
+├── Room Service
+├── Optional Media Gateway
+├── S3 Adapter
+├── External DB Adapter
+└── Site Observability
+13.5. Site release має pin’ити залежності
+SiteRelease
+├── App versions
+├── Surface versions
+├── Schema versions
+├── Form versions
+├── Workflow versions
+├── Data contract versions
+├── Dataset release hashes
+├── Theme version
+├── Route manifest
+└── Publication snapshots
+
+Це дозволяє:
+
+rollback;
+reproducible build;
+перенесення між hosting providers;
+self-host export;
+forensic audit.
+Ітерація 14. Оновлена цільова архітектура
+┌─────────────────────────────────────────────────────────────┐
+│                   Apps / Sites / Cockpit                    │
+│ Forms · Work · Knowledge · OSBB · Forum · CRM · Agents      │
+└─────────────────────────────┬───────────────────────────────┘
+                              │
+                  Typed Commands / Data Contracts
+                              │
+┌─────────────────────────────▼───────────────────────────────┐
+│                  Capability Application Runtime             │
+│ App principals · Permissions · Facets · Sandboxed effects  │
+└─────────────┬───────────────┬───────────────┬───────────────┘
+              │               │               │
+┌─────────────▼──────┐ ┌──────▼─────────┐ ┌──▼────────────────┐
+│ Portable Semantic │ │ Execution Plane│ │ Query/Projection   │
+│ Core              │ │                │ │ Plane              │
+│                   │ │ Rules          │ │ Local indexes      │
+│ Resources         │ │ Automations    │ │ Search/Geo         │
+│ Relations         │ │ Workflows      │ │ DuckDB/Arrow       │
+│ Schemas           │ │ AgentJobs      │ │ Parquet adapters   │
+│ Policies          │ │ Agreements     │ │ Remote query       │
+│ KeyEpochs         │ │ EffectReceipts │ │                   │
+└─────────────┬──────┘ └──────┬─────────┘ └──┬────────────────┘
+              └───────────────┼────────────────┘
+                              │
+┌─────────────────────────────▼───────────────────────────────┐
+│                         Node Host                           │
+│ Endpoint · ALPN Router · Service Registry · Relay Policy   │
+│ Admission · UDS/Loopback · WS Bridge · Diagnostics         │
+└─────────────┬───────────────┬───────────────┬───────────────┘
+              │               │               │
+        Iroh transport   Optional WebRTC  Optional BLE/other
+              │
+┌─────────────▼───────────────────────────────────────────────┐
+│                     Storage/Data Providers                  │
+│ Local CAS · Packs · S3 · Availability Fabric · External DB │
+│ Dataset providers · Object storage · Mailbox nodes          │
+└─────────────────────────────────────────────────────────────┘
+
+Separate service planes:
+- Realm Control Plane
+- Marketplace and Trust
+- Portal SaaS Control Plane
+- Portal Site Data Planes
+Ітерація 15. Що не потрібно робити
+
+На основі нових проєктів не потрібно:
+
+Замінювати portable Vault на dstore.
+Робити DuckDB канонічною БД.
+Перетворювати всі сутності на CRDT.
+Запускати повний Vault на ESP32.
+Дозволяти кожному app створювати власний Iroh endpoint.
+Вважати endpoint ticket автоматичним дозволом на дані.
+Відкривати raw SQL marketplace-застосункам.
+Зберігати presence або media packets у generic commit log.
+Виконувати кожен workflow як багатосторонній consensus.
+Робити кожен AI-agent deterministic workflow.
+Вбудовувати Bevy, FFmpeg, WebRTC або BLE у kernel.
+Використовувати неперевірену криптографію з прототипів.
+Робити global control plane обов’язковим для локальної роботи.
+Обіцяти ретроактивне відкликання вже завантажених plaintext-даних.
+Копіювати AGPL-код без окремої ліцензійної стратегії.
+Ітерація 16. Які проєкти як використовувати
+Як кандидати для фундаменту після spike
+офіційний Iroh endpoint і transport;
+Rust portable core;
+embedded Rust bindings для mobile;
+content-addressed blob protocol;
+DuckDB/Arrow/Parquet як projection/query layer;
+Wasm components для sandboxed logic.
+Лише як архітектурні референси зараз
+dstore — placement, repair, GC;
+diaswarm — encrypted replicas, key epochs, revoke semantics;
+peerline-host — node host і service routing;
+flexaccess-iroh — relay failover і handshake;
+iroh-co2-monitor — edge profile;
+iroh-android-native — Android lifecycle;
+ringdrop — verified resumable blobs;
+quackhole — P2P query node;
+bevy_iroh / openstream — rooms і media;
+AgentLink — durable AI jobs;
+arena0 — multi-party agreement runtime;
+BLE/WebRTC transports — майбутні optional adapters.
+
+Більшість цих свіжих проєктів є прототипами або ранніми реалізаціями. Вони достатньо корисні для перевірки меж компонентів, але недостатньо зрілі, щоб робити їх незамінними production dependencies.
+
+Як функціональні референси
+Twenty — object/app SDK і versioned apps;
+Plane — work items, cycles, pages, views;
+OpenProject — enterprise work management;
+Formbricks — forms, audiences і distribution;
+Documenso — document trust і signing;
+PostHog — analytics, events, flags, traces.
+
+Їхню предметну модель доцільно врахувати, але не переносити їхню DB-centric server architecture.
+
+Ітерація 17. Необхідні ADR
+
+Наступну версію архітектури варто зафіксувати такими рішеннями:
+
+ADR	Рішення
+ADR-021	ScopeVault — portability envelope, а не одна storage engine
+ADR-022	Workload-specific storage profiles
+ADR-023	Node Host володіє endpoint і relay policy
+ADR-024	Transport locator не є authorization credential
+ADR-025	Stable identities незалежні від transport endpoint
+ADR-026	Runtime profiles: full, mobile, browser, edge, site, authority
+ADR-027	Semantic Store відокремлений від CAS Availability Fabric
+ADR-028	KeyEpoch і чесна revocation semantics
+ADR-029	Typed Query & Projection Plane
+ADR-030	WorkItem як база Core.Work
+ADR-031	Core.Forms як фундаментальний official app
+ADR-032	AgentJob відокремлений від Workflow
+ADR-033	AgreementSession відокремлена від Workflow
+ADR-034	Realtime room/media відокремлені від durable sync
+ADR-035	Site data exposure: snapshot, projection, realtime
+ADR-036	Versioned ALPN and protocol registry
+ADR-037	Marketplace package kinds і runtime compatibility
+Ітерація 18. Пріоритет реалізації
+P0 — змінити специфікацію до початку активного кодування
+Перевизначити ScopeVault як контейнер профільних stores.
+Додати NodeHost.
+Зафіксувати protocol/ALPN registry.
+Розділити endpoint identity та platform principals.
+Додати ticket taxonomy.
+Додати KeyEpoch.
+Додати runtime profiles.
+Додати workload profiles.
+Оновити Data Contract до v2.
+Замінити Task на WorkItem.
+Додати Core.Forms.
+Зафіксувати Query Engine interface.
+P1 — до marketplace beta
+local/full/mobile Node Host;
+Iroh record and blob protocols;
+resumable verified blob transfer;
+Android/iOS lifecycle;
+relay failover;
+partial replication;
+DataProduct releases;
+local DuckDB/Parquet query;
+Site publication snapshots;
+dynamic portal gateway;
+workflow receipts;
+package compatibility lock.
+P2 — після перших production vertical slices
+multi-node Availability Fabric;
+placement, repair і GC;
+realtime rooms;
+media sessions;
+remote QueryNode;
+AgentJob runtime;
+full site SaaS;
+advanced analytics.
+P3 — спеціалізовані можливості
+BLE transport;
+WebRTC direct data transport;
+ESP32 Edge SDK;
+AgreementSession;
+quorum authorities;
+federated marketplace mirrors.
+Рекомендовані наскрізні перевірки
+1. Edge та mobile
+ESP32 sensor
+→ Android partial replica
+→ Desktop/NAS availability node
+→ Browser dashboard
+
+Перевіряє:
+
+EdgeMicroNode;
+Android lifecycle;
+data age;
+Iroh relay/direct paths;
+partial replication;
+device capabilities.
+2. Міський адресний довідник
+Signed GeoParquet release
+→ selected district replica
+→ local DuckDB query
+→ OSBB overlay
+→ public site
+→ authenticated resident portal
+
+Перевіряє:
+
+Data Contract v2;
+master data;
+partitions;
+EntityRef;
+overlays;
+query plane;
+static і dynamic sites.
+3. Чат
+Durable messages
++ CAS attachments
++ ephemeral presence
++ optional voice/video
+
+Перевіряє правильність поділу durable, blob, room і media.
+
+4. AI workflow
+Service request
+→ AgentJob classification
+→ human approval
+→ authority command
+→ effect receipt
+
+Перевіряє:
+
+agent capabilities;
+checkpoints;
+approval;
+idempotency;
+audit.
+5. Голосування ОСББ
+Proposal
+→ pinned participant snapshot
+→ ballots
+→ authority finalization
+→ signed result receipt
+
+На першому етапі це може бути StrictLedger. Пізніше — AgreementSession.
+
+Остаточне рішення
+
+Архітектуру потрібно підняти до наступної версії з такою центральною формулою:
+
+PersonalVida — це не одна P2P-БД, а переносний application/data runtime, у якому Vault є межею володіння та експорту, профільні stores відповідають за різні види даних, Node Host — за мережу й протоколи, Data Contracts — за повторне використання, а зовнішні SaaS/S3/БД залишаються змінними providers.
+
+Головна зміна порівняно з попереднім варіантом:
+
+Було:
+Vault + універсальні commits + Iroh sync
+
+Стає:
+Portable Vault Envelope
+├── профільні semantic stores
+├── content-addressed object store
+├── optional availability fabric
+├── query/projection plane
+├── realtime/media plane
+├── execution plane
+└── shared Node Host із versioned protocols
+
+Це не відмова від попередньої архітектури, а її необхідне розкладання на правильні технологічні й безпекові межі. Саме так вона залишатиметься мобільною та переносною, але при цьому зможе підтримувати великі довідники, marketplace, сайти, портали, чат, документи, AI-агентів, організації та спеціалізовану зовнішню інфраструктуру.

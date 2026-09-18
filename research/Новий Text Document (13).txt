@@ -1,0 +1,297 @@
+чт, 27 авг. в 23:47
+Вивчі архітектуру https://docs.iroh.computer/what-is-iroh
+
+Вивчив актуальну архітектуру Iroh, включно з документацією, noq, relay/NAT traversal, address lookup та верхніми протоколами. Станом на 27 серпня 2026 останній публічний реліз, який я знайшов, — Iroh 1.0.3; стабільна гілка 1.0 вийшла 15 червня 2026 і гарантує wire compatibility між Iroh 1.x endpoint'ами.
+
+Головна ідея Iroh
+
+Iroh замінює модель:
+
+IP address → connection
+
+на:
+
+cryptographic EndpointID → знайти актуальний шлях → QUIC connection
+
+Тобто ідентичність вузла відокремлена від його мережевого місцезнаходження. EndpointID — публічна частина криптографічного ключа; IP, Wi-Fi, LTE, IPv4/IPv6, NAT і relay можуть змінюватися, а ідентичність залишається сталою. Саме тому їхній слоган — Dial keys, not IPs.
+
+Архітектурно це виглядає приблизно так:
+
+┌─────────────────────────────────────────────────────────┐
+│                    Application                          │
+│                                                         │
+│   RPC       Blobs        Gossip       Docs      Custom  │
+│    │          │             │           │          │    │
+├────┴──────────┴─────────────┴───────────┴──────────┴────┤
+│                    Iroh Router                          │
+│             ALPN → ProtocolHandler                      │
+├─────────────────────────────────────────────────────────┤
+│                    Iroh Endpoint                        │
+│                                                         │
+│  EndpointID / identity                                  │
+│  Address Lookup                                         │
+│  Relay management                                       │
+│  NAT traversal                                          │
+│  Network-change monitoring                              │
+│  Connection hooks                                       │
+├─────────────────────────────────────────────────────────┤
+│                        noq                              │
+│                                                         │
+│       QUIC + TLS 1.3 + Multipath + QNT + QAD            │
+├─────────────────────────────────────────────────────────┤
+│                     QUIC paths                          │
+│                                                         │
+│  Direct UDP v4   Direct UDP v6   Relay   Custom path    │
+│       │                │           │          │          │
+│     Wi-Fi            LTE        WSS/TLS      Tor/BLE…    │
+└─────────────────────────────────────────────────────────┘
+
+Це важливо: Endpoint і QUIC є ядром, а blobs/docs/gossip — окремі composable protocols, а не частини монолітного networking framework.
+
+Як реально встановлюється з'єднання
+
+Послідовність приблизно така:
+
+Endpoint генерує або завантажує постійний SecretKey; з нього отримується стабільний EndpointID. На старті він робить QUIC Address Discovery (QAD) через налаштовані relay-сервери, визначає свою зовнішню адресу та relay із найменшою затримкою. Цей relay стає home relay, і endpoint підтримує з ним з'єднання.
+Endpoint публікує підписаний запис EndpointID → home relay/address information. За замовчуванням використовується DNS + Pkarr; альтернативно можна використовувати Mainline BitTorrent DHT або локальне discovery.
+Інший вузол знає лише EndpointID. Address Lookup знаходить актуальний home relay/адреси. Тому в базі застосунку рекомендовано зберігати саме EndpointID, а не IP або relay URL.
+Початковий гарантований шлях може пройти через relay. Relay не є application server — він лише переправляє зашифровані QUIC datagrams між EndpointID.
+Через вже робочий канал вузли обмінюються candidate addresses і запускають QUIC NAT Traversal / hole punching. Iroh заявляє, що приблизно 9 із 10 реальних мережевих конфігурацій переходять на пряме P2P-з'єднання.
+Якщо прямий шлях з'явився, QUIC починає використовувати його. Якщо він зникає — наприклад телефон переходить Wi-Fi → LTE — Iroh може перейти на інший direct path або назад на relay, не змінюючи логічного EndpointID.
+Найцікавіше архітектурне рішення — noq
+
+Це, на мій погляд, центральна технічна особливість сучасного Iroh.
+
+Спочатку Iroh працював поверх Quinn і сам «підміняв» transport path під QUIC. QUIC думав, що має один шлях, тоді як Iroh перемикав relay/direct IPv4/direct IPv6 ззовні. Це ламало коректну модель congestion control та ускладнювало migration.
+
+Тому Quinn форкнули у власний QUIC stack noq. У сучасній архітектурі:
+
+             one logical QUIC connection
+                       │
+          ┌────────────┼──────────────┐
+          │            │              │
+      Relay path    UDP IPv4      UDP IPv6
+          │            │              │
+     congestion     congestion     congestion
+       state          state          state
+
+Кожен із цих шляхів є QUIC Multipath path першого класу. Сам QUIC знає про RTT, congestion, loss та validation кожного path і може коректно вибирати/міняти маршрут. NAT traversal також перенесений усередину QUIC через власну реалізацію QUIC NAT Traversal draft.
+
+noq наразі включає QUIC Multipath, QUIC Address Discovery (QAD) і QUIC NAT Traversal (QNT), а його ядро побудоване як async API поверх sans-io noq-proto.
+
+Це суттєво відрізняє Iroh, наприклад, від архітектури «STUN + TURN + окремий TCP/QUIC connection manager».
+
+Relay — не TURN у класичному сенсі
+
+Relay концептуально нагадує Tailscale DERP — самі автори прямо вказують, що запозичували ідеї в ZeroTier/Tailscale. Він дуже простий:
+
+Endpoint A ── encrypted datagram ──► Relay ──► Endpoint B
+                                          │
+                                  application state: none
+
+Relay не зберігає application data, не потребує БД, реплікації чи міграції стану. Тому relay layer легко горизонтально масштабувати та замінювати.
+
+Це формує цікаву inversion of control:
+
+Traditional architecture
+
+Client → Stateful Server → DB
+
+
+Iroh architecture
+
+Endpoint ───────── Endpoint
+    \               /
+     └── Relay ────┘
+         stateless
+
+Application state lives at endpoints.
+
+Relay потрібен насамперед для reachability, а не як центр системи.
+
+Address Lookup фактично є окремим control plane
+
+Це ще одна сильна архітектурна ідея.
+
+EndpointID
+    │
+    ▼
+Address Lookup
+    │
+    ├── DNS / Pkarr       default
+    ├── Mainline DHT      optional
+    └── Local discovery   optional
+    │
+    ▼
+EndpointAddr
+    │
+    ├── home relay
+    └── direct transport addresses
+
+Тобто Iroh чітко розділяє:
+
+Identity
+EndpointID
+
+Discovery/address resolution
+AddressLookup
+
+Connectivity
+Endpoint
+
+Transport
+noq / QUIC paths
+
+Application protocol
+ALPN + ProtocolHandler
+
+Це робить компоненти досить незалежними.
+
+Protocol Router
+
+Один Endpoint може одночасно обслуговувати багато незалежних протоколів.
+
+Використовується стандартний QUIC/TLS механізм ALPN:
+
+                    Endpoint
+                       │
+                    Router
+                       │
+       ┌───────────────┼────────────────┐
+       │               │                │
+ /iroh-blobs/...   /iroh-gossip/...   /my-app/1
+       │               │                │
+     Blobs           Gossip           Custom
+
+Router тут схожий на HTTP router, але routing відбувається на рівні QUIC connection/protocol, а не HTTP request. Також ALPN можна використовувати для версіонування власних wire protocols.
+
+Це означає, що Iroh не диктує application protocol. Можна використовувати raw QUIC bidirectional/unidirectional streams, datagrams, RPC або готові протоколи.
+
+Верхній data stack
+
+Найпоказовіший приклад composability — iroh-docs:
+
+                   iroh-docs
+                      │
+          ┌───────────┼────────────┐
+          │           │            │
+       Metadata     Content      Events
+          │           │            │
+         Docs       Blobs        Gossip
+          │           │            │
+          └───────────┴────────────┘
+                      │
+                   Endpoint
+                      │
+                     QUIC
+
+iroh-docs — distributed key-value/CRDT layer. Самі значення не зберігаються в CRDT entry: entry містить metadata + BLAKE3 content hash; actual bytes знаходяться в iroh-blobs. iroh-gossip використовується для live notification про нові зміни. Для convergence metadata використовується set reconciliation.
+
+Тобто вони розділили:
+
+coordination / metadata → docs
+large immutable data    → blobs
+live dissemination      → gossip
+transport               → iroh
+
+Це дуже чисте розділення відповідальностей.
+
+iroh-blobs
+
+iroh-blobs — content-addressed storage/transfer:
+
+bytes
+  │
+BLAKE3 tree
+  │
+32-byte root hash
+  │
+content identity
+
+BLAKE3 tree дозволяє verified streaming, resumable download і verified range requests: одержувачу не потрібно завантажити весь файл, щоб почати перевіряти його цілісність.
+
+iroh-gossip
+
+iroh-gossip використовує epidemic broadcast trees, засновані на HyParView + PlumTree. Вузол підтримує лише невелику кількість сусідів, а повідомлення розповсюджуються через overlay. Один topic розрахований приблизно до кількох тисяч peers; більші системи варто розбивати на scoped topics.
+
+Custom transports
+
+Ще одна незвичайна властивість — QUIC не жорстко прив'язаний до UDP.
+
+Iroh розглядає transport як спосіб доставити QUIC datagrams:
+
+                QUIC
+                 │
+        Transport abstraction
+       ┌─────────┼───────────┐
+       │         │           │
+      UDP       Tor         BLE
+       │         │           │
+ Internet   Onion route   Bluetooth
+
+Документація вже описує Tor, Nym та BLE; у 1.0 також заявлена архітектура для інших transport'ів на кшталт Wi-Fi Aware.
+
+Тобто application protocol не потрібно переписувати при переході з Internet transport на інший bearer.
+
+Security model
+
+На рівні transport модель сильна:
+
+EndpointID A                          EndpointID B
+private key A                         private key B
+     │                                     │
+     └──────── QUIC + TLS 1.3 E2EE ───────┘
+                         │
+                       Relay
+                  cannot decrypt
+
+Relay бачить metadata — хто підключений, IP, час та обсяг relayed traffic — але не payload. При direct P2P peers бачать IP один одного. Тому Iroh прямо рекомендує не використовувати shared public relays для confidential production workloads; для production передбачені dedicated/self-hosted relays і власна DNS infrastructure.
+
+Важливе розмежування: Endpoint authentication ≠ application authorization. Iroh криптографічно знає, з яким EndpointID встановлено connection, але поняття користувача, tenant, role, ACL, business permission тощо — це вже responsibility застосунку.
+
+Що Iroh фактично є
+
+Найточніше я б класифікував його так:
+
+             NOT
+      ┌─────────────────┐
+      │ distributed DB  │
+      │ message broker  │
+      │ service mesh    │
+      │ VPN             │
+      │ application FW  │
+      └─────────────────┘
+
+              ↓
+
+    Secure peer connectivity substrate
+
+ Endpoint identity
+       +
+ Address resolution
+       +
+ NAT traversal
+       +
+ Relay fallback
+       +
+ QUIC Multipath
+       +
+ Protocol multiplexing
+
+Тобто це радше нова транспортно-connectivity абстракція між socket API та application protocols.
+
+Сам проєкт прямо формулює свою філософію як building blocks, not a framework.
+
+Найсильніше в архітектурі
+
+Для мене ключовими є три рішення:
+
+EndpointID як address. Application-level identity більше не залежить від topology.
+
+Relay як path, а не server. Централізована інфраструктура потрібна, але вона stateless і не володіє application state.
+
+Multipath/NAT traversal усередині QUIC. Це прибирає значний пласт networking state machine із application/networking wrapper і переносить його туди, де вже знаходяться congestion control, RTT, ACK, path validation і connection migration.
+
+Саме третій пункт, на мою оцінку, є найбільш нетривіальною частиною Iroh 1.x.
+
+Я вже маю достатньо контексту по його внутрішній архітектурі, щоб далі розібрати Iroh проти libp2p / Tailscale DERP / WebRTC / QUIC напряму / NATS, або спроєктувати поверх нього конкретну P2P/distributed архітектуру.

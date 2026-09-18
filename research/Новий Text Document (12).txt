@@ -1,0 +1,846 @@
+пт, 28 авг. в 14:06
+Загугли які спеціфікації можуть допомогти в розробці, nost, інші. 
+
+Так. Для вашої portable/local-first платформи я б дивився не на одну специфікацію, а на набір сумісних примітивів. Після перегляду Nostr, AT Protocol, Iroh/local-first, W3C/IETF, OCI та CNCF найбільш корисна картина така.
+
+1. Nostr — дуже корисний, але не як головна модель даних
+
+Nostr цікавий передусім своєю радикально простою моделлю:
+
+keypair → signed event → relay → subscription
+
+NIP-01 визначає підписані content-addressed events, індексовані tags, фільтри, subscriptions і навіть різні життєві цикли: звичайні, replaceable, ephemeral та addressable events.
+
+Для нашої архітектури я б уважно розібрав:
+
+NIP	Що можна взяти
+NIP-01	canonical signed event envelope, kind, indexed tags, subscriptions
+NIP-42	challenge-response аутентифікація до relay підписом
+NIP-44	versioned encrypted payload envelope
+NIP-46	винесений signer / hardware signer / signing service; дуже хороший патерн для ключів користувача
+NIP-65/66	relay discovery, metadata, health/liveness
+NIP-73	посилання на зовнішні глобальні ID — URL, ISBN, DOI, geo тощо
+NIP-77	range-based set reconciliation — синхронізація лише відмінностей
+NIP-78	application-specific portable data
+NIP-94	metadata файлів
+NIP-B7 / Blossom	content-addressed файлові сервери й fallback між ними
+NIP-98	signed HTTP auth
+
+Особливо цікаві NIP-77 + Iroh docs: обидва використовують ідею reconciliation множин замість тупого перебору всіх записів. Iroh docs теж застосовує range-based reconciliation.
+
+Але я не робив би Nostr event універсальною моделлю Task/Document/Project/Contact. Nostr навмисно слабко типізований. Навіть сам репозиторій NIPs наголошує, що NIPs — не checklist і клієнт повинен обирати тільки потрібну підмножину.
+
+Також важливо: NIP-96 вже позначений як unrecommended і замінений Blossom; деякі інші NIPs також прямо deprecated/unrecommended. Тобто Nostr треба використовувати як джерело перевірених патернів, а не копіювати все.
+
+2. AT Protocol — мабуть, найцінніший референс для нашого Core
+
+Для вашої моделі він навіть цікавіший за Nostr.
+
+AT Protocol розділяє:
+
+DID → Repository → Records → Lexicons → PDS → Relay → AppView
+
+і це дуже близько до того, що ми обговорювали.
+
+Repository
+
+Кожен користувач має self-certifying repository. Дані організовані як content-addressed Merkle Search Tree, commits підписуються, blobs винесені окремо, а весь repo можна експортувати в CAR для backup/migration.
+
+Це майже готовий референс для:
+
+Personal Workspace
+Organization Workspace
+Application Workspace
+Shared Resource Repository
+
+AT URI виглядає концептуально так:
+
+at://DID/collection/record
+
+Наприклад:
+
+at://did:.../app.example.task/123
+
+Це дуже хороший патерн для нашого:
+
+vida://authority/type/id
+Lexicon
+
+AT Protocol має окрему schema language Lexicon для:
+
+records;
+API queries;
+commands/procedures;
+subscriptions;
+reusable definitions;
+permissions.
+
+Namespaces побудовані на reverse-domain NSID:
+
+com.example.task
+com.example.contact
+org.city.address
+
+Схеми можуть самі публікуватися й резолвитися через namespace authority.
+
+Для нашої платформи це надзвичайно сильний референс для глобального каталогу типів ресурсів.
+
+Наприклад:
+
+ua.gov.address.building
+ua.gov.address.street
+
+com.vida.task
+com.vida.note
+com.vida.document
+
+com.acme.crm.customer
+
+І один застосунок може використовувати тип іншого без копіювання його структури.
+
+Sync
+
+AT Protocol має:
+
+повний repo export;
+incremental commits;
+WebSocket firehose;
+sequence/cursors;
+relay aggregation;
+resync при gap;
+перевірювані commits.
+
+Це практично готовий референс для вашої схеми:
+
+Device
+  ↕
+Personal/Org repository
+  ↕
+Iroh direct sync
+  ↕
+Relay
+  ↕
+Index / Search / App View
+Моя оцінка
+
+ATProto architecture — 10/10 як референс.
+
+Не обов'язково реалізовувати сам AT Protocol. Варто взяти його архітектурне розділення.
+
+3. IPLD / CID / CAR — для portable storage
+
+Це друга фундаментальна частина.
+
+CID — self-describing content-addressed identifier:
+
+codec + hash algorithm + hash
+
+CIDv1 спеціально спроєктований для distributed content systems.
+
+Тобто файл:
+
+photo.jpg
+
+логічно стає:
+
+cid:bafy...
+
+і вже не має значення, де фізично лежать байти:
+
+local filesystem
+Iroh peer
+S3
+CDN
+Blossom server
+portal SaaS
+backup
+CAR
+
+ATProto теж використовує CAR для repository export.
+
+Для нас CAR/IPLD-подібна модель добре підходить для:
+
+snapshots;
+package export;
+offline bundle;
+backup;
+migration;
+replication;
+marketplace artifacts.
+
+Я б серйозно розглядав CID semantics, навіть якщо не використовувати IPFS network.
+
+4. Iroh + Automerge — actual local-first runtime
+
+Iroh уже дуже добре вкладається в цю картину.
+
+Його модель зараз:
+
+Endpoint
+ ├─ iroh-blobs
+ ├─ iroh-docs
+ ├─ iroh-gossip
+ └─ custom protocols
+
+Всі протоколи можуть працювати на одному endpoint через ALPN.
+
+iroh-docs:
+
+metadata
+    ↓
+content hash
+    ↓
+iroh-blobs
+
+updates
+    ↓
+iroh-gossip
+
+reconciliation
+    ↓
+range-based set sync
+
+А для складних collaborative documents Automerge дає:
+
+local changes;
+offline editing;
+CRDT merge;
+full change history;
+transport-independent sync;
+pluggable storage/network adapters.
+
+Я б розділив:
+
+простий ресурс
+    → Iroh docs / LWW / deterministic merge
+
+спільно редагований structured document
+    → Automerge
+
+великий blob
+    → Iroh blobs / CID
+
+live notification
+    → Gossip
+
+Не треба CRDT для кожного запису.
+
+5. CloudEvents — майже обов'язково
+
+Не варто винаходити власний загальний event envelope.
+
+CloudEvents стандартизує саме envelope події і має bindings для:
+
+HTTP;
+Kafka;
+MQTT;
+NATS;
+AMQP;
+Protobuf;
+JSON;
+Avro.
+
+Умовно:
+
+{
+  "specversion": "1.0",
+  "id": "...",
+  "source": "vida://org/acme",
+  "type": "com.vida.task.updated",
+  "subject": "vida://task/123",
+  "time": "...",
+  "data": {}
+}
+
+Тобто той самий event можна ганяти:
+
+in-process
+Dapr
+Iroh
+NATS
+Kafka
+HTTP webhook
+file journal
+
+без зміни domain event.
+
+6. JSON Schema + Lexicon-подібний namespace
+
+Я б зробив JSON Schema Draft 2020-12 базовою структурною схемою ресурсів.
+
+Вона має:
+
+$id;
+$ref;
+reusable vocabularies;
+validation;
+annotations;
+dynamic references;
+extensibility.
+
+А зверху запозичив би з ATProto Lexicon:
+
+global namespace
+schema registry
+semantic type
+record/query/procedure/subscription distinction
+
+Тобто не створювати власну schema language з нуля.
+
+7. OpenAPI + AsyncAPI + Arazzo
+
+Це трійка для контрактів.
+
+OpenAPI 3.2
+
+На сьогодні актуальна OAS 3.2.0; описує HTTP API незалежно від мови реалізації.
+
+AsyncAPI 3
+
+Для:
+
+event
+command
+subscription
+stream
+queue
+topic
+
+протокол-незалежно.
+
+Arazzo 1.1
+
+Окремо дуже цікава для нашої low-code частини.
+
+Arazzo описує machine-readable послідовності API operations і залежності між ними, фактично lightweight workflow над OpenAPI. Поточна лінійка вже має 1.1.
+
+Можна використати для:
+
+Action
+Workflow
+Integration recipe
+App automation
+Agent tool workflow
+8. JSON Patch / Merge Patch
+
+Для ресурсів бажано не вигадувати:
+
+updateField
+setProperty
+deleteProperty
+arrayInsert
+...
+
+Є:
+
+RFC 6902 JSON Patch — список операцій add/remove/replace/move/copy/test;
+RFC 7396 JSON Merge Patch — декларативний partial object update.
+
+Їх можна використовувати для:
+
+API patch
+audit changes
+offline mutation
+workflow action
+AI-generated change
+
+але не обов'язково як CRDT format.
+
+9. DID + WebFinger
+
+DID добре використовувати як portable cryptographic identity, але не замінювати ним enterprise IAM.
+
+ATProto, наприклад, свідомо підтримує лише невеликий набір DID methods — did:plc і did:web, а не “всі можливі DID”.
+
+Я би зробив аналогічно:
+
+Internal PrincipalID
++
+optional DID
++
+OIDC identity mappings
+WebFinger
+
+RFC 7033 дозволяє по стабільному ідентифікатору знаходити metadata/endpoint-и сутності.
+
+Наприклад:
+
+user@city.gov.ua
+organization@example.com
+
+→
+
+identity endpoint
+workspace endpoint
+relay
+public keys
+profile
+
+Це простий, недооцінений стандарт.
+
+10. UCAN — особливо цікавий для sharing
+
+Це один із найсильніших референсів під вашу модель “підключити іншу людину/організацію до частини ресурсів”.
+
+UCAN — distributed capability-based authorization:
+
+principal
+   ↓ delegates
+resource + action
+   ↓ attenuates
+another principal
+
+Без обов'язкової перевірки центрального Authorization Server на кожну операцію.
+
+Resource може бути хоч:
+
+vida://document/123
+vida://project/123
+vida://organization/acme/*
+vida://city/address/*
+
+Специфікація прямо допускає URI як resource і fine-grained delegation.
+
+Це дуже добре накладається на:
+
+Owner
+ → Organization
+   → Department
+      → Contractor
+         → Agent
+
+із attenuated permissions.
+
+Я б не заміняв UCAN-ом ваш ABAC/RBAC policy engine, а використав би його для:
+
+portable grants / delegation / external sharing / offline authorization proofs.
+
+11. SCIM — організації, користувачі та групи
+
+Для Enterprise-рівня не треба винаходити імпорт:
+
+users
+groups
+memberships
+devices
+
+SCIM стандартизує schema та HTTP provisioning protocol.
+
+У 2026 році навіть з'явилися сучасні розширення SCIM для device provisioning.
+
+Тобто:
+
+Azure/Entra
+Okta
+Google
+enterprise IAM
+     ↓ SCIM
+Vida Organization
+12. WASI 0.3 + WebAssembly Component Model + WIT
+
+Для marketplace/plugin/runtime це, ймовірно, найважливіша специфікація після resource model.
+
+WIT описує контракти між компонентами незалежно від programming language.
+
+Наприклад:
+
+interface contacts {
+    get: func(id: string) -> contact;
+}
+
+Компонент декларує:
+
+imports:
+    storage
+    http
+    contacts
+
+exports:
+    action
+    validator
+
+WIT world буквально описує функціональність, яку компонент надає та потребує.
+
+WASI 0.3 зараз уже stable і додає native async, streams і futures.
+
+Це дуже добре для:
+
+plugins
+business rules
+connectors
+validators
+AI tools
+processors
+custom low-code elements
+server/client portable modules
+
+і capability sandbox.
+
+13. OCI artifacts — основу marketplace не потрібно вигадувати
+
+OCI Distribution Specification уже content-type agnostic і визначає:
+
+registry
+manifest
+blob
+digest
+tag
+subject
+referrers
+push/pull
+
+OCI Image Spec 1.1+ прямо описує використання manifest не тільки для containers, а для arbitrary artifacts.
+
+Отже пакет платформи можна представити як:
+
+Vida Application Manifest
+ ├─ schemas
+ ├─ pages
+ ├─ workflows
+ ├─ WIT/WASM modules
+ ├─ localization
+ ├─ assets
+ └─ metadata
+
+і зберігати через OCI-compatible registry.
+
+Навіть локальний layout уже стандартизований:
+
+oci-layout
+index.json
+blobs/
+
+Це дуже відповідає вимозі portable/filesystem-friendly.
+
+14. TUF + Sigstore + SPDX/CycloneDX
+
+Поверх marketplace:
+
+TUF
+
+Для secure updates і захисту від compromised repository/update server. Поточна specification line — 1.0.x.
+
+Sigstore
+
+Підписи package artifacts + verification bundle + transparency log.
+
+SPDX 3
+
+SBOM, licenses, packages, datasets, AI models, build information.
+
+CycloneDX 1.7
+
+Ще ширший BOM для:
+
+components
+services
+dependencies
+crypto
+operations
+
+Для marketplace це означає, що кожен пакет може мати:
+
+manifest
+signature
+SBOM
+dependencies
+provenance
+permissions/capabilities
+15. DCAT 3 — для загальних master-data каталогів
+
+Це прямо стосується прикладу з головним адресним довідником міста.
+
+DCAT 3 — W3C Recommendation для опису:
+
+DataCatalog
+Dataset
+Distribution
+DataService
+relationships
+versions
+
+Тобто міська організація може опублікувати:
+
+Catalog
+ ├─ Address Registry
+ ├─ Streets
+ ├─ Buildings
+ ├─ Administrative Areas
+ └─ Public Facilities
+
+а застосунки не копіюють дані, а підписуються/посилаються на відповідні datasets.
+
+16. OGC API Features + JSON-FG
+
+Для адрес, будинків, земельних ділянок, зон тощо це майже готова відповідь.
+
+OGC API Features стандартизує доступ до collections геопросторових objects і використовує OpenAPI.
+
+Наприклад:
+
+/collections/streets/items
+/collections/buildings/items
+/collections/address-points/items
+
+А новий JSON-FG 1.0, випущений у 2026 році, розширює GeoJSON типізованими features і ширшими CRS/geometry можливостями, залишаючись сумісним із GeoJSON.
+
+Для master address registry я б це точно використав.
+
+17. Web Linking — маленька, але фундаментальна річ
+
+RFC 8288 визначає типізовані relationships між resources.
+
+Тобто resource не повинен містити hardcoded:
+
+{
+  "customerId": "...",
+  "parentId": "...",
+  "documentId": "..."
+}
+
+лише як application-specific поля.
+
+Може існувати нормалізована модель:
+
+resource
+ ├─ rel=parent
+ ├─ rel=author
+ ├─ rel=attachment
+ ├─ rel=source
+ ├─ rel=canonical
+ └─ rel=alternate
+
+Це стане основою resource graph.
+
+RFC 6570 URI Templates доповнює це стандартизованими parametrized resource links.
+
+18. Web Annotation Model
+
+Для:
+
+коментарів;
+highlights;
+review;
+AI annotations;
+bookmarks;
+tags;
+references до частини документа.
+
+Не потрібно прив'язувати Comment тільки до конкретного типу Document.
+
+Web Annotation має модель:
+
+Annotation
+ ├─ body
+ └─ target
+
+Target може бути навіть фрагментом іншого ресурсу.
+
+Тобто один універсальний annotation resource може коментувати:
+
+Task
+PDF
+Image
+paragraph
+map feature
+record
+video timestamp
+
+Це дуже підходить до універсальної платформи.
+
+19. ActivityPub / ActivityStreams — адаптер, не Core
+
+ActivityPub має:
+
+actor
+inbox
+outbox
+activity
+object
+followers
+federation
+
+і client-server + server-server API.
+
+ActivityStreams — універсальна модель activities.
+
+Корисно для:
+
+feeds
+notifications
+following
+public communities
+site federation
+external social integrations
+
+Але я б не використовував ActivityPub як storage/sync Core.
+
+20. Matrix + MLS
+
+Matrix цікавий для shared spaces, де кілька організацій володіють спільною історією.
+
+Його сильні ідеї:
+
+room
+event graph
+state events
+message events
+federated replicated state
+deterministic state resolution
+
+Може бути референсом для:
+
+project rooms
+group workspaces
+chat
+shared collaboration
+
+А для E2EE груп не треба винаходити криптографію: MLS RFC 9420 дає forward secrecy і post-compromise security для асинхронних груп від 2 до тисяч учасників.
+
+До речі, NIP-44 сам прямо визнає обмеження Nostr relay architecture щодо metadata hiding, forward secrecy та PCS.
+
+21. OpenTelemetry
+
+Для observability — просто приймати як стандарт.
+
+Поточна специфікація охоплює:
+
+traces
+metrics
+logs
+baggage
+profiles
+semantic conventions
+OTLP
+
+Це особливо важливо, якщо один і той самий застосунок може працювати:
+
+embedded
+desktop
+relay
+SaaS
+microservice
+edge
+Який stack специфікацій я би зафіксував
+
+Я б уже зараз заклав такий Vida Interoperability Stack:
+
+┌─────────────────────────────────────────────┐
+│ Domain schemas                              │
+│ JSON Schema + Lexicon-like NSID             │
+├─────────────────────────────────────────────┤
+│ Resource identity & relations               │
+│ URI + RFC8288 + DID + external IDs          │
+├─────────────────────────────────────────────┤
+│ Mutations                                   │
+│ JSON Patch / Merge Patch / CRDT when needed │
+├─────────────────────────────────────────────┤
+│ Events                                      │
+│ CloudEvents                                 │
+├─────────────────────────────────────────────┤
+│ API contracts                               │
+│ OpenAPI + AsyncAPI + Arazzo                 │
+├─────────────────────────────────────────────┤
+│ Local-first sync                            │
+│ Iroh docs / Automerge / NIP-77 concepts     │
+├─────────────────────────────────────────────┤
+│ Content                                     │
+│ CID-like IDs + CAR-like bundles + Iroh blobs│
+├─────────────────────────────────────────────┤
+│ Identity                                    │
+│ OIDC + DID + WebFinger + SCIM               │
+├─────────────────────────────────────────────┤
+│ Authorization                               │
+│ ABAC/RBAC + UCAN capabilities               │
+├─────────────────────────────────────────────┤
+│ Plugins                                     │
+│ Wasm Component Model + WIT + WASI 0.3       │
+├─────────────────────────────────────────────┤
+│ Packages / Marketplace                      │
+│ OCI + Sigstore + TUF + SPDX                 │
+├─────────────────────────────────────────────┤
+│ Master/shared datasets                      │
+│ DCAT + OGC API + JSON-FG                    │
+├─────────────────────────────────────────────┤
+│ Annotations                                 │
+│ W3C Web Annotation                          │
+├─────────────────────────────────────────────┤
+│ Federation adapters                         │
+│ ActivityPub / Nostr / Matrix                │
+├─────────────────────────────────────────────┤
+│ Observability                               │
+│ OpenTelemetry                               │
+└─────────────────────────────────────────────┘
+Найважливіше архітектурне рішення
+
+Я б не робив “наш аналог Nostr”.
+
+Я б зробив нижчий універсальний primitive:
+
+Resource
+ ├── stable ResourceId
+ ├── SchemaId
+ ├── Owner / Authority
+ ├── Version
+ ├── Content
+ ├── Links[]
+ ├── Attachments[] → CID
+ ├── Metadata
+ └── optional Signature
+
+де:
+
+ResourceId     → stable location-independent URI
+SchemaId       → globally namespaced type
+Version        → content/hash/revision
+Content        → JSON / CBOR / typed binary
+Links          → RFC8288-like typed relations
+Attachments    → content addressed
+Owner          → local PrincipalID / DID
+Capabilities   → UCAN-like grants
+Events         → CloudEvents
+Sync           → independent layer
+Transport      → independent layer
+
+А тоді:
+
+Task
+Note
+Document
+Contact
+Address
+Workflow
+Page
+Application
+Dataset
+Comment
+File
+Site
+Organization
+
+— це просто різні типи Resource, а не спеціальні механізми storage/network.
+
+І поверх одного ресурсу можуть одночасно працювати:
+
+Iroh sync
+REST API
+relay
+SaaS portal
+offline filesystem
+organization node
+public website
+mobile application
+
+без зміни його identity.
+
+Якщо пріоритезувати дослідження далі
+
+Найбільшу віддачу зараз дадуть 5 окремих deep-dive:
+
+ATProto Repository + Lexicon + Sync → наша Resource/Repository model.
+Nostr NIP-01/42/46/65/73/77/78/B7 → наша Relay specification.
+CID/IPLD/CAR + OCI → єдиний portable package/blob/content format.
+UCAN + DID + SCIM/OIDC → sharing між Personal ↔ Organization ↔ External.
+WIT/WASI Component Model → єдиний plugin/app capability ABI.
+
+Саме з цих п'яти вже можна скласти формальну Vida Core Specification v0.1: identifiers, resources, schemas, repositories, links, capabilities, packages, relays і sync — замість подальшого винаходу окремих несумісних механізмів.

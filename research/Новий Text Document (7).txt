@@ -1,0 +1,776 @@
+суббота 13:08
+Досліди гітхаб deltachat мессенджер https://github.com/deltachat там вже реалізована значна частина 
+
+Так. Після перегляду актуальних репозиторіїв я б суттєво змінив нашу попередню архітектуру месенджера: базовий messaging stack немає сенсу писати з нуля — варто будувати поверх Chatmail/Delta Chat Core.
+
+Причому зараз правильна точка входу вже не старий deltachat-core-rust: Delta Chat переніс ядро в організацію Chatmail, у репозиторій chatmail/core. Ядро активно розвивається; у main changelog уже є 2.60.0 від 11 вересня 2026 року.
+
+Що насправді вже побудовано
+Наше завдання	Delta Chat / Chatmail	Висновок
+1:1 повідомлення	✅	використовувати
+Offline delivery	✅ IMAP/SMTP relay	використовувати
+Федерація між серверами	✅ стандартна email-федерація	використовувати
+E2EE	✅ OpenPGP/rPGP + Autocrypt + SecureJoin	використовувати
+Захист MITM при додаванні контактів	✅ SecureJoin	використовувати
+Контакти / запити на контакт	✅	використовувати
+Файли / фото / відео	✅	використовувати
+Voice messages	✅	використовувати
+Reply / forward	✅	використовувати
+Edit / delete	✅	використовувати
+Reactions	✅	використовувати
+Read receipts	✅	використовувати
+Pinned messages	✅	використовувати
+Location	✅	використовувати
+Блокування	✅	використовувати
+Невеликі приватні групи	✅	використовувати
+Канали one-to-many	✅ E2EE	використовувати
+Канали на десятки тисяч	✅ передбачені	використовувати / тестувати relay
+Multi-device	✅	використовувати
+Multi-relay	✅ активно розвивається	дуже цікаво для нас
+P2P/Iroh	✅	використовувати
+Audio/video calls	✅ WebRTC + TURN	використовувати
+Bots	✅	використовувати
+Mini-apps	✅ WebXDC	дуже цікаво для нашої платформи
+Групи 10k+ many-to-many	⚠️	треба доробляти
+Owner / moderators	❌ в official groups	наш шар
+Ban / mute користувача всією спільнотою	❌	наш шар
+Forum categories/topics	❌	наш шар
+Підписка на тему	❌	наш шар
+Публічний каталог communities/channels	❌ навмисно відсутній	наш сервіс
+Повнотекстовий глобальний пошук	❌	наш індекс
+Telegram-подібні permissions	❌	наш шар
+
+Сам chatmail/core уже інкапсулює SMTP, IMAP, MIME, TLS/DNS, proxy/Shadowsocks, E2EE, SecureJoin та Iroh і надає це через stdio JSON-RPC API. Для нових продуктів автори прямо рекомендують JSON-RPC замість старого C FFI.
+
+Це дуже добре лягає на нашу платформу
+
+Я б тепер зробив приблизно так:
+
+┌───────────────────────────────────────────────┐
+│                 OUR APPLICATION               │
+│                                               │
+│  Chats │ Channels │ Communities │ Forums      │
+│  Tasks │ Notes │ Apps │ Bots │ Mini Apps      │
+└───────────────────────┬───────────────────────┘
+                        │
+                 Messaging API
+                        │
+              JSON-RPC / stdio
+                        │
+┌───────────────────────▼───────────────────────┐
+│          deltachat-rpc-server / core          │
+│                  Rust                         │
+│                                               │
+│  chats / contacts / messages / groups         │
+│  channels / reactions / files / calls         │
+│  SecureJoin / E2EE / sync / multi-device      │
+│  multi-relay / Iroh / WebXDC                  │
+└─────────┬──────────────┬──────────────┬────────┘
+          │              │              │
+     SQLite/SQLCipher    Iroh       SMTP / IMAP
+       + blobs           P2P             │
+                                         ▼
+                            ┌────────────────────┐
+                            │   Chatmail Relay   │
+                            │                    │
+                            │ Postfix + Dovecot  │
+                            │ filtermail         │
+                            │ Iroh Relay         │
+                            │ TURN               │
+                            │ Push               │
+                            └─────────┬──────────┘
+                                      │
+                                  Federation
+                                      │
+                             other Chatmail relays
+
+Тобто нашим .NET-клієнтам зовсім не обов'язково портирувати Rust core у C#. deltachat-rpc-server можна поставляти разом із застосунком як локальний sidecar/native service, а з C# говорити з ним JSON-RPC. Готові static binaries уже випускаються для Linux x86/ARM, Windows, macOS та Android architectures.
+
+Дуже важлива деталь про Iroh
+
+Тут Delta Chat фактично підтверджує напрямок, який ми раніше розглядали, але робить його більш практичним.
+
+У Chatmail Core Iroh не замінює durable messaging transport. Він використовується для P2P, multi-device setup та realtime WebXDC. Основне повідомлення має store-and-forward шлях через SMTP/IMAP.
+
+Це дає хороший hybrid:
+
+                 FAST PATH
+ Device A ───────── Iroh ───────── Device B
+                  realtime/P2P
+                       │
+                       │ fallback / offline
+                       ▼
+ Device A ── Chatmail relay ── Federation ── Relay ── Device B
+                 DURABLE PATH
+
+Для месенджера це, на мій погляд, краще за Iroh-only: користувач B може бути offline добу, не потрібен одночасний online peer, є push, NAT traversal, federation і резервний delivery path.
+
+Сам Chatmail relay уже містить Iroh relay та TURN, поряд із Postfix, Dovecot, push-сервісами й автоматичним видаленням старих повідомлень.
+
+І немає центральної PostgreSQL для месенджера
+
+Це також дуже близько до нашої концепції переносного локального стану.
+
+На клієнті Delta Chat використовує локальну SQLite database, окрему для профілю, плюс blob directory для вкладень. Core має підтримку SQLCipher, тобто база може бути зашифрована.
+
+Отже модель фактично така:
+
+User Profile
+├── profile.db
+│   ├── chats
+│   ├── messages
+│   ├── contacts
+│   ├── keys
+│   ├── membership
+│   └── local state
+│
+└── profile.db-blobs/
+    ├── images
+    ├── video
+    ├── voice
+    └── documents
+
+Це не «взагалі без БД», але це embedded local state, а не центральна PostgreSQL/MSSQL інфраструктура.
+
+Канали — вже набагато ближче до Telegram, ніж я очікував
+
+Канали вже не experimental. Вони E2EE, мають QR/invite links, reactions, history для нового підписника, view counts, pinned state тощо. У 2026 вони продовжували активно дороблятися.
+
+Найважливіше: офіційна документація прямо говорить, що канали призначені для значно більших аудиторій, а для «several tens of thousands of subscribers» рекомендує окремий профіль каналу та відповідний relay.
+
+Це закриває наш use case:
+
+Channel
+Owner/Admin
+     │
+     ├───────────────► 10 000 users
+     ├───────────────► 50 000 users
+     └───────────────► ...
+
+І для каналів вони вже перейшли до симетричного шифрування, оскільки шифрувати окремий session key для десятків тисяч public keys було б неприйнятно за розміром повідомлення.
+
+А ось Telegram Supergroup поки немає
+
+Це головний пробіл.
+
+Звичайна Delta Chat group має модель:
+
+Alice ─┐
+Bob   ─┼── всі рівноправні
+Carol ─┤
+Dave  ─┘
+
+Будь-який учасник може додати або видалити іншого. Офіційно групи більше 150 учасників не рекомендуються.
+
+Тобто для:
+
+30 000 учасників → moderators → ban → mute → permissions → topics
+
+звичайна DeltaChat Group нам не підходить.
+
+І цікаво, що сама спільнота Delta Chat зараз рухається рівно в нашому напрямку. Є окремі активні proposals Super Groups та Private Managed Groups, де обговорюються owner, moderators, контроль membership, symmetric group encryption і передача history. Станом на 2026 це все ще proposals, а не стабільна функція official core.
+
+Тут я б не чекав Delta Chat, а розширив Core
+
+Ми можемо взяти вже реалізований BroadcastChannel як основу нового типу:
+
+ChatType
+
+Single
+RegularGroup
+BroadcastChannel
+        │
+        └────► Community / SuperGroup   ← додаємо ми
+
+Для Community/SuperGroup я б заклав:
+
+Community
+ ├─ owner
+ ├─ moderators[]
+ ├─ members
+ ├─ roles
+ ├─ bans
+ ├─ invite policies
+ ├─ history policy
+ ├─ encryption epoch
+ │
+ ├─ Categories
+ │   ├─ General
+ │   ├─ News
+ │   └─ Support
+ │
+ └─ Topics
+     ├─ Topic A
+     ├─ Topic B
+     └─ Topic C
+
+Тут уже не потрібно заново вирішувати encryption, message delivery, offline delivery, relay discovery, attachments, multi-device, NAT traversal тощо. Ми додаємо семантику community.
+
+Форум теж краще зробити не окремим месенджером
+
+Я б уніфікував:
+
+Space
+│
+├── Chat
+├── Group
+├── Channel
+└── Community
+     │
+     ├── Chat Room
+     ├── Category
+     │    ├── Topic
+     │    │    └── Thread
+     │    └── Topic
+     │
+     ├── Announcement Channel
+     └── Apps
+
+Тоді «форум» — не інший транспорт. Це лише інше представлення тих самих message/event primitives.
+
+Це дасть нам Telegram + Discord + classical forum в одній моделі.
+
+WebXDC для нашої платформи особливо цікавий
+
+Delta Chat уже має mini-app platform. WebXDC — HTML/CSS/JS package, що запускається всередині чату із sandbox та синхронізує app state через E2EE messaging; realtime може йти через Iroh.
+
+Отже потенційно:
+
+Chat / Community
+   │
+   ├── poll.xdc
+   ├── calendar.xdc
+   ├── taskboard.xdc
+   ├── chess.xdc
+   ├── shared-note.xdc
+   └── our-app.xdc
+
+Це дуже близько до нашої концепції «додатків усередині платформи». Я б обов'язково досліджував WebXDC далі, але, ймовірно, зробив би над ним наш розширений app API.
+
+Боти теж практично готові
+
+Є окрема активна організація DeltaChat Bots, frameworks для Python і Go та examples для Rust, Node.js/JSON-RPC, Python, Go, Deno. Bot у Delta Chat фактично є звичайним учасником messaging network, тому йому не потрібен Telegram-подібний центральний Bot API.
+
+Для нас це дозволяє мати:
+
+Bot
+├─ commands
+├─ AI agent
+├─ moderation
+├─ integrations
+├─ workflow
+└─ external services
+
+Причому потім наш DARP/workflow/service layer можна під'єднати до тієї ж подієвої моделі.
+
+Масштаб relay виглядає достатньо серйозно
+
+Chatmail relay за замовчуванням має ліміти близько 10 000 IMAP та 1 000 SMTP одночасних connections, причому документація окремо описує інсталяції з 10k–100k+ addresses та необхідність налаштування connection limits.
+
+Це не означає, що один relay автоматично витримає мільйон active users. Але фундамент тут вже production-oriented, а горизонтальне масштабування можна робити через багато федеративних relay:
+
+         Community
+             │
+    ┌────────┼────────┐
+    ▼        ▼        ▼
+ Relay UA   Relay EU  Relay US
+    │        │        │
+  users    users    users
+
+Для нашої моделі це особливо привабливо: користувач не повинен належати одному центральному кластеру нашої компанії.
+
+Multi-relay — ще одна дуже корисна новинка 2026
+
+Останні версії вже дозволяють одному профілю використовувати декілька relay. Клієнти надсилають повідомлення до кількох relay, синхронізують relay configuration між пристроями й можуть продовжувати працювати, якщо один relay недоступний.
+
+Тобто можна мати:
+
+                 ┌── Relay A
+User identity ───┼── Relay B
+                 └── Relay C
+
+Relay A DOWN
+      ↓
+B/C продовжують працювати
+
+Це дуже добре відповідає нашій вимозі переносності й відсутності залежності від одного central backend.
+
+Щодо ліцензії
+
+Це теж важливо для нашої платформи.
+
+chatmail/core — MPL 2.0.
+
+А офіційні UI клієнти, наприклад Android і Desktop, GPL-3.0-or-later.
+
+Тому я б не форкав весь Delta Chat UI як основу нашого продукту.
+
+Краще:
+
+MPL Chatmail Core
+        +
+our JSON-RPC bridge
+        +
+our UI
+        +
+our Community protocol
+        +
+our App platform
+
+Так набагато чистіше і технічно, і ліцензійно.
+
+Що я б змінив у нашій архітектурі
+
+Моя поточна рекомендація така:
+
+Chatmail Core стає Messaging Kernel нашої платформи.
+
+Поверх нього ми залишаємо власний Community Layer, який реалізує лише те, чого в Delta Chat немає:
+
+Community/SuperGroup: owner, moderators, roles, bans, permissions, великі many-to-many групи.
+Forum: categories, topics, threads, subscriptions.
+Directory: пошук людей, каналів, communities та додатків.
+Moderation: reports, spam control, reputation, global/local bans.
+Marketplace/App Registry: наш каталог applications/WebXDC/app schemas.
+Search/Index: опційний зовнішній індекс для великих public spaces.
+Identity extensions: наші organisations/workspaces/verified identities.
+Bots/Agents: поверх готового messaging API.
+Bridges: ActivityPub/Nostr/Matrix/Telegram/email — де потрібно.
+Enterprise policy: ACL/permissions нашої платформи поверх messaging identity.
+
+Це означає, що ми концентруємо власну розробку саме там, де вона створює цінність, а не на SMTP/IMAP, MIME, криптографії, SecureJoin, NAT traversal, WebRTC, push, offline delivery та multi-device.
+
+Моя оцінка після цього дослідження
+
+Як інженерну оцінку, а не метрику самого Delta Chat, я б розділив готовність так:
+
+Частина нашого месенджера	Наскільки Delta Chat уже вирішує задачу
+Network/transport plumbing	~85–90%
+E2EE/security/key exchange	~90%
+DM messenger	~85%
+Telegram-like channels	~75–85%
+Bots	~70–80%
+Multi-device / resilience	~80–90%
+Calls	~60–70%
+Telegram supergroups	~30–40%
+Discord/community model	~20–30%
+Forum model	~10–20%
+Наша application platform	фундамент є через WebXDC, але потрібен власний шар
+
+Тобто нижні 2/3 технологічного стека месенджера справді вже існують.
+
+Найважливіший висновок: я б тепер не будував наш messenger transport окремо від Delta Chat/Chatmail. Я б зробив chatmail/core фундаментом, а наступне дослідження сфокусував би на трьох речах: внутрішня модель BroadcastChannel → наш SuperGroup, ArcaneChat як джерело вже зроблених розширень, і WebXDC як можливий runtime для наших застосунків. Це може дуже сильно спростити всю архітектуру, яку ми обговорювали раніше.
+
+Основні репозиторії: Chatmail Core · Chatmail Relay · Delta Chat GitHub · ArcaneChat.
+
+Нам не потрібна підтримка ,email
+
+Саме так. Тоді я коригую попередню рекомендацію: Delta Chat / Chatmail Core не слід робити ядром нашого месенджера цілком.
+
+Актуальний chatmail/core все ще фундаментально орієнтований на глобальну email-мережу: його документація прямо називає SMTP/IMAP/MIME основними transport/protocol primitives, а навіть новий multi-transport API оперує email accounts як transport.
+
+Для нас Delta Chat правильніше використовувати як джерело вже вирішених компонентів і архітектурних рішень.
+
+Що викидаємо повністю
+
+Не потрібні:
+
+SMTP;
+IMAP;
+Postfix;
+Dovecot;
+MIME/Internet Message Format як основний формат повідомлення;
+email addresses як identity/transport address;
+Autocrypt-сумісність з email;
+email account configuration/autodiscovery;
+email federation;
+email backward compatibility.
+
+Тобто такого шару в нас узагалі не повинно бути:
+
+                 ❌ REMOVE
+
+Message
+   ↓
+MIME
+   ↓
+SMTP
+   ↓
+Postfix
+   ↓
+Internet
+   ↓
+Dovecot
+   ↓
+IMAP
+   ↓
+Recipient
+Що з Delta Chat залишаємо для дослідження
+
+Ось тут, навпаки, дуже багато цінного:
+
+Delta Chat	Для нас
+Iroh integration	✅ так
+iroh-gossip	✅ так
+P2P discovery/connectivity	✅ так
+SecureJoin/QR UX	✅ адаптувати
+E2EE architecture	✅ адаптувати
+group membership protocol	✅ дуже цікаво
+Broadcast Channel	✅ база для каналів
+channel symmetric encryption	✅
+reactions/read state/pins	✅ модель
+multi-device	✅ модель
+WebXDC	✅ дуже цікаво
+encrypted local state	✅
+blob/attachments management	✅
+bots/API model	✅
+JSON-RPC boundary	можливо
+SMTP/IMAP/MIME	❌
+email compatibility	❌
+
+Особливо цікавий їхній P2P group membership protocol, який сам Chatmail описує як такий, що не потребує server-side group state.
+
+Як я тепер бачу наш messenger core
+
+Замість Chatmail:
+
+                 OUR MESSAGING CORE
+┌──────────────────────────────────────────────┐
+│                                              │
+│ Identity / Devices / Keys                    │
+│                                              │
+│ Conversations                               │
+│ ├── Direct                                  │
+│ ├── Group                                   │
+│ ├── SuperGroup                              │
+│ ├── Channel                                 │
+│ └── Community                               │
+│                                              │
+│ Events                                      │
+│ ├── Message                                 │
+│ ├── Edit                                    │
+│ ├── Delete                                  │
+│ ├── Reaction                                │
+│ ├── Pin                                     │
+│ ├── Membership                              │
+│ └── Moderation                              │
+│                                              │
+│ Crypto                                      │
+│ Membership                                  │
+│ Sync                                        │
+│ Blob/File transfer                          │
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+             Transport Layer
+                   │
+       ┌───────────┼───────────┐
+       ▼           ▼           ▼
+     Iroh       Relay      Push/Wakeup
+      P2P       durable
+
+І принципово:
+
+transport ≠ messaging model.
+
+Тобто Message, Group, Channel, Community нічого не повинні знати про Iroh або relay.
+
+1. Iroh — fast path
+Alice ───────────── Iroh ───────────── Bob
+       direct QUIC connection
+
+Якщо обидва пристрої доступні:
+
+повідомлення;
+typing;
+presence;
+WebRTC signaling;
+великі файли;
+realtime app state;
+
+можуть йти напряму.
+
+Delta Chat уже демонструє практичне використання Iroh для P2P та realtime WebXDC.
+
+2. Але потрібен наш durable relay
+
+Ось це ключове.
+
+Не:
+
+SMTP mailbox
+
+а:
+
+Messaging Relay
+
+Наприклад:
+
+Alice
+  │
+  │ encrypted envelope
+  ▼
+┌────────────────────────┐
+│ Relay                  │
+│                        │
+│ recipient/device queue │
+│ encrypted envelopes    │
+│ blob references        │
+│ TTL                    │
+│ delivery cursors       │
+└───────────┬────────────┘
+            │
+         Bob offline
+            │
+          later
+            ▼
+           Bob
+
+Relay не повинен розшифровувати повідомлення.
+
+Він бачить мінімально необхідне:
+
+Envelope {
+    protocolVersion
+    destination
+    messageId
+    timestamp
+    ttl
+    encryptedPayload
+}
+
+А краще ще сильніше мінімізувати metadata.
+
+3. Iroh + relay одночасно
+
+Тобто доставка:
+
+send(message)
+       │
+       ▼
+ Encrypt
+       │
+       ├────► Iroh direct
+       │
+       └────► Relay durable queue
+
+Але необов'язково завжди дублювати весь payload.
+
+Наприклад:
+
+try direct
+
+if recipient ACK:
+    relay stores only short-lived fallback
+else:
+    relay keeps envelope until ACK/TTL
+
+Це вже можна окремо оптимізувати.
+
+4. Для великих груп P2P fan-out робити не можна
+
+Наприклад:
+
+Group = 50 000 users
+
+не можна робити:
+
+sender
+ ├─ peer1
+ ├─ peer2
+ ├─ peer3
+ ...
+ └─ peer50000
+
+Замість цього:
+
+                    ┌── Relay A
+Publisher ──────────┼── Relay B
+                    ├── Relay C
+                    └── Relay D
+                          │
+                    subscribers
+
+Тут Delta Chat Broadcast Channels корисні нам більше як crypto/protocol reference, ніж як transport implementation. Їхні E2EE broadcast channels уже вирішують частину проблеми шифрування великої аудиторії.
+
+5. Я б зробив усі повідомлення event-based
+
+Це добре стикується і з нашою загальною платформою.
+
+Не:
+
+message row
+
+а:
+
+Event
+{
+   id
+   streamId
+   author
+   device
+   sequence
+   timestamp
+
+   type:
+      MessageCreated
+      MessageEdited
+      MessageDeleted
+      ReactionAdded
+      MemberJoined
+      MemberBanned
+      RoleChanged
+      TopicCreated
+      ...
+
+   payload
+
+   signature
+}
+
+Тоді:
+
+Conversation = ordered event stream
+
+Це одразу вирішує дуже багато проблем:
+
+offline;
+multi-device;
+replication;
+history;
+forum;
+moderation;
+bots;
+audit;
+incremental sync;
+conflict resolution.
+
+І добре стикується з нашою попередньою file/local-first архітектурою.
+
+6. Community і Forum стають природними
+Community
+│
+├── Members
+├── Roles
+├── Moderators
+├── Ban list
+│
+├── Channel: News
+│
+├── Channel: General
+│
+└── Forum
+     │
+     ├── Category
+     │    ├── Topic
+     │    │    └── Thread events
+     │    └── Topic
+     │
+     └── Category
+
+Усе це той самий event protocol.
+
+Не потрібен окремий «forum backend».
+
+7. Identity теж не email
+
+Це особливо важливо.
+
+Я б узагалі не вводив у protocol поняття:
+
+user@example.com
+
+Identity повинна бути криптографічною:
+
+User
+ └── IdentityKey
+      │
+      ├── DeviceKey A
+      ├── DeviceKey B
+      └── DeviceKey C
+
+Наприклад:
+
+UserId = hash(public identity key)
+
+А username:
+
+@bogdan
+
+це лише human-readable alias із directory layer.
+
+Так користувач може:
+
+змінювати username;
+використовувати декілька relay;
+працювати без центрального account provider;
+мігрувати між relay;
+використовувати локальну мережу;
+працювати P2P.
+8. Relay не є identity provider
+
+Це теж принципова відмінність від email.
+
+Identity ≠ Relay account
+
+Користувач:
+
+Identity X
+   │
+   ├─ Relay Kyiv
+   ├─ Relay Europe
+   └─ direct Iroh
+
+може просто опублікувати:
+
+ReachabilityDescriptor {
+    identity
+    devices[]
+    relays[]
+    irohEndpoint
+    capabilities
+}
+
+підписаний identity key.
+
+Це дуже добре стикується з multi-relay ідеями Delta Chat, але вже без email baggage.
+
+Що тоді таке Delta Chat для нашого проєкту
+
+Я б тепер формально поставив його сюди:
+
+                  OUR PLATFORM
+                       │
+        ┌──────────────┴───────────────┐
+        │                              │
+OUR IMPLEMENTATION              REFERENCE PROJECTS
+                                       │
+                              ┌────────┼────────┐
+                              │        │        │
+                          DeltaChat  Signal   Nostr
+                              │
+                         extract ideas
+
+А не:
+
+OUR UI
+   ↓
+Delta Chat Core
+
+Це важлива зміна.
+
+Найцінніше, що можна забрати з Delta Chat
+
+Я б тепер окремо розібрав їхній код на 7 модулів, які потенційно варто адаптувати або перевикористати:
+
+peer_channels.rs — Iroh/gossip;
+broadcast channel implementation;
+group membership protocol;
+crypto/key rotation;
+SecureJoin;
+WebXDC realtime/state synchronization;
+multi-device synchronization.
+
+А imap.rs, smtp.rs, mimefactory.rs, mimeparser.rs, transport email configuration тощо для нашої архітектури — не потрібні взагалі.
+
+Отже виправлений напрямок: не “форк Delta Chat”, а “native Iroh messenger protocol, використовуючи Delta Chat як перевірений донор алгоритмів/реалізацій там, де вони не пов'язані з email”. Це значно краще відповідає нашій початковій концепції переносної, local-first, multi-relay платформи.

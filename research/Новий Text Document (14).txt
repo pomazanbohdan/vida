@@ -1,0 +1,987 @@
+чт, 27 авг. в 23:31
+Знайди найкращі сервіси, продукти управління проектами як опенсорс так і платними, зроби зведений список детальний по функціоналу "ідеального"
+
+Станом на 27 серпня 2026 року, «ідеальної» системи управління проєктами в одному готовому продукті фактично немає. Найсильніші рішення оптимізовані під різні частини циклу: Linear — execution, airfocus/Productboard — discovery, OpenProject/Smartsheet — PPM, Teamwork — ресурси й фінанси, Fibery — модель даних, Tuleap — requirements/traceability, ClickUp — ширину функцій.
+
+1. Найцікавіші системи, які варто брати за референси
+Продукт	Тип	Найсильніша сторона	Що варто запозичити
+Linear	Commercial SaaS	Product/software execution	Дуже швидкий UX, Issues, Projects, Initiatives, Cycles, customer requests, intake, insights, агенти
+ClickUp	Commercial SaaS	Найширший all-in-one	Tasks + Docs + Wiki + Chat + Whiteboards + Goals + Time + Resource + Dashboards + Automations + AI
+Asana	Commercial SaaS	Cross-functional management	Goals→Portfolios→Projects, workload, forms, approvals, status reporting, rules
+monday.com	Commercial platform	No-code work platform	Конструктор сутностей/boards, views, forms, dashboards, workflow builder, portfolio, resource management
+Jira + JPD	Commercial	Гнучкий SDLC	Workflows, custom issue types, automation, delivery + product discovery
+Wrike	Commercial	Enterprise PPM	Intake, Gantt, resource planning, budgeting, proofing, approvals, analytics
+Smartsheet	Commercial	PMO / structured planning	Gantt, critical path, baselines, formulas, portfolio control, resource planning, dashboards
+Fibery	Commercial, free tier	Найкраща гнучка модель	Custom databases/types/relations, formulas, docs, whiteboards, product discovery, automations, MCP
+Teamwork.com	Commercial	Professional services	Capacity, utilization, time, budgets, cost/billable rates, profitability, invoicing
+YouTrack	Commercial, cloud/on-prem	Dev + PM + support	Issues, Scrum/Kanban, Gantt, KB, Helpdesk, time, state-machine workflows, custom apps
+airfocus	Commercial	Product intelligence	Feedback→insight→opportunity→objective→roadmap, prioritization, portfolio, capacity, MCP
+Productboard	Commercial	Customer-driven product mgmt	Feedback repository, feature validation, customer portal, prioritization, roadmap
+Aha!	Commercial	Product strategy	Goals, initiatives, releases, requirements, scoring, strategic/portfolio roadmaps
+GitHub Projects	Commercial/freemium	Code-native PM	Issues/sub-issues, Projects, custom fields, roadmap, PR/commit linkage, automation
+Azure Boards	Commercial	Enterprise software delivery	Work items, portfolio backlog, sprints, Delivery Plans, dependencies, analytics
+
+Linear сьогодні вже охоплює шлях від roadmap до release та додає Customer Requests, Asks, Insights і AI agents. ClickUp фактично демонструє верхню межу «ширини»: понад 15 views, tasks, nested subtasks, epics, docs, wiki, chat, whiteboards, workload, time tracking, timesheets, portfolios, API, webhooks, MCP та AI agents.
+
+monday рухається ще далі в бік платформи: boards як універсальна модель даних, WorkForms, dashboards, portfolio reporting, cross-project dependencies, resource management та AI workflows/AI app builder. Wrike особливо сильний у resource planning, Gantt, budgeting, request intake, proofing та approvals.
+
+Fibery цікавий тим, що не змушує вкладати все у фіксовану модель «project/task»: можна визначати власні сутності, зв'язки, формули, views, документи й автоматизації. Teamwork додає те, чого часто немає в Jira/Linear: реальні бюджети, cost/billable rates, utilization, fixed-fee/T&M/retainer-моделі та profitability.
+
+2. Найкращі open-source референси
+Продукт	Ліцензія / модель	Сильні сторони	Моя оцінка як референсу
+Plane	AGPL-3.0	Modern UX, issues, cycles, modules, pages, analytics, roadmap	⭐⭐⭐⭐⭐
+OpenProject	GPLv3 Community + paid Enterprise	Gantt, WBS, Scrum/Kanban, portfolio, resources, time, costs, budgets	⭐⭐⭐⭐⭐
+Leantime	AGPLv3 + commercial plugins	Strategy→goals→projects, Lean Canvas, risk, Gantt, time, retrospectives	⭐⭐⭐⭐
+Tuleap	GPLv2+	Requirements, agile, SAFe, tests, traceability, documents, DevOps	⭐⭐⭐⭐⭐ для ALM
+Taiga	OSS	Scrum/Kanban, epics, user stories, issues, wiki	⭐⭐⭐
+Vikunja	AGPLv3	Простий task manager, List/Kanban/Gantt	⭐⭐⭐ для personal/team work
+Redmine	GPLv2	Mature tracker, workflows, custom fields, time, wiki, plugins	⭐⭐⭐
+Huly	EPL-2.0	PM + chat + docs + CRM/HR platform	⭐⭐⭐, але з суттєвим caveat
+
+Plane зараз — один із найкращих open-source аналогів Linear: AGPLv3, self-hosting, issues, cycles, docs/pages, views і analytics; репозиторій мав близько 50 тис. GitHub stars і продовжував активно розвиватися у 2026 році.
+
+OpenProject — набагато сильніший як класичний PM/PPM: WBS/work packages, Gantt, scheduling, agile boards, Scrum, roadmap, team planner, resource management, time, labour/unit costs і budgets. Community edition — GPLv3 і може self-hostитися безкоштовно.
+
+Leantime незвично добре закриває шар перед execution: strategy, focus areas, goals, project goals, risk/strategy canvases, а нижче — Kanban/Gantt/list/calendar, sprints, milestones і timesheets.
+
+Tuleap варто окремо вивчати для складних проєктів: requirements → tasks → development → tests → releases з end-to-end traceability, плюс Scrum/Kanban/SAFe та документація.
+
+Huly технічно цікавий як об'єднання tracker + chat + docs + CRM/HR, але hosted Huly у 2026 році був припинений; self-hosted проєкт залишився активним. Тому як UX/архітектурний референс він цікавий, але як SaaS-вибір зараз ризикований.
+
+3. Зведений функціонал «ідеальної» системи
+
+Я б визначав її не як project manager, а як:
+
+Strategy + Product Discovery + Project/Portfolio Management + Work Execution + Knowledge + Resource/Financial Management + Automation/AI platform.
+
+A. Універсальна модель роботи — фундамент
+
+Ідеальна система не повинна жорстко обмежуватися Project → Task → Subtask.
+
+Потрібен стандартний набір:
+
+Organization → Workspace → Portfolio → Program → Project → Initiative/Epic → Feature/Deliverable → Task → Subtask
+
+але паралельно — довільні custom types:
+
+Idea, Opportunity, Requirement, Risk, Decision, Change Request, Bug, Test, Customer Request, Experiment, Milestone, Release тощо.
+
+Для кожного типу:
+
+власні поля;
+власна форма;
+власний workflow;
+власні permissions;
+власні views;
+формули;
+calculated/rollup fields;
+relations many-to-many;
+parent/child;
+references;
+mirrored entities;
+templates.
+
+Тобто UX можна зробити простим як Linear, але всередині модель має бути ближчою до Fibery/monday.
+
+4. Strategy & Goals
+
+Повноцінний верхній рівень:
+
+Vision / Mission;
+strategic themes;
+Objectives;
+Key Results;
+KPIs;
+initiatives;
+outcomes;
+annual/quarterly planning;
+strategy map;
+hierarchy Corporate goal → Department goal → Team goal → Initiative → Project → Work;
+автоматичний roll-up progress;
+confidence/status;
+owner;
+target dates;
+baseline vs actual;
+links to budgets/resources.
+
+Ключова вимога:
+
+кожна задача може бути простежена назад до відповіді на питання «навіщо ми це робимо?»
+
+Цей патерн добре реалізують Asana, airfocus і Aha!.
+
+5. Ideas, Intake та Product Discovery
+
+Окремий універсальний Inbox / Intake layer.
+
+Джерела:
+
+quick capture;
+форма;
+email;
+Slack/Teams;
+support ticket;
+CRM;
+API;
+browser extension;
+meeting;
+customer portal;
+AI agent.
+
+Потім pipeline:
+
+Signal → Feedback → Insight → Problem/Opportunity → Idea → Experiment → Initiative → Delivery
+
+Обов'язково:
+
+deduplication;
+clustering;
+tags;
+customer/account link;
+customer segment;
+ARR/importance account;
+votes;
+frequency;
+pain/severity;
+evidence;
+interview snippets;
+attachments;
+source traceability.
+
+Саме цей фрагмент дуже добре показують Productboard, Fibery та airfocus.
+
+6. Prioritization
+
+Не просто поле Priority = High.
+
+Підтримка:
+
+Value/Effort;
+RICE;
+ICE;
+WSJF;
+MoSCoW;
+Kano;
+weighted score;
+Cost of Delay;
+opportunity scoring;
+custom formulas.
+
+Наприклад:
+
+Priority = Reach × Impact × Confidence / Effort
+
+Або складніше:
+
+Strategic fit × 0.25 + Revenue × 0.20 + Customer impact × 0.25 + Risk reduction × 0.15 – Cost × 0.15
+
+Потрібні:
+
+configurable scoring models;
+scenario comparison;
+score history;
+пояснення рішення;
+voting / priority poker;
+AI-assisted prioritization;
+ability to answer «що ми повинні прибрати, якщо беремо X?»
+
+Останній сценарій уже прямо рухає airfocus.
+
+7. Roadmaps
+
+Не один Gantt.
+
+Потрібні різні смислові roadmaps:
+
+Strategy roadmap;
+Portfolio roadmap;
+Product roadmap;
+Technology roadmap;
+Release roadmap;
+Features roadmap;
+Now / Next / Later;
+Timeline;
+outcome-based;
+objective-based.
+
+Плюс:
+
+confidence;
+dependencies;
+capacity;
+milestones;
+target vs committed date;
+scenarios;
+public/stakeholder roadmap.
+
+Aha! добре формалізує різницю між strategic, release, portfolio, features і technology roadmaps.
+
+8. Project planning
+
+Тут потрібен повний традиційний PM-функціонал:
+
+WBS;
+phases;
+deliverables;
+milestones;
+start/end;
+duration;
+effort;
+dependencies;
+cross-project dependencies;
+automatic scheduling;
+manual scheduling;
+constraints;
+baselines;
+planned vs actual;
+Gantt;
+critical path;
+slack/float;
+project calendar;
+working/non-working days;
+project templates.
+
+OpenProject і Smartsheet — хороші референси саме цього шару.
+
+9. Agile execution
+
+Одночасно Scrum, Kanban і mixed methodology:
+
+backlog;
+epics;
+stories;
+tasks;
+bugs;
+story points;
+estimation;
+sprint/cycle;
+sprint goal;
+sprint capacity;
+planning;
+carry-over;
+velocity;
+burndown;
+burnup;
+cumulative-flow diagram;
+WIP limits;
+swimlanes;
+release/version;
+multi-team sprint;
+cross-project sprint.
+
+YouTrack навіть дозволяє різним командам використовувати різні методології поверх одного набору work items. OpenProject у 2026 році вже додав shared sprints для координації кількох проєктів/команд.
+
+10. Task management
+
+На рівні конкретної роботи:
+
+title;
+rich description;
+status;
+custom status;
+task type;
+priority;
+assignee;
+multiple assignees;
+owner;
+team;
+watchers;
+start/due date;
+estimates;
+story points;
+labels/tags;
+attachments;
+comments;
+checklist;
+arbitrary subtasks;
+dependencies;
+blockers;
+related tasks;
+linked docs;
+linked goals;
+linked releases;
+linked customers;
+linked commits/PRs.
+
+Також:
+
+recurring tasks;
+templates;
+duplicate;
+clone;
+merge;
+bulk edit;
+batch transition;
+keyboard commands;
+command palette;
+saved filters;
+personal views;
+custom views.
+
+ClickUp зараз дає чи не найповніший каталог цих primitive-функцій.
+
+11. Personal productivity
+
+Enterprise PM дуже часто погано вирішує роботу конкретної людини.
+
+Потрібен окремий My Work:
+
+Inbox;
+Today;
+Tomorrow;
+Upcoming;
+Overdue;
+Assigned to me;
+Waiting for;
+Delegated;
+Follow-up;
+Priorities;
+Reminders;
+recurring tasks;
+private tasks;
+personal notes;
+quick capture;
+calendar;
+time blocking;
+Focus mode;
+daily review;
+weekly review.
+
+І важливо: особиста задача може залишатися приватною або за один клік перетворюватися на командну.
+
+12. Views
+
+Одна й та сама інформація повинна мати різні representations:
+
+List;
+hierarchical List;
+Table;
+Spreadsheet/Grid;
+Kanban;
+Scrum board;
+Timeline;
+Gantt;
+Calendar;
+Workload;
+Portfolio;
+Roadmap;
+Map;
+Chart;
+Matrix;
+Dependency graph;
+Mind map;
+Whiteboard;
+Feed;
+personal planner.
+
+Обов'язково:
+
+grouping;
+sorting;
+multi-filter;
+conditional formatting;
+saved views;
+shared views;
+private views.
+
+Fibery і ClickUp тут особливо сильні.
+
+13. Resource & capacity management
+
+Це одна з найбільших дірок простих task trackers.
+
+Повинні бути:
+
+people;
+roles;
+teams;
+skills;
+seniority;
+location;
+calendar;
+holidays;
+availability;
+capacity;
+planned workload;
+actual workload;
+utilization;
+allocation %;
+tentative booking;
+hard booking;
+resource demand;
+skills-based staffing;
+overbooking detection;
+capacity forecast.
+
+Views:
+
+Person × Week
+
+Team × Month
+
+Project × Resource
+
+Skill × Demand
+
+Wrike, Teamwork, Asana та OpenProject добре показують різні частини цієї моделі.
+
+14. Time management
+
+Повноцінно:
+
+estimated time;
+original estimate;
+remaining estimate;
+actual;
+timer;
+manual entry;
+bulk entry;
+timesheets;
+approval;
+work type;
+billable/non-billable;
+rate;
+calendar;
+report;
+planned vs actual.
+
+YouTrack навіть агрегує time entries від subtasks до parent stories/epics.
+
+15. Finance
+
+Для «ідеальної» системи це не optional.
+
+Project budget
+hours;
+money;
+fixed fee;
+time & materials;
+retainer;
+recurring budget.
+Costs
+employee cost rate;
+role cost;
+vendor cost;
+expenses;
+purchases.
+Revenue
+billable rates;
+client rates;
+contract amount;
+invoices.
+Analytics
+budget consumed;
+forecast at completion;
+cost variance;
+margin;
+profit;
+profitability;
+revenue forecast;
+multi-currency.
+
+Teamwork тут один із найцінніших референсів: його модель прямо об'єднує budgets, labour costs, billable rates, utilization та profitability.
+
+16. Risk, Issues, Decisions, Changes
+
+Окремі first-class entities:
+
+Risk
+
+probability;
+impact;
+exposure;
+mitigation;
+owner;
+trigger;
+residual risk.
+
+Issue
+
+severity;
+impact;
+resolution.
+
+Decision
+
+options;
+rationale;
+owner;
+approvers;
+decision date.
+
+Change Request
+
+scope impact;
+time impact;
+budget impact;
+approval;
+resulting baseline.
+
+Плюс:
+
+RAID register;
+risk matrix;
+decision log;
+assumption log;
+dependency register.
+17. Requirements & Quality
+
+Особливо для software/hardware/regulated projects:
+
+Business requirement → System requirement → Feature → Task → Code → Build → Test → Defect → Release
+
+Потрібні:
+
+requirement hierarchy;
+acceptance criteria;
+requirement versioning;
+approvals;
+traceability matrix;
+test cases;
+test suites;
+test plans;
+test executions;
+defects;
+coverage;
+evidence.
+
+Саме тут Tuleap значно цікавіший за більшість звичайних PM-систем.
+
+18. Docs & Knowledge
+
+Не окремий Confluence за необхідності.
+
+Потрібні:
+
+rich docs;
+nested pages;
+wiki;
+PRD;
+ADR;
+meeting notes;
+SOP;
+project charter;
+retrospective;
+embedded tasks/views/charts;
+backlinks;
+semantic linking;
+version history;
+inline comments;
+permissions;
+full-text/semantic search.
+
+Особливо сильний принцип Fibery/ClickUp:
+
+документ і структуровані дані не повинні бути двома ізольованими світами.
+
+19. Whiteboards & visual thinking
+
+Whiteboard не просто картинка.
+
+Об'єкти на ньому повинні перетворюватися на:
+
+task;
+idea;
+requirement;
+doc;
+project;
+customer insight.
+
+І навпаки — реальні сутності можна розміщувати на board.
+
+Це вже реалізують Fibery і YouTrack.
+
+20. Collaboration
+
+Повний contextual collaboration:
+
+comments;
+threaded comments;
+@mentions;
+reactions;
+watchers;
+discussions;
+chat;
+channels;
+DM;
+assigned comments;
+announcements;
+async status updates;
+activity stream.
+
+Для external collaboration:
+
+guest;
+client;
+stakeholder;
+external approver;
+read-only observer.
+
+Також:
+
+proofing images/PDF/video;
+approval chains;
+external approvals.
+
+Wrike особливо сильний у proofing/approvals.
+
+21. Meetings
+
+Несподівано важливий модуль.
+
+Meeting
+
+attendees;
+agenda;
+preparation materials;
+notes;
+transcript;
+decisions;
+action items;
+follow-ups.
+
+Action item автоматично стає task.
+
+AI:
+
+transcription;
+summary;
+decision extraction;
+task extraction;
+risk extraction.
+
+OpenProject уже розглядає meeting + agenda + minutes як частину project lifecycle, а ClickUp додає AI Notetaker.
+
+22. Forms, requests та portals
+
+Universal Form Builder:
+
+conditional fields;
+branching;
+validation;
+attachments;
+anonymous/authenticated;
+prefilled context;
+dynamic lookup;
+external sharing.
+
+Після submit:
+
+Create → classify → route → assign → SLA → approve → execute.
+
+Типи portal:
+
+internal request portal;
+IT/service portal;
+customer feature portal;
+client project portal;
+public roadmap.
+23. Automation engine
+
+Це має бути фактично lightweight workflow/BPM layer.
+
+Trigger
+entity created;
+updated;
+status changed;
+field changed;
+comment;
+due date;
+schedule;
+webhook;
+external event.
+Conditions
+field/value;
+relation;
+user/group;
+formula;
+permission;
+date;
+state;
+nested AND/OR.
+Actions
+create/update entity;
+transition;
+assign;
+comment;
+notify;
+email;
+call API;
+webhook;
+create document;
+launch approval;
+execute script;
+execute AI.
+
+Додатково:
+
+reusable workflows;
+versions;
+templates;
+logs;
+retries;
+error handling;
+test mode;
+dry-run;
+audit trail.
+
+YouTrack навіть має explicit state-machine workflows та visual Workflow Constructor.
+
+24. Reporting & BI
+
+Тут «ідеал» має перевершувати Jira.
+
+Delivery
+throughput;
+lead time;
+cycle time;
+aging;
+blockers;
+velocity;
+burndown/up;
+CFD.
+PM
+schedule variance;
+milestone status;
+critical path;
+planned vs actual;
+baseline variance.
+Resources
+capacity;
+utilization;
+planned vs actual;
+over/under allocation.
+Finance
+cost;
+budget;
+margin;
+profitability.
+Strategy
+OKR progress;
+strategic investment;
+portfolio allocation.
+
+Потрібні:
+
+arbitrary dashboard;
+custom metrics;
+formulas;
+charts;
+drill-down;
+cross-project reporting;
+historical snapshots;
+trends;
+scheduled reports;
+exports;
+BI connector.
+
+Smartsheet і Fibery показують правильний напрямок: formulas + structured data + charts/dashboards, а не тільки canned reports.
+
+25. AI / Agentic PM
+
+Ось де я б суттєво перевищив більшість існуючих систем.
+
+AI має вміти не тільки відповідати на питання, а діяти.
+
+Personal agent
+«Що мені робити сьогодні?»
+сформувати план дня;
+знайти overdue;
+перепланувати;
+підготувати follow-ups.
+Project agent
+створити project plan з brief;
+decomposition;
+залежності;
+estimates;
+risks;
+status report;
+detect blockers;
+forecast delay.
+Product agent
+ingest feedback;
+cluster;
+identify insights;
+suggest opportunities;
+prioritize;
+prepare roadmap alternatives.
+PMO agent
+перевірити 100 проєктів;
+знайти schedule/budget/resource risks;
+сформувати portfolio summary.
+Resource agent
+знайти оптимального виконавця;
+rebalance capacity;
+simulate staffing.
+Financial agent
+detect budget burn;
+forecast EAC;
+forecast margin.
+Autonomous agents
+
+Agent може бути:
+
+assignee;
+commenter;
+reviewer;
+watcher;
+workflow participant.
+
+Сучасні ClickUp, monday, Asana та Wrike уже рухаються саме до такого human+agent work model.
+
+26. AI safety та control
+
+Agentic PM без цього небезпечний.
+
+Потрібно:
+
+agents obey RBAC;
+scoped context;
+citations/source links;
+explain why;
+confidence;
+proposed vs executed action;
+human approval;
+audit log;
+rollback;
+rate/cost limits;
+model selection;
+sensitive-data restrictions.
+27. Integrations та developer platform
+
+Не просто список Zapier-конекторів.
+
+Native
+GitHub;
+GitLab;
+Azure DevOps;
+Slack;
+Teams;
+Gmail/Outlook;
+Calendar;
+Google Drive;
+Office;
+Figma;
+CRM;
+Helpdesk;
+accounting;
+BI.
+Platform
+REST API;
+GraphQL бажано;
+webhooks;
+SDK;
+app framework;
+custom UI widgets;
+custom actions;
+service accounts;
+OAuth;
+import/export;
+bidirectional sync.
+AI-era
+MCP server;
+MCP client;
+tool permissions;
+agent API.
+
+Це вже перестає бути теорією: Fibery, ClickUp, YouTrack та airfocus мають MCP-oriented можливості.
+
+28. Enterprise security
+
+Необхідний набір:
+
+RBAC;
+custom roles;
+ABAC;
+project permissions;
+record permissions;
+field permissions;
+guest scopes;
+SSO/SAML;
+OIDC;
+SCIM;
+MFA;
+audit log;
+data residency;
+retention policies;
+encryption;
+customer-managed keys;
+API/service-account policies;
+backup/restore;
+on-prem;
+air-gapped deployment.
+
+Для regulated середовищ Tuleap/OpenProject/self-hosted YouTrack особливо цікаві через on-premises модель; Tuleap прямо підтримує air-gapped сценарії.
+
+29. UX-принцип, який я вважаю критичним
+
+Не треба робити «ще один ClickUp», у якому користувач бачить 150 функцій.
+
+Оптимальна модель:
+
+Simple mode
+
+Працівник бачить:
+
+Inbox → My Work → Task → Project → Search
+
+Manager mode
+
+Додаються:
+
+Timeline → Workload → Dashboard → Risks
+
+PM/Product mode
+
+Додаються:
+
+Goals → Discovery → Roadmap → Capacity → Portfolio
+
+Admin mode
+
+Додаються:
+
+Schema → Workflows → Automation → Permissions → Integrations
+
+Тобто функціональна глибина ClickUp/Fibery/OpenProject, але інформаційна простота Linear.
+
+30. Якщо стисло скласти «ідеальний продукт»
+
+Я б узяв:
+
+Область	Еталон
+UX / швидкість	Linear
+Issue/task execution	Linear + YouTrack
+Universal work management	ClickUp
+Data/object model	Fibery
+No-code configuration	monday
+Goals / OKR	Asana + airfocus
+Discovery / customer feedback	airfocus + Productboard + Fibery
+Prioritization	airfocus + Aha!
+Roadmaps	Aha! + airfocus
+Gantt / traditional PM	OpenProject + Smartsheet
+Scrum/Kanban	YouTrack + Plane
+Resource planning	Wrike + Teamwork
+Time tracking	YouTrack + Teamwork
+Budget / cost / margin	Teamwork + OpenProject
+Docs/wiki	Fibery + ClickUp
+Whiteboards	Fibery + YouTrack
+Proofing / approvals	Wrike
+Requirements / traceability / tests	Tuleap
+Automation	YouTrack + monday + Asana
+Reports / BI	Smartsheet + Fibery
+Personal productivity	ClickUp-style My Work + calendar/task-manager UX
+AI agents	ClickUp + monday + Asana + Linear
+External AI integration	MCP-first: Fibery/airfocus/ClickUp/YouTrack pattern
+OSS/self-host reference	Plane + OpenProject + Tuleap + Leantime
+Фактично «ідеальна» система виглядає так
+
+Capture → Discover → Decide → Strategize → Plan → Resource → Execute → Collaborate → Measure → Learn
+
+і наскрізно через усе це проходять:
+
+Goals + Knowledge + Finance + Automation + AI + Permissions + Analytics.
+
+Це принципово ширша модель, ніж Jira/Asana/ClickUp окремо: один граф роботи, де feedback може бути простежений до opportunity, objective, initiative, project, requirement, task, commit, release, KPI та фактичного бізнес-результату.
+
+Як референсну основу я б поставив Linear + Fibery + OpenProject + Teamwork + airfocus + Tuleap, а ClickUp/monday/Asana/Wrike використав би як каталоги додаткових work-management можливостей.
