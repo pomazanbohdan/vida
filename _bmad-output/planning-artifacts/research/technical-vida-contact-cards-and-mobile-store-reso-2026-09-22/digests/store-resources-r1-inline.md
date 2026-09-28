@@ -1,0 +1,11 @@
+# Digest: store and resource constraints
+
+- claim: Apple вимагає energy-efficient behavior і дозволяє background services лише для визначених цілей; постійне довільне background P2P connection не є гарантованою моделлю iOS. source: https://developer.apple.com/app-store/review/guidelines/uk/ publisher: Apple Developer pub_date: 2026 accessed: 2026-09-22 confidence: high class: policy
+- claim: Android 14+ foreground services потребують declared type, permissions where applicable і Play Console justification; dataSync призначений для user-initiated transfer, remoteMessaging — для continuity messaging. source: https://support.google.com/googleplay/android-developer/answer/13392821 publisher: Google Play pub_date: current accessed: 2026-09-22 confidence: high class: policy
+- claim: Google Play Android vitals оцінює crashes, ANRs, excessive partial wake locks and memory; excessive wake locks можуть впливати на visibility. source: https://developer.android.com/topic/performance/vitals publisher: Android Developers pub_date: current accessed: 2026-09-22 confidence: high class: policy
+- claim: Google Play limit for compressed per-device APKs generated from App Bundles is 200 MB; this is an absolute ceiling, not a product-quality target. source: https://support.google.com/googleplay/android-developer/answer/9859152 publisher: Google Play pub_date: current accessed: 2026-09-22 confidence: high class: compatibility
+- claim: Apple iOS app maximum uncompressed size is 4 GB, with 500 MB total __TEXT executable limit; product quality still requires measuring thinned download/install variants and energy, not aiming at maxima. source: https://developer.apple.com/help/app-store-connect/reference/app-uploads/maximum-build-file-sizes publisher: Apple Developer pub_date: current accessed: 2026-09-22 confidence: high class: compatibility
+- claim: Flutter supports deferred components on Android and web, not iOS; therefore modular activation does not automatically imply symmetric code-on-demand across VIDA clients. source: https://docs.flutter.dev/perf/deferred-components publisher: Flutter pub_date: current accessed: 2026-09-22 confidence: high class: compatibility
+
+Leads: define measured release budgets per platform after a representative vertical slice; enforce store ceilings, vitals, battery, startup, storage and background policy as gates.
+

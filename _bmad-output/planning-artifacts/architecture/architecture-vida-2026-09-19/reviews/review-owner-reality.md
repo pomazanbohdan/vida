@@ -1,0 +1,21 @@
+# Reviewer gate — owner-removal reality/currentness lens
+
+Verdict: **conditional pass for the architecture decision; not implementation-ready**. Unilateral removal by one currently authorized Owner is compatible with a serialized Space control log, and the spine correctly leaves authority ordering blocked by OQ-0031. The remaining issues are semantic and operational gaps, not claims that Iroh or the federation node supplies quorum/authority automatically. This review used current repository documents only; it makes no external technology-currentness claim.
+
+## High findings
+
+1. **Role removal is conflated with loss of membership and all future access.** AD-6 says an Owner may revoke another Owner's *role* and that removal advances the affected future-access epoch (`ARCHITECTURE-SPINE.md:118`). The contract records `RoleRevoked` and says both role and access are lost (`space-membership-contract.md:31,40`), whereas ADR-0003's concrete revocation event is `GrantRevoked` (`ADR-0003-offline-revocation.md:69`) and membership removal is a distinct control operation. If the target retains a Member/other role or explicit grants, Owner demotion alone must not imply loss of all read/write access or unconditional key rotation. **Disposition:** clarify whether the user means ownership demotion, full membership removal, or either action; specify derived grant changes and rotate only scopes whose authorization actually changes. Do not claim effective access loss from `RoleRevoked` alone.
+
+2. **Optional critical quorum can be bypassed or deadlocked by unilateral Owner removal.** ADR-0003 allows critical Space/scope M-of-N for other actions, but exempts removal of Owners even there (`ADR-0003-offline-revocation.md:140-142`). A single compromised Owner can remove co-Owners before a protected action; depending on whether N/threshold follows the live roster, that either lowers the bar or makes the policy unsatisfiable. The user's explicit simpler rule should be preserved, not silently reversed. **Disposition:** mark the security trade-off explicitly and keep critical-quorum policy unimplemented until its denominator/threshold and roster-transition semantics are defined. If v1 values simplicity, defer/remove optional M-of-N rather than promise it protects against one Owner.
+
+3. **Pre-cut offline operation language conflicts with execution-time acceptance.** ADR-0003 rejects an operation not accepted before effective revocation, even when created earlier offline (`ADR-0003-offline-revocation.md:88-93`). The membership contract instead says stale operations are evaluated at their causal authorization point and asks for an “allowed pre-cut offline operation” (`space-membership-contract.md:47,59`), which could authorize an offline operation merely because its client timestamp/claimed causal point precedes revocation. **Disposition:** define pre-cut as authority-accepted before the accepted control sequence (or explicitly design a separately proven causal exception); align the acceptance fixture with ADR-0003. OQ-0031 remains a hard gate.
+
+## Medium finding
+
+4. **Admin authority over Owner is still ambiguous.** Admin has broad “Members, roles” permissions (`ADR-0002-default-role-presets.md:58`), and ADR-0003 permits an Admin with `manage_members` to initiate shared-Space access changes (`ADR-0003-offline-revocation.md:136`). The new Owner-specific grant (`ADR-0002-default-role-presets.md:105`) establishes that Owners can remove Owners, but does not state whether Admins can too. **Disposition:** ask whether removal/demotion of Owner is reserved to another Owner; until answered, do not treat the Owner-only rule as an exclusive authorization check.
+
+## Positive checks
+
+- The new rule does not give a transport endpoint or federated identity node control authority; `SpaceMembership` remains tied to signed Space control operations (`space-membership-contract.md:24-40`).
+- No unsupported immediate remote-erasure guarantee is asserted: AD-6 explicitly excludes already replicated plaintext (`ARCHITECTURE-SPINE.md:118`).
+- The at-least-one-Owner invariant appears in ADR-0002, ADR-0003 and the contract (`ADR-0002-default-role-presets.md:104-106`; `space-membership-contract.md:40,60`). Concurrent cross-removal ordering is correctly still gated by OQ-0031 (`ARCHITECTURE-SPINE.md:192`).

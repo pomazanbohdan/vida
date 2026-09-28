@@ -1,0 +1,8 @@
+[
+  {"claim":"[1] transactional outbox still permits duplicate downstream delivery","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy; undated source"},
+  {"claim":"[2] external API call cannot atomically couple with local queue ack","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy; undated source"},
+  {"claim":"[3] Apple background push delivery is not guaranteed","class":"platform","pub_date":"2026-09-19","date_basis":"access-proxy; undated source"},
+  {"claim":"[4] opaque event push can avoid plaintext in intermediary","class":"privacy","pub_date":"2026-07-08","date_basis":"Matrix v1.19 release"},
+  {"claim":"[5] leader election without fencing can have overlapping actors","class":"coordination","pub_date":"2026-09-19","date_basis":"access-proxy; undated source"},
+  {"claim":"[6] hosted alarms and activities may retry","class":"pattern","pub_date":"2026-04-21","date_basis":"Cloudflare page last-updated"}
+]

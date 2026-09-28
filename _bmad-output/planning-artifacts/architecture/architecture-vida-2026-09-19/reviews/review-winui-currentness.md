@@ -1,0 +1,29 @@
+# Windows client options — currentness review
+
+Reviewed 2026-09-20. Scope: [ARCHITECTURE-SPINE.md](../ARCHITECTURE-SPINE.md) installed-client invariants and [windows-client-options.md](../../../../../docs/03-architecture/windows-client-options.md). Lens: WinUI 3 + C#/.NET, Rust C ABI, UniFFI, deployment, accessibility and lifecycle using official upstream documentation. No Windows toolkit is selected by this review.
+
+## Verdict
+
+**Pass with two medium evidence refinements; no stale or impossible candidate.** WinUI 3 is a current native-XAML Windows desktop framework for C# or C++; C# `LibraryImport`/P/Invoke to a Rust-exported C ABI is a credible *prototype path*, not a ready VIDA binding. The brief correctly rejects an assumption that Mozilla's official UniFFI has full C# support, and treats a11y, offline persistence, lifecycle and installer behavior as gates rather than framework guarantees.
+
+## Findings
+
+### P2 — “Self-contained” comprises separate Windows App SDK and .NET decisions
+
+The installation row in `windows-client-options.md` lists “MSIX/unpackaged, framework-dependent/self-contained” and separately mentions shipping a Rust DLL. [Microsoft's packaging overview](https://learn.microsoft.com/en-us/windows/apps/get-started/intro-pack-dep-proc) distinguishes package identity from the Windows App SDK runtime deployment mode. Its [self-contained deployment guide](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/self-contained-deploy/deploy-self-contained-apps) explicitly says a .NET app must *also* be published self-contained to be fully self-contained. The decision gate should capture independently: (1) MSIX / packaged-with-external-location / unpackaged and package identity; (2) Windows App SDK framework-dependent versus self-contained; (3) .NET runtime framework-dependent versus self-contained; and (4) per-architecture Rust DLL packaging, signing and update/rollback. Package identity affects Windows extensibility such as background tasks and some push/activation scenarios; do not compare offline/notification behavior across package models as if only UI toolkit changed. This is a clarification of a prototype matrix, not a claim the draft already chose an invalid deployment.
+
+### P2 — Pin the RichEditBox API evidence to the SDK version evaluated
+
+The [RichEditBox link](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.controls.richeditbox?view=windows-app-sdk-1.8) fixes `view=windows-app-sdk-1.8`. [Microsoft's September 2026 currentness page](https://learn.microsoft.com/en-us/windows/apps/whats-new/whats-new-for-developers) lists Windows App SDK **2.4.0** as latest stable as of 2026-09-09. The old link still supports the modest claim that RichEditBox handles formatted text, but it is not evidence for current 2.4 behavior or for VIDA's structured blocks. When running the editor/grid spike, record the chosen stable SDK version and consult that version's API/control documentation; retain 1.8 only if deliberately testing 1.8. This does not require choosing 2.4.0 for VIDA now.
+
+## Verified claims and limits
+
+| Brief claim | Official evidence and boundary |
+|---|---|
+| WinUI 3 is native Windows XAML, C# or C++, not a browser framework | [Microsoft WinUI 3 overview](https://learn.microsoft.com/en-us/windows/apps/get-started/winui-get-started-overview) explicitly says so. A C# WinUI app is managed .NET code hosted as a Windows desktop process; “native UI” does not mean the entire app is Rust/C++ native code. The brief accurately keeps Tauri WebView acceptability in OQ-0008. |
+| `WinUI/XAML → C# → C ABI → Rust` is feasible but nontrivial | [.NET `LibraryImport` source-generation guide](https://learn.microsoft.com/en-us/dotnet/standard/native-interop/pinvoke-source-generation) covers unmanaged calls and marshalling; [Rust FFI Nomicon](https://doc.rust-lang.org/nomicon/ffi.html) covers C ABI exports. Neither gives VIDA ownership, callback, cancellation, threading, error, ABI or ARM64 compatibility for free; the OQ-0035 gate is appropriate. |
+| Mozilla UniFFI is not an official full-feature C# bridge | [UniFFI's guide](https://mozilla.github.io/uniffi-rs/next/) names Kotlin, Swift and Python as full support, Ruby as maintained with limitations. [Mozilla's repository](https://github.com/mozilla/uniffi-rs) lists C# as a third-party binding. The brief's caution is accurate; avoid saying “UniFFI has no C# bindings at all.” |
+| ItemsRepeater and RichEditBox are primitives, not complete VIDA UX | [ItemsRepeater docs](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/items-repeater) explicitly say it virtualizes but has no built-in focus/selection policy; [RichEditBox API](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.controls.richeditbox?view=windows-app-sdk-1.8) supports rich text. Neither provides task-grid a11y, cross-platform block schema or conflict handling. The brief correctly demands release-build IME, keyboard, screen-reader and editor/grid tests. |
+| WinUI lifecycle/packaging does not imply always-on sync | [Windows App SDK lifecycle guide](https://learn.microsoft.com/en-us/windows/apps/develop/launch/app-lifecycle) says desktop apps are not subject to UWP background PLM but can still be affected by Modern Standby, shutdown and crashes; state restoration is the app's job. [Packaging overview](https://learn.microsoft.com/en-us/windows/apps/get-started/intro-pack-dep-proc) validates the available package models and package-identity consequences. The brief's sleep, activation, one-writer and recovery drills are warranted. |
+
+No primary source implies that WinUI automatically passes VIDA conformance or that C# should own Iroh/domain state. Keeping Iroh and policy in the Rust runtime is consistent with the accepted spine. No external security source chooses WinUI versus Flutter/Tauri for the user's meaning of “native”.

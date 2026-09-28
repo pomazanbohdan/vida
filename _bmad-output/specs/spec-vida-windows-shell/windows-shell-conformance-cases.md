@@ -1,0 +1,16 @@
+# Windows installed-client candidate fixtures — not executed
+
+The [approved native-client requirements](../../../docs/02-requirements/native-client-requirements.md) and [Windows decision](../../../docs/03-architecture/decisions/ADR-0020-flutter-windows-in-release-1.md) own scope. Record a release-build identifier, Windows version, input method and screen reader for each result. The test plan does not invent a menu taxonomy or shortcut map.
+
+| ID | Scenario | Required observable result |
+|---|---|---|
+| WIN-F01 | Install and launch the Windows release artifact; activate Messenger, Notes/Knowledge and Projects/Tasks; complete the approved core journey, including files, forums, 1:1/group calls and cross-resource links, alongside the common three-platform suite. | All three Apps are full clients with the same authorized resources, offline/pending/restart/reconnect/conflict semantics; no feature is represented only by a mobile handoff or browser page. |
+| WIN-F02 | With mouse/touch unavailable, navigate the three Apps, create or edit permitted content, attach a file, inspect pending/synced state and complete a conflict-choice flow. | Every required action can be reached, invoked and abandoned by keyboard; focus stays visible and returns to a sensible control after a dialog closes. |
+| WIN-F03 | Trigger validation, permission denial, disconnect and a recoverable failure while using keyboard only. | Error text/action is reachable, focus is not trapped, retry does not silently duplicate a committed operation and an offline/pending action is not announced as delivered or accepted. |
+| WIN-F04 | Inspect each implemented Windows system-menu and tray action by keyboard and pointer; open, hide, restore and switch focus among windows. | Action label and effect agree; menu/tray access does not bypass permissions, spawn a second domain apply or leave a stale window presenting an unverified state as current. |
+| WIN-F05 | Leave a durable pending operation, then use supported tray/menu exit or window-close behavior and restart the app. | Committed work and operation identity recover through Rust runtime; shell exit/hide behavior is truthful and does not erase or duplicate pending work. |
+| WIN-F06 | With a screen reader, navigate primary controls, lists, documents and project views in all three Apps. | Names, roles, item states and reading/focus order identify each actionable element and its current context; unlabeled icon-only controls or inaccessible document actions fail. |
+| WIN-F07 | With a screen reader, observe local save, pending, synchronized, delivered, conflict and failure transitions; switch Persona or Space. | Distinct states are announced accurately without leaking content from another Persona or a resource the actor cannot read; updates are discoverable without forcing focus to jump. |
+| WIN-F08 | Change Windows text scale/display scale, use long localized labels and repeat keyboard/screen-reader journeys, including system menu/tray actions. | Required controls and status remain readable, reachable and correctly announced; no clipped critical warning or off-screen-only action passes. |
+
+The common domain, platform-binding, localization and security fixtures remain separate gates. These Windows cases test the shell's observable behavior; passing them cannot substitute for those suites.

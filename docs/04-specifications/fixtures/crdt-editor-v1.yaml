@@ -1,0 +1,139 @@
+spec: SPEC-COLLABORATIVE-DOCUMENT-CONFORMANCE-DRAFT
+version: 1
+status: candidate-fixtures
+candidates:
+  crdt_cores:
+    - {name: loro, role: first_run}
+    - {name: automerge, role: mandatory_control}
+    - {name: yrs, role: ecosystem_control}
+  flutter_editors:
+    - appflowy_editor
+    - super_editor
+    - fleather
+    - flutter_quill
+prototype_contract:
+  pair_matrix: full_cartesian
+  exclusion_rule: every_skipped_pair_requires_recorded_incompatibility_evidence
+  version_pins_required: [crdt_core, rust_adapter, flutter_editor, flutter_adapter, flutter_sdk, rust_toolchain, iroh]
+  canonical_seed: 1447642177
+  canonical_document:
+    space_id: space-fixture-001
+    resource_id: note-resource-001
+    document_id: note-fixture-001
+    schema_version: 1
+    blocks:
+      - {id: b1, type: paragraph, text: "alpha beta gamma"}
+      - {id: b2, type: paragraph, text: "delta epsilon"}
+  replay_document:
+    space_id: space-fixture-002
+    resource_id: note-resource-002
+    document_id: note-fixture-002
+    schema_version: 1
+    blocks: [{id: x1, type: paragraph, text: "separate document"}]
+  principals:
+    - {actor_id: alice, device_id: alice-phone, control_epoch: 7, can_read: true, can_write: true}
+    - {actor_id: bob, device_id: bob-laptop, control_epoch: 7, can_read: true, can_write: true}
+    - {actor_id: mallory, device_id: mallory-device, control_epoch: 6, can_read: false, can_write: false}
+  update_envelope_required_fields: [operation_id, space_id, resource_id, document_id, actor_id, device_id, control_epoch, schema_version, causal_frontier, payload_hash, signature]
+  update_canonical_encoding: deterministic_cbor_profile_pending_oq0028
+  input_hash: sha256_of_canonical_fixture_input_bytes
+  presence_envelope:
+    encrypted: true
+    required_fields: [space_id, resource_id, document_id, actor_id, device_id, control_epoch, sequence, expires_at, key_id, nonce, ciphertext, signature]
+    key_scope: per_document_presence_epoch
+  delivery_schedules: [causal, reverse_concurrent, all_concurrent_permutations, duplicate_each, disconnect_resume]
+  fixture_defaults:
+    initial_state: canonical_document
+    actors: [alice, bob]
+    schedule: all_concurrent_permutations
+  result_record_required_fields: [candidate_pair, pinned_versions, fixture_id, input_hash, schedule, assertions, raw_measurements, pass, failure_log]
+  assertion_result: {allowed: [pass, fail, not_applicable], not_applicable_requires_reason: true}
+scoring_anchors:
+  values: {full: 1.0, partial: 0.5, zero: 0.0}
+  formula: sum_dimension_weight_times_anchor_value
+  full: all_mapped_assertions_pass_with_raw_evidence
+  partial: safe_explicit_limitation_with_no_hard_gate_failure_and_all_required_evidence
+  zero: assertion_failure_or_missing_reproducible_evidence
+  mapping:
+    merge_semantics: [F01-concurrent-text-marks, F02-block-move-delete-edit]
+    rich_text_block_model: [F01-concurrent-text-marks, F02-block-move-delete-edit]
+    anchors_history: [F03-stable-anchors, F05-history-restore]
+    persistence_compaction: [F09-kill-restart-cutpoints, F10-compaction-stale-replica]
+    mixed_version_schema: [F06-schema-mixed-clients, F11-mixed-wire-version]
+    rust_flutter_patch_path: [F12-rust-flutter-patch-burst]
+    editor_ime_accessibility: [F13-ime-accessibility]
+    iroh_integration: [F08-iroh-delivery-faults]
+    security_acl_boundary: [F04-transient-presence, F07-revocation-control-epoch, F14-cross-space-binding]
+selection:
+  hard_gates: [convergence, durability, acl, schema, iroh_boundary, ime_accessibility, security_confidentiality_binding]
+  minimum_score: 80
+  inconclusive_lead_at_or_below: 10
+  representative_device_classes: 3
+weights:
+  merge_semantics: 22
+  rich_text_block_model: 14
+  anchors_history: 12
+  persistence_compaction: 12
+  mixed_version_schema: 10
+  rust_flutter_patch_path: 10
+  editor_ime_accessibility: 10
+  iroh_integration: 5
+  security_acl_boundary: 5
+fixtures:
+  - id: F01-concurrent-text-marks
+    replicas: 3
+    initial_state: canonical_document
+    schedule: all_concurrent_permutations
+    operations: [alice.insert_b1_at_6_X, bob.delete_b1_range_11_16, alice.bold_b1_range_0_5, bob.insert_b2_at_5_Y]
+    expect: [convergent_projection, non_overlapping_intent_preserved, incompatible_variant_renderable]
+  - id: F02-block-move-delete-edit
+    replicas: 3
+    operations: [move_block, delete_block, edit_block]
+    expect: [convergent_projection, no_silent_content_loss]
+  - id: F03-stable-anchors
+    operations: [anchor_comment, anchor_selection, insert_before, delete_inside, move_block]
+    expect: [deterministic_anchor_or_declared_detached_state]
+  - id: F04-transient-presence
+    initial_state: [canonical_document, replay_document]
+    actors: [alice, mallory]
+    operations: [alice.connect, alice.cursor_update, forged_signature, wrong_document_replay, mallory.cursor_update, disconnect, ttl_expire, reconnect]
+    expect: [authorized_presence_visible, forged_presence_rejected, cross_document_presence_rejected, unauthorized_presence_rejected, presence_payload_encrypted_in_transit, presence_expires, presence_absent_from_history, presence_absent_from_snapshot]
+  - id: F05-history-restore
+    operations: [restore_old_revision, concurrent_edit]
+    expect: [restore_is_new_operation, audit_preserved, convergence]
+  - id: F06-schema-mixed-clients
+    clients: [v1, v2]
+    cases: [optional_default, required_without_default, rename, unknown_field]
+    expect: [unknown_round_trip, no_lossy_write, unsafe_editor_read_only]
+  - id: F07-revocation-control-epoch
+    initial_state: [canonical_document, replay_document]
+    actors: [alice, mallory]
+    operations: [grant_epoch_7, alice.valid_edit, revoke_to_epoch_8, alice.stale_epoch_edit, forged_update_signature, cross_document_update_replay, regrant_epoch_9]
+    expect: [valid_edit_visible, stale_edit_not_visible, forged_update_rejected, cross_document_replay_rejected, no_quarantine_resurrection, authorized_history_only]
+  - id: F08-iroh-delivery-faults
+    faults: [loss, reorder, duplicate, disconnect, reconnect]
+    expect: [idempotent_apply, convergence, no_transport_business_winner]
+  - id: F09-kill-restart-cutpoints
+    cutpoints: 50
+    boundaries: [local_commit, export, send, import, apply, snapshot, compaction]
+    expect: [no_committed_loss, no_corruption, recoverable_pending]
+  - id: F10-compaction-stale-replica
+    operations: [compact, reconnect_stale_replica]
+    expect: [compatible_snapshot_path_or_explicit_unsupported, no_silent_divergence]
+  - id: F11-mixed-wire-version
+    clients: [old_supported, current]
+    expect: [interoperate_or_explicit_rejection, no_partial_apply]
+  - id: F12-rust-flutter-patch-burst
+    local_edits: 1000
+    remote_patch_burst: true
+    platforms: [android, ios, windows, web]
+    threshold_status: evidence_only_pending_oq4
+    measure: [frame_times, input_latency, patch_apply_latency, peak_memory]
+    expect: [no_semantic_loss, raw_measurements_recorded]
+  - id: F13-ime-accessibility
+    inputs: [gboard, swiftkey, ios_ime, windows_ime, browser_ime, emoji, cjk, rtl]
+    accessibility: [talkback, voiceover, narrator, browser_screen_reader, browser_keyboard_only]
+    expect: [no_composition_loss, no_caret_jump, valid_semantics_tree]
+  - id: F14-cross-space-binding
+    cases: [same_document_id_different_space, wrong_resource_id, cross_space_update_replay, cross_space_presence_replay, relation_without_target_grant]
+    expect: [signed_tuple_required, unauthorized_apply_rejected, unauthorized_presence_rejected, no_target_metadata_leak, no_history_or_search_change]

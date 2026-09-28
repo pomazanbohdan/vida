@@ -1,7 +1,7 @@
 ---
 id: ADR-0001
 status: accepted
-last_updated: 2026-09-18
+last_updated: 2026-09-20
 source_refs:
   - ../../01-product/composable-workspace-model.md
   - ../../02-requirements/access-control-requirements.md
@@ -36,7 +36,7 @@ Shared Space поєднує Messenger, Knowledge/Notes, Projects/Tasks та ін
 
 ### 1. Role preset
 
-Під час додавання учасника Owner `MUST` призначити готову або custom role. Role preset задає стартовий набір capabilities, але не замінює policy engine.
+Під час додавання учасника Owner або Admin із чинним `manage_members` `MUST` призначити готову або custom role в межах своїх повноважень за ADR-0002. Лише Owner може призначити іншого Owner. Role preset задає стартовий набір capabilities, але не замінює policy engine.
 
 ### 2. Основний рівень налаштування
 
@@ -57,6 +57,8 @@ Platform → Space → AppInstance → Container → ResourceType → Resource �
 ```
 
 Нижчий рівень `MUST NOT` розширювати доступ понад maximum capabilities, дозволені вищим рівнем. Явний hard deny `MUST` мати перевагу.
+
+Призначення нового Owner та видалення іншого Owner зі Space є окремими Space-governance operations поза наведеним ACL-ланцюгом для ресурсів. Жодне `deny` цієї permission matrix на рівнях Platform, Space, AppInstance, Container чи Resource `MUST NOT` скасовувати право чинного Owner, прийняте в ADR-0002, або надавати його Admin. Space authority все одно `MUST` перевіряти чинну роль ініціатора й інваріант кількості Owners відповідного типу Space.
 
 ### 4. Resource override
 

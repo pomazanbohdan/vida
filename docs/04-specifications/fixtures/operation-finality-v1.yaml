@@ -1,0 +1,263 @@
+spec: SPEC-OPERATION-FINALITY-001
+version: 1
+status: approved-semantic-vectors
+defaults:
+  replication_policy:
+    independent_authorized_durable_replicas: 1
+  delivered:
+    aggregation: first_recipient_controlled_device_per_persona
+    expose_device_topology_to_sender: false
+  mailbox:
+    state: stored_for_delivery
+    counts_as_synchronized: false
+    counts_as_delivered: false
+
+vectors:
+  - id: crash-before-origin-commit
+    given:
+      crash_boundary: before_atomic_commit
+    expect:
+      origin_committed: false
+      recoverable_pending_intent: false
+      ui: save_failed
+
+  - id: crash-after-origin-commit
+    given:
+      crash_boundary: after_atomic_commit_before_send
+    expect:
+      origin_committed: true
+      recoverable_pending_intent: true
+      ui: saved_locally
+
+  - id: quic-ack-only
+    given:
+      origin_committed: true
+      quic_ack: true
+      application_receipts: 0
+    expect:
+      synchronized: false
+      delivered: false
+      ui: saved_locally
+
+  - id: single-device-local-only
+    given:
+      origin_committed: true
+      independent_replica_receipts: 0
+    expect:
+      ui: saved_locally
+      synchronized: false
+
+  - id: first-independent-replica
+    given:
+      origin_committed: true
+      receipts:
+        - kind: replication
+          authorized: true
+          independent: true
+          durable: true
+          applied_at_frontier: true
+    expect:
+      ui: synchronized
+      synchronized: true
+      approval_votes_added: 0
+
+  - id: mailbox-only
+    given:
+      origin_committed: true
+      mailbox_ciphertext_stored: true
+      recipient_device_receipts: 0
+    expect:
+      ui: stored_for_delivery
+      synchronized: false
+      delivered: false
+
+  - id: direct-1to1-delivery
+    given:
+      audience_revision: audience-1
+      intended_recipients: [persona-olena]
+      receipts:
+        - kind: delivery
+          recipient: persona-olena
+          recipient_device_authorized: true
+          decrypted: true
+          validated: true
+          durable: true
+    expect:
+      delivered_recipients: 1
+      intended_recipients: 1
+      sender_ui: delivered
+      sender_device_count_visible: false
+
+  - id: group-partial-delivery
+    given:
+      audience_revision: audience-2
+      intended_recipients: [persona-olena, persona-andrii, persona-marta]
+      qualifying_delivery_receipts: [persona-olena, persona-marta]
+    expect:
+      delivered_recipients: 2
+      intended_recipients: 3
+      sender_ui: delivered_2_of_3
+      delivered_to_all: false
+
+  - id: group-all-recipients
+    given:
+      audience_revision: audience-2
+      intended_recipients: [persona-olena, persona-andrii, persona-marta]
+      qualifying_delivery_receipts: [persona-olena, persona-andrii, persona-marta]
+    expect:
+      delivered_recipients: 3
+      intended_recipients: 3
+      sender_ui: delivered_to_all
+      delivered_to_all: true
+
+  - id: device-churn-does-not-revoke-delivery
+    given:
+      historical_delivery:
+        recipient: persona-olena
+        qualifying: true
+      later_events:
+        - device_revoked
+        - new_device_added
+    expect:
+      historical_delivered: true
+      audience_revision_changed: false
+      new_device_backfill_is_separate: true
+
+  - id: read-is-persona-operation
+    given:
+      recipient: persona-olena
+      displayed_on_one_device: true
+      sender_visible_read_receipts_opt_in: true
+    expect:
+      persona_read_operation_created: true
+      sender_ui: read
+      sender_device_identity_visible: false
+
+  - id: duplicate-direct-and-mailbox
+    given:
+      same_operation_via: [direct, mailbox, direct_retry]
+    expect:
+      domain_apply_count: 1
+      stable_receipt: true
+
+  - id: causal-first-authority-acceptance
+    given:
+      request_revision: 4
+      authority_outcomes:
+        - decision: accepted
+          frontier: frontier-10
+        - decision: rejected
+          frontier: frontier-11
+          causally_after: frontier-10
+    expect:
+      terminal_decision: accepted
+      later_outcome: stale
+
+  - id: incomparable-authority-branches
+    given:
+      request_revision: 4
+      authority_outcomes:
+        - decision: accepted
+          frontier: frontier-a
+        - decision: accepted
+          frontier: frontier-b
+      frontiers_comparable: false
+      resource_variants_compatible: false
+    expect:
+      domain_state: conflicted
+      arbitrary_winner: false
+
+  - id: stale-or-revoked-control-epoch
+    given:
+      receipt_signature_valid: true
+      receipt_control_epoch: 7
+      current_control_epoch: 9
+    expect:
+      evidence_axis_advanced: false
+      error: stale_control_epoch
+
+  - id: authority-outcome-replay
+    given:
+      same_signed_outcome_deliveries: 3
+      decision: accepted
+    expect:
+      outcome_apply_count: 1
+      terminal_decision: accepted
+
+  - id: authority-expired
+    given:
+      decision: expired
+      request_revision: 2
+    expect:
+      domain_state: expired
+      terminal_outcome: true
+
+  - id: authority-unavailable
+    given:
+      candidate_synchronized: true
+      authority_reachable: false
+    expect:
+      domain_state: pending
+      terminal_outcome: false
+
+  - id: restart-rebuild-from-receipt-log
+    given:
+      projection_deleted: true
+      valid_receipt_log_present: true
+      applied_replication_receipt_present: true
+    expect:
+      rebuilt_synchronized: true
+      synthetic_receipt_created: false
+
+  - id: invalid-receipt-version
+    given:
+      receipt_signature_valid: true
+      receipt_version_supported: false
+    expect:
+      evidence_axis_advanced: false
+      error: unsupported_receipt_version
+
+  - id: missing-mandatory-receipt-field
+    given:
+      receipt_signature_valid: true
+      missing_fields: [operation_id]
+    expect:
+      evidence_axis_advanced: false
+      error: missing_mandatory_field
+
+  - id: late-unknown-branch-after-effect
+    given:
+      effect_state: succeeded
+      effect_confirmation_frontier: frontier-20
+      late_branch_frontier: frontier-late
+      late_branch_incomparable: true
+    expect:
+      effect_state: correction_needed
+      effect_history_preserved: true
+      conflict_reopened: true
+
+  - id: external-effect-unknown
+    given:
+      external_request_sent: true
+      response_received: false
+      lookup_supported: false
+      idempotent_retry_supported: false
+    expect:
+      effect_state: unknown
+      automatic_retry: false
+
+  - id: authority-pending-is-not-delivery
+    given:
+      candidate_synchronized: true
+      recipient_delivered: true
+      authority_outcome: absent
+    expect:
+      domain_state: pending
+      terminal_outcome: false
+
+  - id: invalid-receipt-fails-closed
+    given:
+      receipt_signature_valid: false
+    expect:
+      evidence_axis_advanced: false
+      error: invalid_receipt

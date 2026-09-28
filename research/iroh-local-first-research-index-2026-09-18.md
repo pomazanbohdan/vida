@@ -10,6 +10,10 @@
 
 З них 51 — Iroh або Iroh-oriented references; суміжні lead-и та недоступні репозиторії позначені окремо. Кількість не є оцінкою якості чи зрілості.
 
+Актуалізації за 19–27 вересня 2026 винесені в окремі [addendum 19–21.09](iroh-reference-projects-update-2026-09-21.md), [addendum 21–22.09](iroh-reference-projects-update-2026-09-22.md), [UniClipboard follow-up 23.09](iroh-reference-projects-update-2026-09-23.md), [вечірній addendum 23.09](iroh-reference-projects-update-2026-09-23-evening.md), [addendum 24.09](iroh-reference-projects-update-2026-09-24.md), [addendum 25.09](iroh-reference-projects-update-2026-09-25.md) та [addendum 27.09](iroh-reference-projects-update-2026-09-27.md), щоб зберегти часові зрізи. Перший addendum додає 15 нових references + 5 інших репозиторіїв із помітними оновленнями (BLE reference повторювався у двох секціях) і має 74 distinct repository URLs після de-duplication. Наступні зрізи додають 3 README-підтверджені Iroh implementations і Annoda lead, `UniClipboard/Engine`, 5 нових implementations з AgnView earlier-history reference, 3 нових implementations 24.09, ще 3 нові записи 25.09 та 5 project groups / 6 нових URLs 27.09. Поточний каталог: орієнтовно 97 distinct repository URLs, включно з Annoda як adjacent lead.
+
+[Зріз бібліотек і розвитку 23.09](iroh-project-library-inventory-2026-09-23.md) перевіряє manifests/code/activity вибірки 54 прикладних репозиторіїв і 4 upstream бібліотек; це доповнення до каталогу, не вибір стека. Він також виправляє хибне попереднє позначення DStore як Rust: фактично це Go-проєкт.
+
 ## Як користуватися індексом
 
 Почніть зі швидкого індексу тем: він веде до репозиторіїв і зон коду. Картки далі пояснюють роль, технології та межі висновків. Глибоко досліджені записи називають конкретні протоколи, типи чи модулі; короткі профілі прямо позначені як leads для самостійного огляду.
@@ -40,6 +44,34 @@ GitHub push dates — знімок metadata перевірок 18.09.2026. Push 
 | Embedded ESP32 | CO2 Monitor, ESP32 Examples | Memory budgets, board targets, PSRAM, relay/discovery limits. |
 | Agent і MCP | Vellum, Kith, PocketHound, AgentLink, Arena Zero, M2M | MCP boundary, tool permissions, remote control, WASM executor. |
 | Cross-language bindings | Iroh FFI, Go Iroh, Android Native, Iroh HTTP | Ownership, cancellation, error mapping, runtime adapters. |
+| Application transport і remote access | remote-device-sync, NexaPipe, iroh-tunnel, Portty | Багато application protocols, self-hosted relay, tunnel, remote shell, reconnect. |
+| Messenger, groups і audio | Totem, Arachne, iroh-mic, chatmail/core, freeq | Coordinator/identity layer, P2P data-plane, browser audio, relay onboarding, agent APIs. |
+| Agent і distributed runtime | a2a-codex, Protocolo, OxideSwarm | A2A peer addressing, typed protocols, simulated faults, distributed compute transport. |
+| Storage, transfer і ACL | ghostdrop, Wyrd, Ringdrop, iroh-rings, UniClipboard | QR transfer, append-only CAS, reusable ring-based permissions, device sync/relay. |
+| Mobile/offline transports | iroh-ble-transport, nexa-android, nexa-desktop | BLE discovery/upgrade, Android TUN, Tauri desktop shell. |
+| Data-graph experiment | atproto-iroh | Capability-scoped graph design; implementation not available за оглядом. |
+| Local-first folder sync | echo | Iroh docs/blobs/gossip + Automerge; file chunking, capabilities, convergence і recovery boundaries. |
+| Workspace/messaging core | arachne-core | MLS membership/security, Iroh connectivity, workspace-scoped delivery і encrypted local records. |
+| Minimal custom protocol | chess-p2p | Iroh 1.2 ALPN + bidirectional QUIC stream; compact terminal app/test reference. |
+| Transport-neutral peer API (watch) | Annoda | Contract + adapter SPI; Iroh adapter не знайдено, не рахувати як Iroh implementation. |
+| Cross-platform engine / host boundary | UniClipboard/Engine | Shared Rust core, Iroh infra, encrypted persistence, lifecycle, UniFFI/N-API bindings і release provenance; product repo вже був у попередньому списку. |
+| Agent control plane | maplayerdev | ACP stdio JSON-RPC over Iroh QUIC; Android/Tauri clients, pairing allowlist, direct + relay. |
+| Stateful data/RPC | adbc-proxy | ADBC/Arrow application RPC over VGI-RPC; Iroh endpoint identity, target authorization, streaming and cancellation. |
+| Browser/WASM gossip | audia | Iroh 1.2 + iroh-gossip 0.101 in browser WASM; signed events and relay-only browser transport. |
+| Messenger + stable ABI | xivlantern-dalamud | Presence/chat/channels/offline queue/file transfer behind Rust C ABI for C# Dalamud client. |
+| Workspace mesh node | mesh-lighthouse | MetaMesh participant with Iroh 1.2, signed state, durable HTTP inbox and restart replication. |
+| Agent-runtime watch | AgnView | Python `iroh==1.1.0`, LAN-first dashboard with remote Iroh fallback; history predates this window. |
+| KVM / device sharing | legato | Iroh pairing/discovery spike for keyboard, mouse, clipboard and files; mDNS, tickets, SAS, allow-list and handshake hooks. |
+| Social desktop P2P | bloop | Tauri desktop peer pet; Iroh 1.2 + mDNS, EndpointId pairing ACL, explicit schema and direct/relay fallback. |
+| Embedded telemetry | rusty_esp_sense | Janus ESP32 CSI → Iroh host bridge → room-specific Candle model; live feature and ticket/bridge intake. |
+| Remote desktop | AfuDesk | Windows host + Android viewer; Iroh 1.2, mDNS, trusted devices, permissions, multiplexed control/video/file streams and reconnect. |
+| Distributed VCS/storage | ajj | Jujutsu objects in amber-store CAS, dstore refs and Iroh 1.2 compatibility patch; tickets/refs/fetch/push. |
+| Encrypted storage concept | Ultra-Netz | Iroh L0 + Nostr/device identity + blobs/gossip/docs/CRDT concept; research-only, not implementation evidence. |
+| Agents / ACP | iroh-acp-go | Go ACP client/server over go-iroh; EndpointId allow-list, tickets, direct/relay, ALPN `acp/1`, raw ACP JSON-RPC. |
+| Messenger / files | Doot | Iroh Router + blobs/gossip/ping; desktop/Android transfer, telemetry, path migration, contacts/messages and JNI. |
+| Collaboration | acidtrip | Iroh 1.2 host-ordered ANSI collaboration; guest transactions, tickets, mDNS, reconnect and cursor presence. |
+| Multi-agent workspace | blirp | Iroh 1.2 + mDNS + SPAKE2; pairing, sync, proxy and file ALPNs for sessions/memory/outbox/hub. |
+| Data/RPC SDK | Grainlift TypeScript; Grainlift Go | Typed ADBC workers over VGI Iroh bridge; verified EndpointId, contract parity and fail-closed compatibility. |
 
 ## Оновлення та останні знахідки
 
@@ -52,6 +84,13 @@ GitHub push dates — знімок metadata перевірок 18.09.2026. Push 
 | 8–12 вересня | Vellum, Android Native, Openstream, DSH Tether, PocketHound, HoloChat, M2M, Ingot Cluster і Zeiroh мали недавню активність. |
 | Розширення огляду | iroh-db, iroh-beekem, Proscenium, Vellum, Kith і Rayfish додали database, group security, messaging, browser/WASM та daemon layers. |
 | Знахідки цього індексу | Iroh HTTP, Tunnel RS та офіційні Iroh ESP32 examples додані як README-backed практичні references. |
+| 19–21 вересня | Новий GitHub-зріз: remote-device-sync, NexaPipe, iroh-tunnel, Portty, Totem, Arachne, iroh-mic, a2a-codex, Protocolo, ghostdrop, Wyrd, OxideSwarm, atproto-iroh та інші; окремо зафіксовані iroh core, BLE, Rayfish, UniClipboard, Chatmail, Ringdrop, iroh-rings і freeq updates. Див. [addendum](iroh-reference-projects-update-2026-09-21.md). |
+| 21–22 вересня | Додано три Iroh implementations: echo (folder sync), arachne-core (portable workspace core) і chess-p2p (Iroh 1.2 protocol example); Annoda залишено adjacent watch lead без Iroh adapter. Див. [addendum](iroh-reference-projects-update-2026-09-22.md). |
+| 23 вересня | Перевірено залежності, код, розвиток та issue/PR-зріз релевантної вибірки; додано [UniClipboard/Engine](iroh-reference-projects-update-2026-09-23.md) як cross-platform engine reference; зафіксовано provider gates і прогалини без production lock. Див. [library addendum](iroh-project-library-inventory-2026-09-23.md). |
+| 22 вересня 18:37 → 23 вересня 22:20 | Додано 5 нових Iroh references: `maplayerdev`, `adbc-proxy`, `audia`, `xivlantern-dalamud`, `mesh-lighthouse`; окремо додано раніше започаткований `AgnView`. Див. [вечірній addendum](iroh-reference-projects-update-2026-09-23-evening.md). |
+| 23 вересня вечір → 24 вересня 20:48 | Додано 3 нові Iroh references: `legato`, `bloop`, `rusty_esp_sense`; imports/forks і старі histories винесені в exclusions. Див. [addendum 24.09](iroh-reference-projects-update-2026-09-24.md). |
+| 24 → 25 вересня | Додано `AfuDesk` (remote desktop), `ajj` (Jujutsu/amber distributed VCS) і `Ultra-Netz` (Iroh/Nostr encrypted-storage design lead); копії, старі histories і Nix packages винесені в exclusions. Див. [addendum 25.09](iroh-reference-projects-update-2026-09-25.md). |
+| 25 → 27 вересня | Додано 5 project groups / 6 нових URLs: `iroh-acp-go`, `Doot`, `acidtrip`, `blirp`, `Grainlift TypeScript` і `Grainlift Go`; окремо зафіксовано native streams, agent collaboration, security hardening і Iroh 1.2 updates у наявних проєктах. Див. [addendum 27.09](iroh-reference-projects-update-2026-09-27.md). |
 
 ## Картки проєктів
 
@@ -325,7 +364,7 @@ GitHub push dates — знімок metadata перевірок 18.09.2026. Push 
 
 **Архітектурний шар.** Distributed content-addressed object store і working-copy workflow.
 
-**Stack.** Rust, CAS, tree objects, replication, CASPaxos refs, mDNS, pkarr/Number0 DNS.
+**Stack.** Go 1.26.5 (`go-iroh`, `transport-iroh`, Pebble), CAS, tree objects, replication, CASPaxos refs, mDNS, pkarr/Number0 DNS. Попереднє позначення «Rust» виправлено за [go.mod](https://github.com/amber-store/dstore/blob/368f2c7f1a0f289bb632201b4f5bced111eef16f/go.mod) 23.09.2026; це архітектурний reference, не Rust crate для прямого reuse.
 
 **Ключовий патерн.** Distributed CAS → replicated trees → clone/init/fetch/pull/push/status/diff; merge і GC. Node-ID bootstrap race-ить mDNS і DNS.
 
@@ -1149,6 +1188,96 @@ GitHub push dates — знімок metadata перевірок 18.09.2026. Push 
 
 **Доказовість.** Попередній sweep.
 
+## Актуалізація 19–21 вересня 2026
+
+Повний список і caveats винесені в [addendum](iroh-reference-projects-update-2026-09-21.md). Нижче — короткий каталог для пошуку без зміни історичних карток baseline:
+
+| **Шар** | **Нові або додані references** | **Роль у VIDA map** |
+|---|---|---|
+| Application transport | [remote-device-sync](https://github.com/NDDev-OpenNetwork/remote-device-sync), [NexaPipe](https://github.com/open-nexa/nexapipe), [iroh-tunnel](https://github.com/chethan62/iroh-tunnel), [Portty](https://github.com/corvuxmindware/portty) | Service/tunnel/remote-control protocols над Iroh; self-hosted relay і reconnect patterns. |
+| Mobile/desktop/network transport | [nexa-android](https://github.com/open-nexa/nexa-android), [nexa-desktop](https://github.com/open-nexa/nexa-desktop), [iroh-ble-transport](https://github.com/mcginty/iroh-ble-transport) | Android TUN, Tauri shell і BLE local/offline transport. |
+| Messenger/group/audio | [Totem](https://github.com/aurnik/totem), [Arachne for ATAK](https://github.com/arachne-systems/arachne-atak), [iroh-mic](https://github.com/TheNuclearNexus/iroh-mic), [chatmail/core](https://github.com/chatmail/core), [freeq](https://github.com/freeq-irc/freeq) | Identity/coordinator split, QR membership, P2P media, relay onboarding, agent-enabled messaging. |
+| Agent/protocol/compute | [a2a-codex](https://github.com/wayneColt/a2a-codex), [Protocolo](https://github.com/gsemyong/protocolo), [OxideSwarm](https://github.com/DuongNAD/OxideSwarm) | A2A peer addressing, typed protocol runtime, distributed compute fabric. |
+| Files/storage/ACL | [ghostdrop](https://github.com/Firefares2005/ghostdrop), [Wyrd](https://github.com/control-aesir/wyrd), [Ringdrop](https://github.com/rikettsie/ringdrop), [iroh-rings](https://github.com/rikettsie/iroh-rings), [UniClipboard](https://github.com/UniClipboard/UniClipboard) | QR transfer, append-only CAS/history, reusable ring ACL, clipboard/file sync. |
+| Architecture lead | [atproto-iroh](https://github.com/jedelman/atproto-iroh) | Capability-scoped data graph design; не implementation evidence. |
+
+`n0-computer/iroh` і `Rayfish` залишаються baseline references; у addendum зафіксовані їхні зміни 21.09. `guardian-db`, `iroh-esp32-examples` і частина Dashbeam forks не рахуються новими через старішу commit history.
+
+## Актуалізація 21–22 вересня 2026
+
+Деталі README-level review і caveats — в окремому [addendum](iroh-reference-projects-update-2026-09-22.md). Нижче коротке доповнення до reference map:
+
+| **Шар** | **Репозиторії** | **Що шукати** |
+|---|---|---|
+| Local-first folder sync | [echo](https://github.com/sergey-melnychuk/echo) | Iroh docs/blobs/gossip + Automerge, file chunks, capability admission, conflict/recovery handling. |
+| Workspace/messaging core | [arachne-core](https://github.com/arachne-systems/arachne-core) | MLS workspace membership, Iroh connectivity, scoped delivery, encrypted local records; distinguish from ATAK plugin. |
+| Minimal custom protocol | [chess-p2p](https://github.com/mr-nitesh-poudel/chess-p2p) | Iroh 1.2 endpoint, custom ALPN, one bidirectional stream, local endpoint tests. |
+| Transport-neutral peer API (watch) | [Annoda](https://github.com/Metalymph/annoda) | Adapter SPI and loopback; no Iroh adapter in reviewed repository, so not counted as an Iroh implementation. |
+
+`yixinin/nexapipe`, `nexa-android` і `nexa-desktop` — дублікати вже включених `open-nexa` repos; інші виключення і причини наведені в addendum.
+
+## Актуалізація 23 вересня 2026
+
+Організаційний follow-up і README/manifest caveats наведені в [UniClipboard addendum](iroh-reference-projects-update-2026-09-23.md):
+
+| **Шар** | **Репозиторій** | **Що шукати** |
+|---|---|---|
+| Cross-platform engine | [UniClipboard/Engine](https://github.com/UniClipboard/Engine) | `uc-engine` host boundary, Iroh infra, encrypted persistence, lifecycle, UniFFI/N-API bindings, release provenance. |
+| Existing product context | [UniClipboard/UniClipboard](https://github.com/UniClipboard/UniClipboard) | Уже наявний product reference; organization link уточнює зв’язок із shared Engine. |
+
+`UniClip`, `relay`, `uc-rendezvous`, `uc-status`, `uc-website`, `feedlog` і `homebrew-*` залишаються support/client/packaging records і не збільшують Iroh implementation count без окремого доказу.
+
+## Вечірня актуалізація 23 вересня 2026
+
+Детальний часовий зріз і межі доказу наведені у [вечірньому addendum](iroh-reference-projects-update-2026-09-23-evening.md):
+
+| **Шар** | **Репозиторії** | **Що шукати** |
+|---|---|---|
+| Agent control plane | [maplayerdev](https://github.com/MainListActivity/maplayerdev) | ACP/Codex/Cursor bridge over Iroh QUIC; Android/Tauri clients, pairing allowlist and relay fallback. |
+| Stateful data/RPC | [adbc-proxy](https://github.com/Query-farm/adbc-proxy) | ADBC/Arrow streaming, VGI-RPC, Iroh EndpointId identity, target authorization and cancellation. |
+| Browser/WASM gossip | [audia](https://github.com/liquidiert/audia) | Iroh 1.2 + Gossip in browser WASM, signed events, relay-only transport. |
+| Messenger / C ABI | [xivlantern-dalamud](https://github.com/Spaceghost/xivlantern-dalamud) | Presence, offline chat, channels and file transfer behind stable Rust C ABI for C#. |
+| Workspace mesh | [mesh-lighthouse](https://github.com/bobishh/mesh-lighthouse) | MetaMesh/Iroh node, owner invite, signed state, durable HTTP inbox and restart replication. |
+| Agent-runtime earlier history | [AgnView](https://github.com/tlaskar-git/AgnView) | Python Iroh 1.1, LAN-first agent dashboard with remote Iroh fallback; not a new post-cutoff project. |
+
+## Актуалізація 24 вересня 2026
+
+Детальний часовий зріз і exclusions наведені в [addendum 24.09](iroh-reference-projects-update-2026-09-24.md):
+
+| **Шар** | **Репозиторії** | **Що шукати** |
+|---|---|---|
+| KVM / device sharing | [legato](https://github.com/tvolk131/legato) | mDNS/tickets, pair ALPN, 6-digit SAS, `EndpointHooks::after_handshake`, allow-list, keyboard/mouse/clipboard/file boundary. |
+| Social desktop P2P | [bloop](https://github.com/BloopPet/bloop) | Iroh 1.2 + mDNS, one-time invite, paired EndpointId ACL, explicit schema, direct/relay fallback and privacy limits. |
+| Embedded / Wi-Fi sensing | [rusty_esp_sense](https://github.com/Remade-With-Rust/rusty_esp_sense) | Janus ESP32 CSI stream, `rusty_esp_iroh-host`, ticket/bridge intake and host-side room model. |
+
+`mochar/iroh-c-ffi`, `DavHau/landline`, `counterpunchtech/iroh`, `Ephemushroom/UniClipboard`, Dashbeam, `safety-net-flutter`, `Nostos` і `Grainlift` не рахуються новими в цьому cutoff: history/import/fork/continuation status наведені в addendum.
+
+## Актуалізація 25 вересня 2026
+
+Детальний часовий зріз і exclusions наведені в [addendum 25.09](iroh-reference-projects-update-2026-09-25.md):
+
+| **Шар** | **Репозиторії** | **Що шукати** |
+|---|---|---|
+| Remote desktop | [AfuDesk](https://github.com/pirncedark/afudesk) | Iroh 1.2, Windows host/Android viewer, trusted devices, permissions, control/video/file streams, reconnect and relay fallback. |
+| Distributed VCS/storage | [ajj](https://github.com/amber-store/ajj) | Jujutsu commit backend over amber-store CAS, dstore references, Iroh 1.2 patch, tickets and compare-and-swap bookmark sync. |
+| Encrypted storage design lead | [Ultra-Netz](https://github.com/ThePyth0nKid/ultra-netz) | Iroh L0, Nostr/device keys, encrypted fragments, community nodes and blobs/gossip/docs/CRDT; researched, not built. |
+
+`oneiron-dev/iroh`, `ttizze/iroh`, `dash-chat/iroh-gossip`, `SolutionsAsService/guardian-db`, `signingup/tincan-cli`, `microgift/arion`, `retpel/flakes` і `rayfish.nix` не рахуються новими independent Iroh applications.
+
+## Актуалізація 27 вересня 2026
+
+Детальний часовий зріз і межі evidence наведені в [addendum 27.09](iroh-reference-projects-update-2026-09-27.md):
+
+| **Шар** | **Репозиторії** | **Що шукати** |
+|---|---|---|
+| Agents / ACP | [iroh-acp-go](https://github.com/carsonfarmer/iroh-acp-go) | Go ACP client/server над go-iroh, EndpointId allow-list, ticket/direct/relay, ALPN `acp/1`, raw JSON-RPC. |
+| Messenger / files | [Doot](https://github.com/Brajesh3/doot) | Iroh Router із blobs/gossip/ping, desktop/Android, path telemetry/migration, persistent contacts/messages. |
+| Collaboration | [acidtrip](https://github.com/jondot/acidtrip) | Host canonical ordering, guest transactions, Iroh 1.2, tickets, mDNS, reconnect і cursor presence. |
+| Multi-agent workspace | [blirp](https://github.com/backyarddd/blirp) | SPAKE2 pairing, окремі pair/sync/proxy/files ALPN, agent sessions, memory, outbox і hub log. |
+| Data/RPC SDK | [Grainlift TypeScript](https://github.com/Query-farm/grainlift-typescript), [Grainlift Go](https://github.com/Query-farm/grainlift-go) | Typed ADBC workers через VGI Iroh bridge, verified EndpointId, contract parity і fail-closed version policy. |
+
+Сім linked updates цього cutoff: [Antgrid native streams](https://github.com/antgrid-ai/antgrid/commit/36ec4afa6def10bba497b69ff74b9e5a8b7d6926), [Codevisor net core](https://github.com/851-labs/codevisor/commit/a07e3eefd5e1faa208b7916bb2ccdc92a50f9156), [rho Collab](https://github.com/casonadams/rho/commit/2ec3b8b62eb3c5868896ed76cd13832f74dd90c6), [remote-device-sync hardening](https://github.com/NDDev-OpenNetwork/remote-device-sync), [NexaPipe lifecycle](https://github.com/open-nexa/nexapipe/commit/b45324aa58cd95d1426294a028d7b56f8f3ddf42), [Audia CSP/voting](https://github.com/liquidiert/audia) і [Godot Iroh 1.2](https://github.com/tipragot/godot-iroh/commit/6c85a4e33580f1bdae839836b12222a7b1294625). Оновлення не рахуються новими URLs.
+
 ## Взаємозв’язки між проєктами
 
 Порівнюйте репозиторії на рівні конкретної відповідальності. Iroh — connectivity substrate; Irokle, Loro, Automerge і Knot revisions описують history/merge; iroh-blobs, iroh-db, DStore й OCID працюють із payloads/storage/distribution; Kukuri, Proscenium та HoloChat — продукти поверх кількох primitives.
@@ -1158,8 +1287,26 @@ GitHub push dates — знімок metadata перевірок 18.09.2026. Push 
 | Connectivity | n0-computer/iroh; Gossip Rendezvous; DHT/mDNS у DStore та Kukuri | Endpoint/relay/discovery — транспортна основа; discovery не є authorization. |
 | History and merge | Synesis/Loro; Irokle/signed DAG; Knot/revision DAG; Yaiba task history | Різні causal/revision моделі, не один узагальнений CRDT. |
 | Blob/package data | Acerola; Kukuri; iroh-db; DStore; OCID | Media, domain blobs, object storage й signed release distribution — різні задачі. |
-| Membership/security | Kukuri; iroh-db; iroh-beekem; Kith; Peerline Host | Розділяти membership, authorization, key rotation і transport identity. |
+| Membership/security | Kukuri; iroh-db; iroh-beekem; Kith; Peerline Host; iroh-rings | Розділяти membership, authorization, key rotation і transport identity; `iroh-rings` — resource gate, не identity system. |
 | Runtime/apps | Rayfish; Datum; Quix; Peerline Host; Acerola; Proscenium | Daemon/service host може відкривати багато protocols; mobile/UI clients споживають ці межі. |
+| Application transport | remote-device-sync; NexaPipe; iroh-tunnel; Portty; OxideSwarm | Iroh використовується як transport substrate для service runtime, remote control і compute; domain semantics залишаються в application. |
+| Group/agent interaction | Totem; Arachne; a2a-codex; freeq; chatmail/core | Coordinator/identity, membership, relay onboarding і agent APIs не доводять однакову durable-delivery модель. |
+| Local/mobile transport | iroh-ble-transport; iroh-mic; nexa-android; nexa-desktop | BLE, browser/WASM та OS shells мають окремі lifecycle/background/security gates. |
+| Workspace/local-first sync | echo; arachne-core | Порівнювати відповідно file-level convergence/access і workspace membership/security/delivery; обидва лишаються сторонніми references. |
+| Adapter abstraction | Annoda | Transport-neutral API не гарантує спільний wire protocol і не є Iroh interoperability без конкретного adapter-а. |
+| Cross-platform engine | UniClipboard/Engine; iroh-ffi; Acerola; Nexa mobile | Host/core, bindings, lifecycle і release provenance — окремі gates; shared engine не є доказом VIDA domain compatibility. |
+| Agent control | maplayerdev; AgnView; iroh-ffi; Rayfish | Local agent ownership, pairing and bindings are separate from VIDA agent authorization and durable task semantics. |
+| Application RPC | adbc-proxy; mesh-lighthouse; remote-device-sync | Stateful RPC, durable inbox and transport relay are different contracts; endpoint identity is not a VIDA principal by itself. |
+| Browser and messenger | audia; xivlantern-dalamud; Totem; freeq | Gossip, signed events, presence and offline queue require separate browser relay, group-security and receipt fixtures. |
+| Device sharing | legato; Bloop; maplayerdev | Pairing/discovery/SAS/allow-list and input or desktop state transfer are application contracts above Iroh. |
+| Embedded telemetry | rusty_esp_sense; iroh-esp32-examples; rusty_esp_iroh-host | Device transport, host bridge, calibration and downstream inference are separate lifecycle and data-integrity gates. |
+| Remote desktop | AfuDesk; legato; maplayerdev | Persistent device identity, explicit permissions and multiplexed streams are application contracts over Iroh; remote control is not generic sync. |
+| Distributed references | ajj; DStore; Irokle; Knot | CAS objects, bookmarks, signed history and application authority are distinct layers; dstore refs do not equal VIDA operation receipts. |
+| Architecture lead | Ultra-Netz; atproto-iroh; Annoda | Design concepts and adapter-neutral contracts are useful comparison leads, not runnable provider evidence. |
+| Agent ACP transport | iroh-acp-go; maplayerdev; AgnView | ACP process ownership, EndpointId admission and application authorization stay above the Iroh transport. |
+| Application bus | Doot; blirp | One Endpoint + Router/multiple ALPNs can host chat, files, sync, proxy and telemetry; each protocol needs its own receipt/security contract. |
+| Host-ordered collaboration | acidtrip; chess-p2p; echo | Canonical host ordering differs from CRDT or durable multi-writer log; reconnect and conflict behavior need separate fixtures. |
+| Typed data/RPC SDK | Grainlift TypeScript; Grainlift Go; adbc-proxy | Bridge-backed transport, EndpointId principal mapping, contract parity and version fail-closed are distinct from VIDA authority. |
 
 ## Уточнення та невирішені посилання
 
@@ -1187,7 +1334,7 @@ Kukuri переїхав із [KingYoSun/kukuri](https://github.com/KingYoSun/kuk
 
 ## Метод і свіжість
 
-Індекс поєднує linked ChatGPT research thread, попередні code/repository reports та повторну перевірку GitHub repository/release pages станом на 18.09.2026. Детальні твердження позначені за evidence level; короткі repo pointers не означають, що код пройшов аудит.
+Індекс поєднує linked ChatGPT research thread, попередні code/repository reports та повторні GitHub repository/README перевірки. [Addendum 19–21.09](iroh-reference-projects-update-2026-09-21.md) — user-supplied snapshot із окремо перевіреним README `iroh-rings`; [addendum 21–22.09](iroh-reference-projects-update-2026-09-22.md) — user-supplied discovery delta, чиї чотири candidate READMEs переглянуті 22.09.2026; [follow-up 23.09](iroh-reference-projects-update-2026-09-23.md) — organization/Engine README, ARCHITECTURE та manifest checks; [вечірній addendum 23.09](iroh-reference-projects-update-2026-09-23-evening.md) — user report із README/manifest spot-checks для agent, RPC, browser, messenger і workspace references; [addendum 24.09](iroh-reference-projects-update-2026-09-24.md) — user report із README/manifest spot-checks для device-sharing, desktop P2P і embedded telemetry; [addendum 25.09](iroh-reference-projects-update-2026-09-25.md) — user report із README/manifest spot-checks для remote desktop, distributed VCS/storage і design-only encrypted storage; [addendum 27.09](iroh-reference-projects-update-2026-09-27.md) — user report із README/manifest/linked-commit spot-checks для ACP, messenger/files, collaboration, agent workspace і typed RPC SDKs. Це не code/security audit; детальні твердження і обмеження класифіковані за evidence level.
 
 Push dates взяті з GitHub metadata у перевірках 18.09.2026. Release dates наведені окремо, коли їх підтверджено. README описує заявлену поведінку; гарантії вимагали б актуальних tests, protocol code та issue history.
 

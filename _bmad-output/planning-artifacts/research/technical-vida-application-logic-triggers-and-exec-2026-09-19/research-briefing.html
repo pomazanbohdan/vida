@@ -1,0 +1,157 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>VIDA · Logic trigger research</title><style>
+:root{color-scheme:light dark;--bg:#f6f7fb;--fg:#172033;--card:#fff;--muted:#586478;--line:#dce3ee;--accent:#335bd4;--warn:#8d4106}
+@media(prefers-color-scheme:dark){:root{--bg:#101825;--fg:#eef2fb;--card:#1b2636;--muted:#b4c0d3;--line:#37475d;--accent:#94b1ff;--warn:#ffba75}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}a{color:var(--accent)}header{padding:2rem max(1rem,calc((100vw - 1120px)/2));background:var(--card);border-bottom:1px solid var(--line)}header h1{margin:.2rem 0;font-size:clamp(1.8rem,3vw,2.7rem)}.meta{color:var(--muted)}.shell{max-width:1120px;margin:auto;padding:1rem;display:grid;grid-template-columns:220px minmax(0,1fr);gap:1.5rem}.toc{position:sticky;top:1rem;align-self:start;display:grid;gap:.35rem;padding:1rem;background:var(--card);border:1px solid var(--line);border-radius:12px;max-height:90vh;overflow:auto}.toc a{text-decoration:none;font-size:.9rem}main{min-width:0}section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.4rem;margin:0 0 1rem}h2{margin:1.5rem 0 .6rem;scroll-margin-top:1rem}h3{scroll-margin-top:1rem}table{border-collapse:collapse;width:100%;font-size:.88rem;display:block;overflow-x:auto}th,td{border:1px solid var(--line);padding:.55rem;text-align:left;vertical-align:top}th{background:var(--bg)}code{background:var(--bg);padding:.15rem .3rem;border-radius:4px}blockquote{border-left:3px solid var(--accent);padding-left:1rem}details{margin:.5rem 0}summary{cursor:pointer;color:var(--accent);font-weight:600}.cite{font-size:.8em;margin-left:.08em}.badge{display:inline-block;padding:.16rem .55rem;border:1px solid var(--line);border-radius:999px;font-size:.82rem}.caution{color:var(--warn)}.sources td:last-child{font-weight:600}p,li{max-width:90ch}@media(max-width:760px){.shell{display:block}.toc{position:static;max-height:none;margin-bottom:1rem}.sources{font-size:.78rem}}
+</style></head><body><header><div class="meta">Технічне дослідження · 19 вересня 2026 · focused / normal verification</div><h1>VIDA: що запускає прикладну логіку</h1><div class="meta">Для рішення щодо OQ-0045 · архітектурні пропозиції не затверджено</div><p><span class="badge">3 незалежно перевірені узагальнення</span> <span class="badge caution">12 фактів з одним першоджерелом</span></p></header><div class="shell"><nav class="toc" aria-label="Зміст"><strong>Зміст</strong><a href="#_1">Короткий висновок</a><a href="#1">1. Які події можуть викликати рушій</a><a href="#2">2. Де виконувати рішення та ефекти</a><a href="#3">3. Чому «пріоритет» не визначає долю базової дії</a><a href="#_2">Сценарії, на яких перевірити контракт</a><a href="#adr">Рекомендації до обговорення, не ADR</a><a href="#_3">Заперечення та невизначеність</a><a href="#_4">Питання для затвердження</a><a href="#_5">Джерела</a><a href="#_6">Актуальність</a></nav><main><section><h1 id="vida">VIDA: що запускає прикладну логіку</h1>
+<p><strong>Мета:</strong> визначити можливі точки входу, фази й композицію логіки в <code>AppInstance</code> перед рішенням щодо <code>OQ-0045</code>. Це дослідження для обговорення, не затверджена специфікація або вибір Rhai/Wasmtime.</p>
+<h2 id="_1">Короткий висновок</h2>
+<p>Один універсальний <code>onSave</code> приховує різні явища: користувацьку команду, зміну запису, перехід стану, таймер і зовнішній сигнал. Airtable розділяє ці тригери; «оновлено» може спрацювати ще до завершення редагування, а перехід до умови повторюється після виходу й нового входу в стан. <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a> Appwrite відділяє синхронний прямий виклик від асинхронної події/розкладу й попереджає про самозапуск циклу. <a class="cite" href="#src-3">[3]</a></p>
+<p><strong>Пропозиція VIDA:</strong> named business command → коротке прикладне рішення/валідація → trusted core commit → зафіксований доменний факт → окрема реакція чи durable workflow. Синхронізація доставляє стан/операції, але сама по собі не створює нового бізнес-наміру. Це висновок з local-first/replay і retry-джерел, не готова гарантія жодної бібліотеки. <a class="cite" href="#src-10">[10]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-12">[12]</a></p>
+<h2 id="1">1. Які події можуть викликати рушій</h2>
+<table>
+<thead>
+<tr>
+<th>Кандидат точки входу</th>
+<th>Приклад VIDA</th>
+<th>Семантика</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Названа команда</td>
+<td><code>notes.update</code>, <code>task.assign</code>, <code>message.send</code>, <code>booking.request</code> з UI, бота, API</td>
+<td>Намір з actor/input/результатом; може бути відхилений до commit.</td>
+</tr>
+<tr>
+<td>Зафіксований факт</td>
+<td><code>note.updated</code>, <code>task.assigned</code>, <code>booking.confirmed</code></td>
+<td>Після прийнятої операції; реакція не може змінити минулий факт.</td>
+</tr>
+<tr>
+<td>Перехід стану</td>
+<td>задача стала <code>ready</code></td>
+<td>Важливий саме перехід, не кожне збереження; можливий повторний вхід у стан.</td>
+</tr>
+<tr>
+<td>Таймер</td>
+<td>нагадування, прострочення, timeout</td>
+<td>Потрібний відповідальний виконавець; це не запис користувача.</td>
+</tr>
+<tr>
+<td>Зовнішній сигнал</td>
+<td>відповідь City Portal, webhook</td>
+<td>Автентичність, dedupe, перетворення на дозволену команду/сигнал.</td>
+</tr>
+<tr>
+<td>Lifecycle пакета</td>
+<td>активація, міграція, деактивація</td>
+<td>Адміністративний протокол, не масове <code>created</code> для старих ресурсів.</td>
+</tr>
+<tr>
+<td>UI projection/observer</td>
+<td>оновлення форми, локального preview</td>
+<td>Повторюваний наслідок local/remote змін, не право надсилати платіж.</td>
+</tr>
+</tbody>
+</table>
+<p>У Airtable є create/update/condition/form/schedule/webhook/button; «record updated» не тотожний «created». <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a> У local-first Automerge зміни синхронізуються після reconnect і observer може бачити віддалені зміни. <a class="cite" href="#src-10">[10]</a> Replicache показує локальне optimistic виконання, серверне застосування та повторний rebase; subscription реагує на локальні й sync-зміни. Це історичний pattern, не рекомендація залежності Replicache. <a class="cite" href="#src-11">[11]</a> Отже, <code>sync.apply</code>, rerender та повторний показ стану <strong>не повинні автоматично</strong> запускати нове <code>booking.request</code> чи повторну відправку повідомлення (архітектурний висновок).</p>
+<h2 id="2">2. Де виконувати рішення та ефекти</h2>
+<table>
+<thead>
+<tr>
+<th>Фаза-кандидат</th>
+<th>Роль</th>
+<th>Помилка/ефект</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>command.resolve</code></td>
+<td>вибрати названу base/instance реалізацію</td>
+<td>typed unsupported/version error; без обходу core</td>
+</tr>
+<tr>
+<td><code>command.decide</code></td>
+<td>коротке обчислення запропонованих змін без прямого I/O</td>
+<td>reject або typed proposed operations</td>
+</tr>
+<tr>
+<td><code>core.commit</code></td>
+<td>trusted grants, constraints, запис, журнал, подія</td>
+<td>єдине authoritative прийняття/відмова</td>
+</tr>
+<tr>
+<td><code>event.react</code></td>
+<td>індексація, повідомлення, зовнішній виклик, старт процесу</td>
+<td>durable handoff, retry/dedupe, окремий failure</td>
+</tr>
+<tr>
+<td><code>workflow.resume</code></td>
+<td>timer, відповідь людини чи сервісу</td>
+<td>версія процесу та authority/lease</td>
+</tr>
+</tbody>
+</table>
+<p>Це <strong>пропозиція VIDA</strong>, а не копія DB trigger. PostgreSQL <code>AFTER</code> виконується все ще у тій самій транзакції, тому не є автоматично «після commit». <a class="cite" href="#src-4">[4]</a> Для зовнішньої реакції AWS описує outbox: зміна даних і pending event записуються атомарно; доставка після commit може повторитися, отже потрібна idempotency. <a class="cite" href="#src-5">[5]</a> Supabase демонструє асинхронні webhooks після INSERT/UPDATE/DELETE. <a class="cite" href="#src-15">[15]</a></p>
+<p>Temporal документує durable event history і повтор Activity після втрати роботи/timeout; журнал сам не гарантує, що платіж у зовнішній системі відбудеться лише раз. <a class="cite" href="#src-12">[12]</a> Тому кандидати поля envelope — <code>eventId</code>, <code>AppInstanceId</code>, версія package/rule, origin/actor, causal ID, idempotency key; точну схему та виконавця ще не обрано.</p>
+<p>Rhai має ліміт операцій, але один виклик host-функції може бути дорогим; Wasmtime обмежує guest compute через fuel/epoch. Обидва факти не замінюють host permissions, budget I/O й контрольованого commit. <a class="cite" href="#src-8">[8]</a><a class="cite" href="#src-9">[9]</a></p>
+<h2 id="3">3. Чому «пріоритет» не визначає долю базової дії</h2>
+<table>
+<thead>
+<tr>
+<th>Референс</th>
+<th>Модель</th>
+<th>Урок</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WordPress</td>
+<td>filter повертає змінений результат; action виконує побічну дію; порядок callbacks має priority. <a class="cite" href="#src-6">[6]</a></td>
+<td>Рішення й реакція — різні typed slots.</td>
+</tr>
+<tr>
+<td>Lexical</td>
+<td>вищий handler отримує command першим, <code>handled</code> зупиняє подальшу передачу. <a class="cite" href="#src-13">[13]</a></td>
+<td>Пріоритет + явна зупинка, а не завжди обов'язковий base.</td>
+</tr>
+<tr>
+<td>Tiptap</td>
+<td>override може явно викликати <code>parent()</code>, щоб зберегти частину базової поведінки. <a class="cite" href="#src-14">[14]</a></td>
+<td>Явна композиція base можлива.</td>
+</tr>
+<tr>
+<td>Shopify Functions</td>
+<td>outputs незалежних functions комбінуються host-правилами; наведена API-сторінка <code>unstable</code>. <a class="cite" href="#src-7">[7]</a></td>
+<td>Злиття доречне лише для typed результатів з формальними правилами.</td>
+</tr>
+</tbody>
+</table>
+<p><code>ADR-0011</code> уже встановив пріоритет процесу <code>AppInstance</code>, але не правило продовження. Референси <a class="cite" href="#src-6">[6]</a><a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-14">[14]</a> показують різні контракти. Пропоную розрізнити в manifest: <code>replace named command</code>, <code>compose base command</code> і <code>subscribe to committed event</code>. Автор складає власні handler-и в instance; платформний Owner-level арбітр бізнес-конфліктів не потрібен. Це ще не затвердження default continuation.</p>
+<h2 id="_2">Сценарії, на яких перевірити контракт</h2>
+<ul>
+<li><strong>Notes:</strong> <code>notes.update</code> → trusted запис → <code>note.updated</code> → індекс/notification. Autosave поля не тотожний «документ готовий»; останнє потребує окремої команди/переходу. <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-5">[5]</a></li>
+<li><strong>Messenger:</strong> <code>message.send</code> записує повідомлення й pending delivery; повторне отримання через sync оновлює локальний стан, не надсилає ще раз. <a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-10">[10]</a><a class="cite" href="#src-11">[11]</a></li>
+<li><strong>Projects:</strong> <code>task.assign</code> породжує факт для оповіщення; due-date timer і approval — інші точки входу, останній може бути довгим процесом. <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-12">[12]</a></li>
+<li><strong>City Portal booking:</strong> offline request може бути pending, але підтвердження слота належить authority; дубль доставки не повинен означати друге бронювання. Це <strong>припущення для перевірки інтеграційного контракту</strong>, не зовнішньо доведена властивість VIDA. <a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-12">[12]</a></li>
+</ul>
+<h2 id="adr">Рекомендації до обговорення, не ADR</h2>
+<ol>
+<li>Узгодити три площини: named command/decision, committed-event reaction, durable timer/external signal; UI projection без бізнес-ефектів окремо. Висока впевненість у потребі розділення з незалежних референсів; назви VIDA — лише кандидати. <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-4">[4]</a><a class="cite" href="#src-5">[5]</a></li>
+<li>Не трактувати reconnect, <code>sync.apply</code>, optimistic rebase і UI rerender як новий business intent. Якщо реакція на віддалений факт потрібна, обрати одного виконавця й idempotency; це висновок середньої впевненості. <a class="cite" href="#src-10">[10]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-12">[12]</a></li>
+<li>Уточнити override named command окремо від additive post-commit reaction; explicit base continuation, error behavior і nested-call guard лишити відкритими до вашого рішення. <a class="cite" href="#src-6">[6]</a><a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-14">[14]</a></li>
+<li>Прототип: <code>Notes.update</code> + реакція + два офлайн-пристрої/reconnect + заборонений effect + package upgrade. Вибір Rhai/Wasmtime — після перевірки contract і budget. <a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-8">[8]</a><a class="cite" href="#src-9">[9]</a><a class="cite" href="#src-11">[11]</a></li>
+</ol>
+<h2 id="_3">Заперечення та невизначеність</h2>
+<p>Універсальна підписка на зміни простіша для автора, але надто широкі update/condition triggers спричиняють ранні спрацювання, повторні входи й self-trigger loops. <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-3">[3]</a> Явний <code>base()</code> додає роботу автору; альтернатива Lexical — <code>handled/continue</code>, Tiptap — <code>parent()</code>. <a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-14">[14]</a> Жоден референс не ухвалює рішення за VIDA. Shopify API <a class="cite" href="#src-7">[7]</a> нестабільний і наведений лише як приклад іншої композиції. WordPress handbook <a class="cite" href="#src-6">[6]</a> старший за дворічне вікно pattern pack; поточний висновок перевірено свіжими Lexical/Tiptap docs.</p>
+<h2 id="_4">Питання для затвердження</h2>
+<ol>
+<li>Чи є named command, committed event, timer/external signal потрібними у першому package contract? Чи має <code>sync.apply</code> коли-небудь створювати новий бізнес-наміру на <em>кожному</em> вузлі?</li>
+<li>Хто authority для ефектів у personal autonomous та federated Space і як dedupe переживає offline/reconnect?</li>
+<li>При override базовий handler пропускається, викликається явно, чи продовжується за результатом <code>continue</code>? Які правила failure й recursion?</li>
+<li>Де межа локальних UI reactions і переносної logic package; який versioned ABI/budget?</li>
+</ol>
+<h2 id="_5">Джерела</h2>
+<details open><summary>15 першоджерел · переглянути таблицю</summary><table class="sources"><tbody><tr id="src-1"><td>[1]</td><td>типи triggers, ранні edits</td><td><a href="https://support.airtable.com/articles/3669392397-getting-started-with-airtable-automations" target="_blank" rel="noopener">Airtable Help</a></td><td>2026-08-12</td><td>2026-09-19</td><td>medium</td></tr><tr id="src-2"><td>[2]</td><td>state transition/re-entry</td><td><a href="https://support.airtable.com/articles/7369519794-airtable-automation-trigger-when-record-matches-conditions" target="_blank" rel="noopener">Airtable Help</a></td><td>2026-09-18</td><td>2026-09-19</td><td>medium</td></tr><tr id="src-3"><td>[3]</td><td>direct sync/event async, recursion</td><td><a href="https://appwrite.io/docs/products/functions/execute" target="_blank" rel="noopener">Appwrite Docs</a></td><td>не вказано</td><td>2026-09-19</td><td>medium</td></tr><tr id="src-4"><td>[4]</td><td>DB trigger timing, transaction</td><td><a href="https://www.postgresql.org/docs/18/trigger-definition.html" target="_blank" rel="noopener">PostgreSQL Docs</a></td><td>не вказано</td><td>2026-09-19</td><td>medium</td></tr><tr id="src-5"><td>[5]</td><td>outbox, duplicates, rollback</td><td><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html" target="_blank" rel="noopener">AWS Prescriptive Guidance</a></td><td>не вказано</td><td>2026-09-19</td><td>high; cross-check [12]</td></tr><tr id="src-6"><td>[6]</td><td>filter/action semantics, priority</td><td><a href="https://developer.wordpress.org/plugins/hooks/" target="_blank" rel="noopener">WordPress Hooks</a> / [priority API](https://developer.wordpress.org/reference/functions/add_filter/)</td><td>handbook 2024-01-29; API не вказано</td><td>2026-09-19</td><td>medium; historical</td></tr><tr id="src-7"><td>[7]</td><td>concurrent outputs/combination</td><td><a href="https://shopify.dev/docs/api/functions/unstable/discount" target="_blank" rel="noopener">Shopify Dev</a></td><td>не вказано</td><td>2026-09-19</td><td>low; unstable</td></tr><tr id="src-8"><td>[8]</td><td>guest interruption</td><td><a href="https://docs.wasmtime.dev/examples-interrupting-wasm.html" target="_blank" rel="noopener">Wasmtime Docs</a></td><td>не вказано</td><td>2026-09-19</td><td>medium</td></tr><tr id="src-9"><td>[9]</td><td>Rhai operations vs host work</td><td><a href="https://rhai.rs/book/safety/max-operations.html" target="_blank" rel="noopener">Rhai Book</a></td><td>не вказано</td><td>2026-09-19</td><td>medium</td></tr><tr id="src-10"><td>[10]</td><td>offline/remote sync, observer</td><td><a href="https://automerge.org/docs/tutorial/network-sync/" target="_blank" rel="noopener">Automerge network</a> / [local observer](https://automerge.org/docs/tutorial/local-sync/)</td><td>не вказано</td><td>2026-09-19</td><td>high; cross-check [11]</td></tr><tr id="src-11"><td>[11]</td><td>optimistic rebase/subscriptions</td><td><a href="https://doc.replicache.dev/concepts/how-it-works" target="_blank" rel="noopener">Replicache Docs</a></td><td>не вказано</td><td>2026-09-19</td><td>medium; historical</td></tr><tr id="src-12"><td>[12]</td><td>durable history/Activity retries</td><td><a href="https://github.com/temporalio/documentation/blob/main/docs/encyclopedia/workflow/workflow-execution/event.mdx" target="_blank" rel="noopener">Temporal Docs source</a></td><td>не вказано</td><td>2026-09-19</td><td>high; cross-check [5]</td></tr><tr id="src-13"><td>[13]</td><td>priority + handled/continue</td><td><a href="https://lexical.dev/docs/concepts/commands" target="_blank" rel="noopener">Lexical Docs</a></td><td>не вказано</td><td>2026-09-19</td><td>high; compare [14]</td></tr><tr id="src-14"><td>[14]</td><td>override with optional parent</td><td><a href="https://tiptap.dev/docs/editor/extensions/custom-extensions/extend-existing" target="_blank" rel="noopener">Tiptap Docs</a></td><td>не вказано</td><td>2026-09-19</td><td>medium</td></tr><tr id="src-15"><td>[15]</td><td>async DB webhook after row change</td><td><a href="https://supabase.com/docs/guides/database/webhooks" target="_blank" rel="noopener">Supabase Docs</a></td><td>не вказано</td><td>2026-09-19</td><td>medium</td></tr></tbody></table></details>
+<h2 id="_6">Актуальність</h2>
+<p>Для датованих джерел використовується дата публікації; для недатованих — дата перевірки <strong>лише як proxy планового перегляду, не як вигадана дата публікації</strong>. Механічний розрахунок із <code>claims.json</code>: WordPress handbook <a class="cite" href="#src-6">[6]</a> має recheck 2026-01-29 і є за межами дворічного вікна; він лишається історичним прикладом. <code>Unstable</code> Shopify <a class="cite" href="#src-7">[7]</a>, executor API <a class="cite" href="#src-8">[8]</a><a class="cite" href="#src-9">[9]</a> мають наступний перегляд 2026-10-19. Решта pattern/local-first/workflow джерел — 2028-08-12 або пізніше за 24-місячним вікном, але version/compatibility факти вимагають свіжішої перевірки перед реалізацією. Із 15 source-bound claims три критичні узагальнення перевірено незалежними видавцями; 12 vendor-specific фактів мають по одному першоджерелу та позначені <code>unverified</code> у ledger, не як спростовані.</p></section></main></div></body></html>

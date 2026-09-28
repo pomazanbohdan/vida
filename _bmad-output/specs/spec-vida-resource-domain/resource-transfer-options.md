@@ -1,0 +1,19 @@
+# Move, copy and revision options — OQ-0003 / OQ-0034
+
+**Status: decision brief, not an approved transfer algorithm.** Approved behavior already distinguishes a File revision under the same Resource ID from a copy with a new ID. Conflict variants stay recoverable until a separately proven safe-GC frontier; neither an early winner nor a failed download authorizes deletion. See [PRD FR-19/20](../../planning-artifacts/prds/prd-vida-2026-09-22/prd.md), [BlobStore contract](../../../docs/04-specifications/blob-store-contract.md) and [ADR-0001](../../../docs/03-architecture/decisions/ADR-0001-layered-access-control.md).
+
+| User action | Candidate identity/history rule | Access consequence | Decision status |
+|---|---|---|---|
+| Move Note between Containers in **one Space** | Keep Resource ID and retained history; change its owning Container with an auditable operation. | Preview the before/after effective readers and writers; do not silently widen access. Any hard deny or upper maximum remains binding. | **Recommended**, conditional on one-home Container decision. |
+| Move Note from Personal Space to **Shared Space** | Treat as transfer: create a new Resource ID under the destination Space, preserve permitted content and provenance, then separately offer to archive the source after destination acceptance. | New Space has different owners, grants, keys and sync authority. Do not carry old key envelopes or grants as if they applied there. | **Recommended** over silently rebinding one ID across security boundaries. |
+| Copy Resource | Create new Resource ID; retain source provenance only in a form independently authorized for each viewer. | Apply destination policy; preview which fields, File attachments, Relations and history are included. Never copy source ACL grants blindly. | Open: exact included metadata and provenance visibility. |
+| Save File conflict alternative as revision | Retain File Resource ID, add an immutable version/payload reference. | Existing authorized viewers may need a distinct rule for historical-version reads; retained payload pins follow BlobStore. | Same-ID revision is approved; historical-version visibility is open. |
+| Save File conflict alternative as copy | Create distinct File Resource ID and payload reference. | Check destination grants independently; new copy does not inherit source permissions by implication. | New-ID copy is approved; ACL/metadata inheritance is open. |
+
+The proposed cross-Space transfer is **not** an atomic promise that two disconnected Spaces commit together. The user-facing “move” would remain pending until the target accepts and the source archive is separately accepted; failed target acceptance leaves the source intact. Exact operation IDs, resumable stages, rollback of partial transfer and provenance serialization require protocol fixtures. Same-Space moves must also be checked at authority acceptance, not only in the client preview. [OWASP Authorization](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) and [IDOR Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html) support per-object/action checks, not a particular move algorithm.
+
+## Questions for approval
+
+1. If Olena moves a Note between two sections of the **same Space**, should links keep working under the same Note ID while VIDA shows who gains or loses access before she confirms (recommended)?
+2. If she moves a private Note into a **team Space**, should VIDA create a new team-owned ID, verify the copy arrived, then separately offer to archive the private original (recommended), or must one ID survive across both Spaces?
+3. When she copies a Note or File, should the new copy use **destination permissions** and an explicit preview of attachments/links/history (recommended), rather than inheriting the original's grants automatically?

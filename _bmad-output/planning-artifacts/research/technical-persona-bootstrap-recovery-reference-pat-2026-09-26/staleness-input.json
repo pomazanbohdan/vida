@@ -1,0 +1,10 @@
+[
+  {"claim":"Delta Chat profile and transfer flow","class":"app-flow","pub_date":"2026-09-26"},
+  {"claim":"Signal recovery-key setup flow","class":"app-flow","pub_date":"2026-09-26"},
+  {"claim":"SimpleX export and passphrase flow","class":"app-flow","pub_date":"2026-09-26"},
+  {"claim":"Element verification and recovery flow","class":"app-flow","pub_date":"2026-09-26"},
+  {"claim":"Android Keystore and Auto Backup behavior","class":"platform","pub_date":"2026-09-26"},
+  {"claim":"Browser persistence behavior","class":"platform","pub_date":"2026-09-26"},
+  {"claim":"SQLite atomicity","class":"storage","pub_date":"2026-09-26"},
+  {"claim":"OWASP key and storage guidance","class":"security","pub_date":"2026-09-26"}
+]

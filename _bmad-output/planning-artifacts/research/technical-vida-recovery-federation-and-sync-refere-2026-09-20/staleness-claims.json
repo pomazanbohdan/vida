@@ -1,0 +1,12 @@
+[
+  {
+    "claim": "Signal Secure Backups separates encrypted archive from user-held recovery key",
+    "class": "pattern",
+    "pub_date": "2025-09-08"
+  },
+  {
+    "claim": "Iroh shared relay is stateless encrypted forwarding",
+    "class": "pattern",
+    "pub_date": "2026-09-08"
+  }
+]

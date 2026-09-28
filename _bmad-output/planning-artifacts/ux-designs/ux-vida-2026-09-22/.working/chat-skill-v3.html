@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VIDA — чат, концепт v3</title>
+  <style>
+    :root { --ink:#1d2540; --muted:#68728a; --line:#e5e9f2; --soft:#f6f7fb; --violet:#5954c6; --violet-soft:#eeedff; --green:#168a60; }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:420px; height:900px; overflow:hidden; }
+    body { font:16px/1.42 "Segoe UI",Arial,sans-serif; color:var(--ink); background:#fff; }
+    svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.85; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+    button { font:inherit; cursor:pointer; }
+    button:focus-visible { outline:3px solid #5954c6; outline-offset:2px; }
+    .screen { height:900px; display:flex; flex-direction:column; padding-top:18px; }
+    .identity { display:flex; align-items:center; gap:8px; height:59px; padding:0 16px 8px; border-bottom:1px solid var(--line); }
+    .persona,.space { height:44px; border:1px solid var(--line); background:#fff; border-radius:14px; display:flex; align-items:center; gap:7px; padding:0 9px; font-size:13px; font-weight:650; white-space:nowrap; }
+    .persona { max-width:132px; }
+    .persona .avatar { width:27px; height:27px; font-size:12px; }
+    .space { min-width:0; max-width:174px; background:#f8f8fd; }
+    .space span { overflow:hidden; text-overflow:ellipsis; }
+    .space svg { width:17px; height:17px; color:#585d7e; }
+    .chevron { width:12px!important; height:12px!important; }
+    .connection { margin-left:auto; display:flex; align-items:center; gap:5px; font-size:12px; color:#436353; white-space:nowrap; }
+    .connection i { width:7px; height:7px; background:#1cab73; border-radius:50%; }
+    .chat-head { display:flex; align-items:center; gap:10px; min-height:82px; padding:9px 15px 7px 20px; }
+    .title { flex:1; min-width:0; }
+    h1 { margin:0; font-size:23px; line-height:1.1; letter-spacing:-.5px; font-weight:760; }
+    .subtitle { color:var(--muted); font-size:13px; margin-top:5px; }
+    .icon-button { width:44px; height:44px; display:grid; place-items:center; border:1px solid var(--line); background:#fff; border-radius:14px; color:#303a59; }
+    .tabs { display:flex; gap:4px; margin:0 16px 11px; padding:4px; border-radius:14px; background:#f4f5fa; }
+    .tab { flex:1; height:44px; border:0; border-radius:10px; color:#667087; background:transparent; font-size:14px; font-weight:670; }
+    .tab.selected { background:#fff; color:var(--violet); box-shadow:0 1px 4px #2630541a; }
+    .timeline { flex:1; min-height:0; overflow:hidden; padding:5px 16px 9px; display:flex; flex-direction:column; gap:18px; }
+    .day { display:flex; align-items:center; gap:10px; text-align:center; color:#858da0; font-size:11px; font-weight:750; letter-spacing:.9px; }
+    .day:before,.day:after { content:""; height:1px; background:var(--line); flex:1; }
+    .message { display:flex; align-items:flex-start; gap:9px; }
+    .message .avatar { margin-top:20px; }
+    .avatar { width:32px; height:32px; flex:none; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:760; }
+    .andrii { background:#e3e9fb; color:#304c94; }
+    .maria { background:#f9e7e2; color:#9c5138; }
+    .message-content { max-width:318px; min-width:0; }
+    .message-meta { display:flex; align-items:baseline; gap:7px; margin:0 0 5px 3px; }
+    .message-meta strong { font-size:13px; }
+    .message-meta time { font-size:11px; color:#818a9d; }
+    .bubble { background:#f5f6fa; border-radius:5px 16px 16px 16px; padding:11px 13px; font-size:15px; line-height:1.45; }
+    .bubble p { margin:0; }
+    .bubble p+p { margin-top:7px; }
+    .task-card { display:block; margin-top:11px; padding:11px; background:#fff; border:1px solid #dfe3ef; border-radius:11px; text-decoration:none; color:inherit; }
+    .task-top { display:flex; align-items:center; gap:7px; font-size:11px; color:#69738b; font-weight:650; }
+    .task-top svg { width:15px; height:15px; }
+    .task-top .tag { margin-left:auto; background:#eeeaff; color:#5a50b6; border-radius:5px; padding:3px 6px; }
+    .task-card strong { display:block; font-size:14px; margin:5px 0 2px; }
+    .task-card small { color:#68738a; font-size:11px; }
+    .mine { justify-content:flex-end; }
+    .mine .bubble { background:#ecebff; border-radius:16px 5px 16px 16px; }
+    .delivery { text-align:right; padding:5px 5px 0 0; color:#6c748b; font-size:11px; }
+    .delivery svg { display:inline; width:12px; height:12px; vertical-align:-2px; margin-right:3px; }
+    .composer-wrap { flex:none; border-top:1px solid var(--line); padding:9px 13px 8px; }
+    .composer { display:flex; align-items:center; gap:7px; }
+    .composer .icon-button { border:0; }
+    .input { height:48px; flex:1; display:flex; align-items:center; padding:0 14px; border:1px solid #dfe3ef; border-radius:15px; color:#838ba0; font-size:14px; }
+    .send { width:46px; height:46px; flex:none; display:grid; place-items:center; border:0; border-radius:15px; background:var(--violet); color:white; }
+    .bottom { height:77px; padding:6px 9px 8px; display:flex; border-top:1px solid var(--line); flex:none; }
+    .nav { flex:1; min-width:0; border:0; background:#fff; color:#6b748a; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; font-size:11px; font-weight:600; }
+    .nav svg { width:22px; height:22px; }
+    .nav.selected { color:var(--violet); background:#f2f1ff; }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-space" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M8 4v5"/></symbol>
+    <symbol id="i-call" viewBox="0 0 24 24"><path d="M7.3 3.8 9.8 7c.5.7.4 1.6-.2 2.2l-1 1c1.1 2.2 2.9 4 5.2 5.2l1-1c.6-.6 1.5-.7 2.2-.2l3.2 2.5c.7.5.8 1.5.3 2.2l-1.2 1.7c-.5.7-1.3 1-2.2.8C9.8 20.5 3.5 14.2 3.1 6.9c-.1-.9.2-1.7.8-2.2l1.2-1.2c.7-.5 1.7-.4 2.2.3Z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-task" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 12 3 3 6-6"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m8 13 6.8-6.8a3 3 0 0 1 4.2 4.2L10.5 19a5 5 0 0 1-7-7l8.6-8.6"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m3 11 18-8-8 18-2.5-7.5L3 11Z"/><path d="M10.5 13.5 21 3"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-8 8 8.5 8.5 0 0 1-3-.5L4 20l1-5a8 8 0 1 1 15-3.5Z"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M15 3v5h4M8 12h7M8 16h7"/></symbol>
+    <symbol id="i-project" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 12 3 3 6-6"/></symbol>
+    <symbol id="i-spaces" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M2.5 20c.2-3.2 2.4-5 5.5-5s5.3 1.8 5.5 5M15.5 16c2.8-.2 5.5 1.2 6 4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 4 4 6-7M10 12l3 4 7-8"/></symbol>
+  </defs></svg>
+  <main class="screen" aria-label="Концепт чату VIDA">
+    <div class="identity">
+      <button class="persona" aria-label="Перемкнути Persona: Олена"><span class="avatar maria">О</span> Олена <svg class="chevron"><use href="#i-chevron"/></svg></button>
+      <button class="space" aria-label="Поточний Space: Команда VIDA"><svg><use href="#i-space"/></svg><span>Команда VIDA</span><svg class="chevron"><use href="#i-chevron"/></svg></button>
+      <span class="connection" aria-label="Цей пристрій онлайн"><i></i>Онлайн</span>
+    </div>
+    <header class="chat-head">
+      <div class="title"><h1>Дизайн VIDA</h1><div class="subtitle">Група · 5 учасників</div></div>
+      <button class="icon-button" aria-label="Почати дзвінок"><svg><use href="#i-call"/></svg></button>
+      <button class="icon-button" aria-label="Додаткові дії"><svg><use href="#i-more"/></svg></button>
+    </header>
+    <div class="tabs" role="tablist" aria-label="Режим обговорення"><button class="tab selected" role="tab" aria-selected="true">Чат</button><button class="tab" role="tab" aria-selected="false">Форум</button></div>
+    <section class="timeline" aria-label="Повідомлення">
+      <div class="day">СЬОГОДНІ</div>
+      <article class="message"><span class="avatar andrii">А</span><div class="message-content"><div class="message-meta"><strong>Андрій</strong><time>10:24</time></div><div class="bubble"><p>Оновив макети головного екрана. Глянете?</p></div></div></article>
+      <article class="message"><span class="avatar maria">М</span><div class="message-content"><div class="message-meta"><strong>Марія</strong><time>10:37</time></div><div class="bubble"><p>У задачі залишила три правки. Додаю контекст сюди.</p><a class="task-card" href="#" aria-label="Відкрити задачу Навігація"><span class="task-top"><svg><use href="#i-task"/></svg> ЗАДАЧА · PROJECT <span class="tag">В роботі</span></span><strong>Навігація</strong><small>Проєкт VIDA · 3 коментарі</small></a></div></div></article>
+      <article class="message mine"><div class="message-content"><div class="bubble"><p>Перевірю сьогодні й залишу коментарі.</p></div><div class="delivery"><svg><use href="#i-check"/></svg>11:08 · Доставлено 2/4</div></div></article>
+      <article class="message"><span class="avatar andrii">А</span><div class="message-content"><div class="message-meta"><strong>Андрій</strong><time>11:16</time></div><div class="bubble"><p>Прикріпив новий макет для порівняння. Файл є в задачі.</p></div></div></article>
+    </section>
+    <div class="composer-wrap"><div class="composer"><button class="icon-button" aria-label="Додати файл"><svg><use href="#i-paperclip"/></svg></button><div class="input" role="textbox" aria-label="Написати повідомлення">Написати повідомлення</div><button class="send" aria-label="Надіслати повідомлення"><svg><use href="#i-send"/></svg></button></div></div>
+    <nav class="bottom" aria-label="Основна навігація"><button class="nav selected" aria-current="page"><svg><use href="#i-chat"/></svg>Чати</button><button class="nav"><svg><use href="#i-note"/></svg>Знання</button><button class="nav"><svg><use href="#i-project"/></svg>Проєкт</button><button class="nav"><svg><use href="#i-spaces"/></svg>Простори</button></nav>
+  </main>
+</body>
+</html>

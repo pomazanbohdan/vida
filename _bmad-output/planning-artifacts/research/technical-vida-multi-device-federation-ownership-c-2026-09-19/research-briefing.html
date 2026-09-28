@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Technical research: VIDA multi-device, federation, and authority confirmation</title><style>
+:root { color-scheme:light dark; --bg:#f7f9fc; --fg:#172338; --card:#fff; --line:#d9e2ed; --accent:#2856a0; --muted:#50627d; }
+@media (prefers-color-scheme:dark) { :root { --bg:#10151e; --fg:#eaf0f8; --card:#1b2432; --line:#364254; --accent:#9fc3ff; --muted:#bac8db; } }
+* { box-sizing:border-box } html { scroll-behavior:smooth } body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif }
+header,main,footer { max-width:1080px; margin:auto; padding:1.2rem } header { padding-top:2.7rem } h1 { font-size:clamp(1.6rem,4vw,2.5rem); line-height:1.17 } h2 { border-bottom:1px solid var(--line); padding-bottom:.35rem; scroll-margin-top:5rem } h3 { scroll-margin-top:5rem }
+.meta { color:var(--muted); font-size:.9rem } .summary { background:var(--card); border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:10px; padding:1rem 1.35rem; margin:1rem 0 }
+nav { position:sticky; top:0; z-index:5; background:var(--card); border-block:1px solid var(--line); padding:.65rem 1rem; display:flex; gap:.9rem; overflow:auto; white-space:nowrap }
+nav a, a { color:var(--accent) } nav a { font-size:.9rem; text-decoration:none } section { margin:2rem 0 } table { display:block; overflow:auto; border-collapse:collapse; width:100%; font-size:.9rem } th,td { border:1px solid var(--line); padding:.55rem; vertical-align:top } th { background:var(--card) }
+code { background:var(--card); border:1px solid var(--line); border-radius:4px; padding:.1em .25em } .cite { white-space:nowrap; font-size:.88em } details { border:1px solid var(--line); border-radius:8px; padding:.8rem; background:var(--card) } summary { cursor:pointer; font-weight:650 }
+.badge { display:inline-block; padding:.12rem .45rem; border-radius:999px; font-size:.76rem; font-weight:700; margin-inline:.2rem } .verified { background:#d6f1e0; color:#14512c } .medium { background:#fff0c7; color:#654b00 } .unverified { background:#f9d4d7; color:#7f1020; border:1px solid #c53142 }
+@media (prefers-color-scheme:dark) { .verified { background:#184c32; color:#c8f7d5 } .medium { background:#5c4610; color:#fff1bd } .unverified { background:#651e29; color:#ffe5e8 } }
+</style></head><body>
+<header><div class="meta">TECHNICAL RESEARCH · 2026-09-19 · STANDARD · NORMAL VALIDATION</div><h1>VIDA: багатопристроєві зміни, федерація та підтвердження операцій</h1><p class="meta">Рішення: синхронізація · вузли федерації · authority та квитанції бронювання</p></header>
+<main><div class="summary"><h2>Висновок для рішення</h2><ol>
+<li><strong>Усі пристрої можуть перераховувати однаковий відтворюваний стан, але це не дорівнює багатократному створенню нових спільних об'єктів.</strong> Для нового domain resource потрібні сталий зв'язок із вихідною подією, dedupe й політика прийняття. Дві правки тієї самої людини на несинхронізованих пристроях є concurrent, навіть якщо друга зроблена пізніше за годинником <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-6">[6]</a>.</li>
+<li><strong>«Федеративний вузол» краще описувати набором явних сервісних ролей.</strong> Адреса/акаунт, relay, durable mailbox, сховище, app host і authority можуть співіснувати в одному deployment, але не випливають один з одного. Федерація сама не означає виконання приватних автоматизацій на вузлі <a class="cite" href="#src-9">[9]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-14">[14]</a><a class="cite" href="#src-15">[15]</a>.</li>
+<li><strong>Підпис власника, M-of-N схвалення, кворум реплік і квитанція бронювання — різні докази.</strong> Для звичайного server-owned запису достатньо визначеної authority acceptance; додаткові owner approvals потрібні за політикою для критичних дій, а replica majority — коли потрібен кластерний журнал. Timeout зовнішнього booking-запиту означає <code>unknown</code>, не «не створено» <a class="cite" href="#src-16">[16]</a><a class="cite" href="#src-17">[17]</a><a class="cite" href="#src-20">[20]</a><a class="cite" href="#src-21">[21]</a><a class="cite" href="#src-23">[23]</a>.</li>
+</ol>
+<p><strong>Рішення користувача від 2026-09-19:</strong> якщо логіка на кількох пристроях створює нотатку за однією подією, результатом є <strong>одна спільна нотатка у Space</strong>, не по одній на пристрій. Це фіксує продуктовий інваріант; єдиний допустимий механізм створення канонічної операції ще не обрано. Також корпоративна реєстрація створює окремий акаунт/робочий контекст, не використовує приватний ідентифікатор людини; блокування цього акаунта прибирає доступ до відповідних робочих Spaces, не блокує її інші анонімні чи публічні акаунти. Це рішення користувача, не зовнішній research claim.</p>
+</div>
+<nav aria-label="Зміст"><a href="#section-1">1. Кілька пристроїв: одна подія, похідні дані, пізніше редагування</a><a href="#section-2">2. Федеративний вузол — ролі, а не один обов&#x27;язковий «суперсервер»</a><a href="#section-3">3. Підпис власника, кворум реплік, прийняття сервером і бронювання</a><a href="#section-4">Перехресний висновок та сумісність із VIDA</a><a href="#section-5">Рекомендації для наступних рішень</a><a href="#section-6">Питання, які джерела не можуть вирішити за користувача</a><a href="#section-7">Актуальність і перевірка</a><a href="#sources">Джерела</a></nav>
+<section><h1>VIDA: багатопристроєві зміни, федерація та підтвердження операцій</h1>
+<p><strong>Рішення, якому служить дослідження:</strong> відокремити синхронізацію, виконання логіки, право прийняти зміну та доказ її прийняття для персональних і спільних ресурсів.</p>
+<h2 id="section-1">1. Кілька пристроїв: одна подія, похідні дані, пізніше редагування</h2>
+<p>Automerge дозволяє незалежне offline-редагування, а Yjs застосовує однакові updates повторно й у різному порядку без зміни результату документа <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a>. <strong>Висновок для VIDA:</strong> це гарантія збіжності певного типу даних, не гарантія, що два пристрої не створять два різні <code>TaskId</code> за однією вхідною подією. Якщо результат лише відтворювана projection, її може обчислити кожен пристрій; якщо це новий спільний ресурс, потрібні стабільний ключ походження/ідентифікатор результату та правило прийняття операції. Це проєктний висновок, а не властивість Iroh чи CRDT <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-4">[4]</a>.</p>
+<p>У прикладних журналах дедуплікація append за <code>EventId</code> і дедуплікація повторного виклику handler — різні межі <a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-4">[4]</a>. Для VIDA кандидат: <code>sourceOperationId + handlerId/version + outputKind</code> як стабільний ключ виводу, але точну схему та сумісність різних версій застосунку ще треба визначити. Підпис входу доводить автора/цілісність, але не факт одноразового виконання логіки <a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-4">[4]</a>.</p>
+<p>Якщо телефон змінив статус offline, а ноутбук пізніше відносно годинника змінив той самий статус, не побачивши телефонної операції, зміни <strong>каузально паралельні</strong>, навіть коли Persona одна <a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-6">[6]</a><a class="cite" href="#src-8">[8]</a>. Automerge зберігає обидва значення конфлікту, хоча показує детермінованого переможця; його LWW не спирається на wall-clock <a class="cite" href="#src-6">[6]</a>. Тому «пізніший мій пристрій стає master» є можливою <em>продуктовою політикою</em>, але не фактом про причинність. Для критичних переходів/бронювань приховане LWW може втратити людський намір: потрібні базова ревізія, explicit supersede або authority validation <a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-6">[6]</a><a class="cite" href="#src-8">[8]</a>.</p>
+<p>Replay для відновлення projection не повинен повторювати зовнішній виклик; event-sourcing та transactional-outbox джерела окремо вимагають ізолювати side effects і дедуплікувати повторне споживання <a class="cite" href="#src-7">[7]</a><a class="cite" href="#src-25">[25]</a>. <strong>Сумісність із чинним ADR-0012:</strong> локальна детермінована projection уже дозволена; автоматичне створення нової доменної операції під час <code>sync.apply</code> зараз заборонене. Якщо користувач хоче саме нові спільні ресурси від обробки вхідної події на кожному пристрої, ADR потребує окремого уточнення або заміни після рішення, не мовчазного обходу.</p>
+<p><strong>Контраргумент:</strong> для суто комутативного CRDT-стану без нових ID чи зовнішніх ефектів окремий онлайн-лідер лише погіршить offline-доступність <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-8">[8]</a>.</p>
+<h2 id="section-2">2. Федеративний вузол — ролі, а не один обов'язковий «суперсервер»</h2>
+<p>У Matrix homeserver зберігає акаунти й історію своїх клієнтів та федеративно обмінюється room events; окремий identity service зіставляє сторонні ідентифікатори, а application service є окремою інтеграцією для спеціальної серверної поведінки <a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-14">[14]</a>. В AT Protocol PDS розміщує акаунт і канонічний репозиторій, Relay агрегує потоки, а AppView будує прикладне представлення; handle/DID і адреса PDS пов'язані, але це різні ролі <a class="cite" href="#src-10">[10]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-12">[12]</a>. ActivityPub прямо розрізняє client-to-server і server-to-server шари <a class="cite" href="#src-9">[9]</a>. <strong>Висновок:</strong> федерація визначає взаємодію незалежних операторів, а не автоматичний обов'язок кожного вузла виконувати довільну бізнес-логіку користувача <a class="cite" href="#src-9">[9]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-14">[14]</a>.</p>
+<p>Iroh relay передає зашифровані пакети до підключеного endpoint і не є durable offline mailbox сам по собі <a class="cite" href="#src-15">[15]</a>. Отже, для VIDA потрібно окремо називати capabilities вузла: <code>Address/Account</code>, <code>Relay</code>, <code>DurableMailbox</code>, <code>Replica/Sync</code>, <code>Catalog/AppHost</code> і, <strong>лише якщо явно надано</strong>, <code>SpaceAuthority</code> чи <code>AutomationExecutor</code>. Це запропонований поділ VIDA, а не готовий стек Iroh/Matrix/AT. Кілька capabilities можуть працювати на одному сервері, але факт розміщення не надає права розшифровувати приватний Space або підтверджувати його бізнес-зміни <a class="cite" href="#src-9">[9]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-15">[15]</a>.</p>
+<p><strong>Сумісність із чинним ADR-0004:</strong> <code>богдан@company.com</code> може бути доменною адресою/атестацією через <code>ServiceBinding</code>, а переносна <code>Persona</code> залишається кореневою ідентичністю. Якщо бажано, щоб компанія могла без згоди користувача замінювати root identity або контролювати всі його приватні Spaces, це вже зміна прийнятого рішення, а не просто додавання вузла. <strong>Сумісність із ADR-0006:</strong> opaque delivery може бути capability того самого deployment, але не тотожна authority для бронювання. Користувацьке уточнення «автоматизація не проходить на федеративному вузлі за замовчуванням» узгоджується з розділенням ролей; node-hosted AppService як окрема opt-in capability потребує окремих grants.</p>
+<p><strong>Контраргумент:</strong> Matrix homeserver і AT PDS справді поєднують у одному deployment управління акаунтом і зберігання даних <a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-12">[12]</a><a class="cite" href="#src-13">[13]</a>. Тому заборона будь-якого їх суміщення була б штучною; потрібна заборона <strong>неявного переходу повноважень</strong>, а не обов'язково окремі машини.</p>
+<h2 id="section-3">3. Підпис власника, кворум реплік, прийняття сервером і бронювання</h2>
+<p>Тут чотири різні докази. <strong>Підпис/дозвіл</strong> доводить, хто ініціював або схвалив команду. <strong>Поріг співвласників</strong> (напр. 2-of-3) може вимагати кількох уповноважених ключів <a class="cite" href="#src-17">[17]</a>. <strong>Кворум реплік</strong> у Raft означає стійке прийняття позиції журналу більшістю серверів у його crash-failure моделі, а не згоду двох людей <a class="cite" href="#src-16">[16]</a>. <strong>Authority receipt</strong> доводить, що відповідний сервіс прийняв конкретну версію зміни; зовнішній <code>reservationId</code>/стан провайдера доводить окремий результат бронювання <a class="cite" href="#src-18">[18]</a><a class="cite" href="#src-19">[19]</a><a class="cite" href="#src-22">[22]</a><a class="cite" href="#src-23">[23]</a>. Змішування цих шарів у формулу «1+1» чи «2+1» створює хибне підтвердження.</p>
+<p>Для звичайної зміни одного ресурсного власника розумний кандидат — підписаний намір + перевірка чинних прав/ревізії + стійкий запис уповноваженим сервером і квитанція з <code>operationId</code>, версією та видавцем. AT PDS показує модель канонічного signed repository без універсального кворуму власників <a class="cite" href="#src-19">[19]</a>; HTTP <code>If-Match</code> показує conditional update як захист від втраченої одночасної правки <a class="cite" href="#src-20">[20]</a>. Для <strong>критичних дій спільного володіння</strong> (передача ownership, видалення спільного Space тощо) політика може додатково вимагати M-of-N дозволів <a class="cite" href="#src-17">[17]</a>. Якщо один авторитетний сервер має власний кластер, його внутрішні репліки <em>можуть</em> потребувати Raft-подібну більшість для crash tolerance — це інша вісь <a class="cite" href="#src-16">[16]</a>. Це пропозиція профілів, а не затверджена VIDA-політика.</p>
+<p>Після timeout запиту <code>booking.request</code> результат є <strong>невідомим</strong>, не «не відбулося»: HTTP дозволяє ситуацію, коли запис успішний, але відповідь втрачена <a class="cite" href="#src-20">[20]</a>. Stripe показує same-key retry з обмеженим строком зберігання ключа; повтор із новим ключем після втрати відповіді може створити іншу дію <a class="cite" href="#src-21">[21]</a>. Booking.com окремо документує request ID, reservation ID та acknowledgement повідомлень; факт отримання/схвалення запиту не завжди дорівнює створеній броні <a class="cite" href="#src-22">[22]</a><a class="cite" href="#src-23">[23]</a>. Для VIDA кандидат: durable <code>bookingIntentId</code> → <code>pending/unknown</code> → запит статусу в уповноваженого власника слота/провайдера → повтор <strong>лише</strong> за перевіреним idempotency-контрактом того API → <code>confirmed</code> лише після його квитанції/ID. Якщо API не дозволяє безпечно з'ясувати результат, потрібна ручна звірка, а не blind retry <a class="cite" href="#src-20">[20]</a><a class="cite" href="#src-21">[21]</a><a class="cite" href="#src-22">[22]</a><a class="cite" href="#src-23">[23]</a>.</p>
+<p><strong>Контраргумент:</strong> один сервер-приймач простіший, але його відмова зупиняє підтвердження; кластерний консенсус дає іншу availability/durability ціну <a class="cite" href="#src-16">[16]</a>. Навіть підписана квитанція сервера доводить його твердження про commit, не чесність сервера чи реальний запис у зовнішньому City Portal. Це межа довіри, яку треба задавати окремо.</p>
+<p><strong>Межі доказу:</strong> FROST <a class="cite" href="#src-17">[17]</a> реалізує пороговий криптографічний підпис, але сам не задає бізнес-ролі співвласників. Stripe <a class="cite" href="#src-21">[21]</a> та Booking.com <a class="cite" href="#src-22">[22]</a><a class="cite" href="#src-23">[23]</a><a class="cite" href="#src-24">[24]</a> — приклади контрактів різних провайдерів, не обіцянка, що майбутній City Portal матиме такі самі статуси, строки dedupe чи API звірки. До архітектурного рішення потрібно перевірити контракт саме City Portal.</p>
+<h2 id="section-4">Перехресний висновок та сумісність із VIDA</h2>
+<p>У наших <a href="../../../../research/%D0%9D%D0%BE%D0%B2%D0%B8%D0%B9%20Text%20Document%20(10).txt">старих матеріалах про merge policy</a> є per-field матриця, а в <a href="../../../../research/%D0%9D%D0%BE%D0%B2%D0%B8%D0%B9%20Text%20Document%20(8).txt">матеріалах про масштабний messaging</a> — «2 із 3 реплік». Перша відповідає на <em>яке значення показати після concurrent edits</em>; друга — <em>скільки серверів записали журнал</em>. Жодна не доводить право людини діяти або існування броні. Ці локальні файли — контекст VIDA, не зовнішнє підтвердження.</p>
+<table>
+<thead>
+<tr>
+<th>Чинний документ</th>
+<th>Наслідок нового обговорення</th>
+<th>Статус</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../../../../docs/03-architecture/decisions/ADR-0012-command-event-sync-boundary.md">ADR-0012</a></td>
+<td>Дозволяє rebuild projection на кожному пристрої, але забороняє автоматичну нову бізнес-команду під час <code>sync.apply</code>. Один спільний результат прийнято як продуктову вимогу, а його canonical creation path ще не визначено.</td>
+<td>ADR збережено; <code>OQ-0048</code> відкрито.</td>
+</tr>
+<tr>
+<td><a href="../../../../docs/03-architecture/decisions/ADR-0004-multi-axis-identity-model.md">ADR-0004</a></td>
+<td>Корпоративна реєстрація може створити окрему Persona й ServiceAccount/Binding, не використовуючи приватну Persona; блокування вузлового акаунта стосується лише залежного робочого доступу.</td>
+<td>Ізоляцію затверджено; controller корпоративної Persona лишається <code>OQ-0049</code>.</td>
+</tr>
+<tr>
+<td><a href="../../../../docs/03-architecture/decisions/ADR-0006-durable-delivery-and-operation-envelope.md">ADR-0006</a></td>
+<td>Node може спільно розміщувати різні capabilities, але ciphertext mailbox не стає domain authority лише через hosting.</td>
+<td>Чинна межа зберігається.</td>
+</tr>
+<tr>
+<td><a href="../../../../docs/03-architecture/decisions/ADR-0003-offline-revocation.md">ADR-0003</a></td>
+<td>Звичайна revocation не вимагає кількох Owners; critical scope може вимагати M-of-N. Розширення на всі типи ресурсів потребує нового правила.</td>
+<td>Не узагальнювати без рішення.</td>
+</tr>
+</tbody>
+</table>
+<h3>Generic policy прийняття операції — кандидат, не рішення</h3>
+<p>Замість фіксованого правила для всіх даних схема або operation family могла б задавати <code>AuthorityPolicy</code>: <strong>хто має право запропонувати дію; скільки й чиїх схвалень вона потребує; хто виконує остаточний commit; які базова версія/causal frontier перевіряються; яка квитанція доводить саме commit; що робити з невідомим результатом після timeout</strong>. Це не одна формула «1+1» для кожного об'єкта. M-of-N співвласників вирішує людське схвалення, а quorum реплік — стійкість одного authority; обидва можуть існувати разом або окремо <a class="cite" href="#src-16">[16]</a><a class="cite" href="#src-17">[17]</a><a class="cite" href="#src-20">[20]</a>.</p>
+<p>Кандидатний алгоритм: <code>opId + objectId + schema/operation type + actor + base frontier</code> → перевірка grants і policy → збір потрібних owner approvals (якщо policy вимагає) → conditional commit у визначеного logical authority → durable receipt для <code>opId</code>/нової версії → синхронізація того самого результату на пристрої. Повтор із тим самим <code>opId</code> повертає той самий outcome; timeout переводить клієнт у <code>unknown</code> до query/reconcile, не до blind retry. Якщо authority — кластер, його replica quorum є внутрішнім етапом durable commit, не додатковим голосом власника <a class="cite" href="#src-16">[16]</a><a class="cite" href="#src-20">[20]</a><a class="cite" href="#src-21">[21]</a>. <strong>Усе це потребує user approval і conformance fixtures; з джерел не випливає автоматично, що будь-який VIDA-вузол має ці повноваження.</strong></p>
+<h3>Кандидатні профілі прийняття операції</h3>
+<table>
+<thead>
+<tr>
+<th>Ресурс/дія</th>
+<th>Хто дозволяє</th>
+<th>Хто приймає</th>
+<th>Що є підтвердженням</th>
+<th>Чого це <strong>не</strong> доводить</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Personal Space offline</td>
+<td>Власник/чинний device grant</td>
+<td>Локальна Space policy, пізніше reconcile</td>
+<td>Signed local commit; окремий статус sync</td>
+<td>Що інші пристрої вже одержали операцію</td>
+</tr>
+<tr>
+<td>Приватний shared Space</td>
+<td>Actor із Space grant; для critical дій — policy M-of-N</td>
+<td>Визначена Space authority, не довільний relay</td>
+<td>Authority receipt для <code>operationId</code>/revision</td>
+<td>Що сервер delivery прочитав приватний payload</td>
+</tr>
+<tr>
+<td>City Portal booking</td>
+<td>Запитувач має право подати заявку; бізнесова policy керує слотом</td>
+<td>Власник календаря/уповноважений City Portal backend</td>
+<td>Provider booking status + reservation ID</td>
+<td>Що один лише client ACK або approval створив бронь</td>
+</tr>
+<tr>
+<td>Кластер одного authority server</td>
+<td>Як у відповідному рядку вище</td>
+<td>Server leader із replica quorum</td>
+<td>Commit index/term + server receipt</td>
+<td>Що репліки є співвласниками чи дали людську згоду</td>
+</tr>
+</tbody>
+</table>
+<p>Ця таблиця — <strong>пропозиція для обговорення</strong>, не затверджена policy. Зокрема, хто саме є authority для <code>Task</code>, <code>Note</code>, <code>Message</code> та <code>Booking</code>, лишається <code>OQ-0033</code>. Якщо бізнес-сервер «має пріоритет», потрібно вказати, для <strong>якого ресурсу й операції</strong> він є source of truth; інакше статус «100% підтверджено» вводитиме користувача в оману.</p>
+<h2 id="section-5">Рекомендації для наступних рішень</h2>
+<h3>Поглиблення: що роблять референси з паралельними офлайн-правками</h3>
+<table>
+<thead>
+<tr>
+<th>Референс</th>
+<th>Фактична поведінка</th>
+<th>Межа для VIDA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Automerge <a class="cite" href="#src-6">[6]</a></td>
+<td>Для одночасної заміни одного scalar поля показує детермінованого «переможця», але інші значення зберігає як conflicts. «Last» визначається ID операції, не часом годинника.</td>
+<td>Збіжність копій не доводить, що видиме значення — останній людський намір.</td>
+</tr>
+<tr>
+<td>Linear <a class="cite" href="#src-26">[26]</a></td>
+<td>Зберігає офлайн-правки і повторює їх після відновлення мережі; прямо попереджає, що не впорядковує їх за часом створення, тому опис або статус можуть бути перезаписані.</td>
+<td>Це документоване обмеження референса, не правило, яке варто копіювати для критичних полів.</td>
+</tr>
+<tr>
+<td>CloudKit <a class="cite" href="#src-27">[27]</a><a class="cite" href="#src-29">[29]</a></td>
+<td>За політики <code>ifServerRecordUnchanged</code> (типової) сервер порівнює <code>recordChangeTag</code>; при застарілій версії повертає <code>serverRecordChanged</code> і три копії — client, server, ancestor — для злиття й повторної спроби. Інші save policies можуть не порівнювати тег.</td>
+<td>Conditional acceptance дозволяє відрізнити нову правку від overwrite за старою базою, якщо відповідна policy увімкнена.</td>
+</tr>
+<tr>
+<td>CouchDB <a class="cite" href="#src-28">[28]</a></td>
+<td>Репліки показують того самого детермінованого winner, але зберігають conflicting revisions; застосунок може надати їх людині або зробити domain-specific merge.</td>
+<td>Не слід плутати «є один видимий winner» із «конфлікт розв'язаний за наміром людини».</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Висновок для VIDA — проєктна рекомендація, ще не рішення:</strong> не вводити глобальне «пізніший timestamp перемагає». Для операції над статусом зберігати <code>baseRevision</code>/causal frontier. Якщо друга дія справді бачила першу, це послідовний перехід. Якщо ні — <strong>у пропонованій VIDA</strong> обидві операції лишаються в історії, а схема/operation family визначає: auto-merge лише за доведеного доменного правила, інакше pending conflict з явним підтвердженим новим наміром. Для неважливого поля схема може окремо дозволити deterministic LWW; для статусу задачі, бронювання або зовнішнього ефекту тихе LWW небезпечне <a class="cite" href="#src-6">[6]</a><a class="cite" href="#src-26">[26]</a><a class="cite" href="#src-27">[27]</a><a class="cite" href="#src-28">[28]</a><a class="cite" href="#src-29">[29]</a>. Це пояснює вашу інтуїцію про «пізнішу мою дію»: користувач може зробити її остаточною <strong>явною новою командою після виявлення конфлікту</strong>, не шляхом вгадування часу двох ізольованих пристроїв.</p>
+<ol>
+<li>Зберегти в <code>sync.apply</code> чисте, детерміноване оновлення локальних projections на всіх пристроях. Для нового спільного об'єкта розглянути окремий <code>DerivedOperation</code> зі сталими <code>sourceOperationId</code>, <code>ruleId/version</code>, <code>outputId</code>, pinned input snapshot і authority/dedupe. Це <strong>кандидат на розширення ADR-0012</strong>, а не прийнятий контракт; перед вибором потрібен прототип mixed-version/replay <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-4">[4]</a><a class="cite" href="#src-7">[7]</a><a class="cite" href="#src-25">[25]</a>.</li>
+<li>Для «пізніша моя правка — головна» дозволяти automatic supersede лише коли наступна команда посилається на відому базову ревізію або правило конкретного поля допускає LWW. Інакше показувати concurrent conflict чи вимагати authority validation для статусу/бронювання <a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-6">[6]</a><a class="cite" href="#src-8">[8]</a><a class="cite" href="#src-20">[20]</a>.</li>
+<li>Описати federation через незалежні capabilities і grants. Доменний handle може бути підтверджений вузлом, а root Persona — переносною; node-hosted app чи service principal отримує доступ/право виконання лише явно <a class="cite" href="#src-9">[9]</a><a class="cite" href="#src-10">[10]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-12">[12]</a><a class="cite" href="#src-13">[13]</a><a class="cite" href="#src-14">[14]</a><a class="cite" href="#src-15">[15]</a>.</li>
+<li>Для звичайної server-owned дії розділити owner authorization, conditional commit, signed authority receipt та provider outcome; не нав'язувати всім операціям фіксований «1+1»/«2+1». M-of-N — лише на визначених критичних діях, replica quorum — на кластерному authority <a class="cite" href="#src-16">[16]</a><a class="cite" href="#src-17">[17]</a><a class="cite" href="#src-19">[19]</a><a class="cite" href="#src-20">[20]</a>.</li>
+<li>Для booking не повторювати <code>create</code> з новим ID після timeout. Зберігати stable intent/key, запитувати статус, повторювати лише за доведеним контрактом конкретного API; без нього — manual reconcile <a class="cite" href="#src-20">[20]</a><a class="cite" href="#src-21">[21]</a><a class="cite" href="#src-22">[22]</a><a class="cite" href="#src-23">[23]</a><a class="cite" href="#src-24">[24]</a>.</li>
+</ol>
+<h2 id="section-6">Питання, які джерела не можуть вирішити за користувача</h2>
+<ol>
+<li>Один спільний результат похідної логіки підтверджено користувачем. Хто має право подати й прийняти його єдину канонічну операцію, якщо правило запустили кілька пристроїв, і як узгодити це з ADR-0012 без повтору бізнес-команди під час <code>sync.apply</code>?</li>
+<li>Для двох offline-правок однієї Persona без причинного зв'язку: чи «пізніша за людським наміром» правка повинна автоматично перекривати старішу для всіх полів, чи лише для явно налаштованих типів/полів після показу конфлікту?</li>
+<li>Окремий корпоративний акаунт і невплив блокування на інші акаунти підтверджено. Чи є корпоративний акаунт окремою керованою Persona з власним controller, чи окрема Persona користувача + node-owned ServiceAccount/Binding? Які node capabilities (mailbox, sync, storage, catalog, app host) обов'язкові, а які opt-in?</li>
+<li>Для яких саме операцій потрібні owner approval, серверна authority acceptance, M-of-N співвласників або реплікаційний quorum? Хто є остаточним owner/authority для City Portal booking і які proof/status API він реально надає?</li>
+</ol>
+<h2 id="section-7">Актуальність і перевірка</h2>
+<p>Звіт перевірено 2026-09-19: 29 джерел у додатку; усі маркери посилань зіставлено з рядками додатка. Журнал окремо розрізняє перевірені факти референсів і неперевірені/проєктні рекомендації для VIDA. Унікальні похідні операції та поведінка майбутнього City Portal потребують прототипу/контракту.</p>
+<table>
+<thead>
+<tr>
+<th>Твердження, що може застаріти</th>
+<th>Повторна перевірка</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ролі AT Protocol і Matrix, Iroh relay</td>
+<td>2027-09-19 або раніше перед фіксацією протоколу</td>
+</tr>
+<tr>
+<td>Stripe, Booking.com API та поведінка Linear offline sync</td>
+<td>2026-10-19 або безпосередньо перед інтеграцією</td>
+</tr>
+<tr>
+<td>CloudKit і CouchDB conflict patterns</td>
+<td>2028-09-19 або перед вибором конкретного механізму</td>
+</tr>
+</tbody>
+</table>
+<p>Для недатованих живих специфікацій початкова дата цього графіка — <strong>дата перевірки</strong>, а не дата публікації. Поточне твердження про Iroh relay додатково звірено зі статтею авторів від 2026-09-08 <a class="cite" href="#src-15">[15]</a>.</p>
+</section>
+<section id="sources"><details><summary>Джерела (29) · <span class="badge verified">verified</span><span class="badge medium">medium</span><span class="badge unverified">unverified</span></summary><table class="sources"><tbody><tr id="src-1"><td>[1]</td><td>Independent offline edits</td><td><a href="https://automerge.org/docs/hello/" target="_blank" rel="noopener">Automerge Welcome</a></td><td>не датовано</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-2"><td>[2]</td><td>Commutative/idempotent document updates</td><td><a href="https://docs.yjs.dev/api/document-updates" target="_blank" rel="noopener">Yjs Document Updates</a></td><td>не датовано</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-3"><td>[3]</td><td>Duplicate append/expected version</td><td><a href="https://docs.kurrent.io/clients/tcp/dotnet/21.2/appending" target="_blank" rel="noopener">Kurrent Appending Events</a></td><td>версія 21.2; дата не вказана</td><td>2026-09-19</td><td>середня для актуальних API</td></tr><tr id="src-4"><td>[4]</td><td>Idempotent event handlers</td><td><a href="https://docs.eventsourcingdb.io/best-practices/building-event-handlers/" target="_blank" rel="noopener">EventSourcingDB Best Practices</a></td><td>не датовано</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-5"><td>[5]</td><td>Concurrent Automerge merge rules</td><td><a href="https://automerge.org/docs/reference/under-the-hood/merge-rules/" target="_blank" rel="noopener">Automerge Merge Rules</a></td><td>не датовано</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-6"><td>[6]</td><td>Conflict alternatives and non-wall-clock winner</td><td><a href="https://automerge.org/docs/reference/documents/conflicts/" target="_blank" rel="noopener">Automerge Conflicts</a></td><td>не датовано</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-7"><td>[7]</td><td>Replay and external side effects</td><td><a href="https://www.martinfowler.com/eaaDev/EventSourcing.html" target="_blank" rel="noopener">Martin Fowler, Event Sourcing</a></td><td>2005-12-12</td><td>2026-09-19</td><td>середня, draft pattern</td></tr><tr id="src-8"><td>[8]</td><td>CRDT causal/LWW model</td><td><a href="https://pages.lip6.fr/Marc.Shapiro/papers/CRDTs-beatcs-2011-06.pdf" target="_blank" rel="noopener">Shapiro et al., CRDTs</a></td><td>2011-06</td><td>2026-09-19</td><td>висока, original paper</td></tr><tr id="src-9"><td>[9]</td><td>C2S/S2S federation layers</td><td><a href="https://www.w3.org/TR/activitypub/" target="_blank" rel="noopener">W3C ActivityPub</a></td><td>2018-01-23</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-10"><td>[10]</td><td>DID/handle/PDS identity</td><td><a href="https://atproto.com/guides/identity" target="_blank" rel="noopener">AT Protocol Identity</a></td><td>не датовано</td><td>2026-09-19</td><td>середня</td></tr><tr id="src-11"><td>[11]</td><td>PDS/Relay/AppView glossary</td><td><a href="https://atproto.com/guides/glossary" target="_blank" rel="noopener">AT Protocol Glossary</a></td><td>не датовано</td><td>2026-09-19</td><td>середня</td></tr><tr id="src-12"><td>[12]</td><td>PDS account and proxy roles</td><td><a href="https://atproto.com/guides/the-at-stack" target="_blank" rel="noopener">AT Protocol Stack</a></td><td>не датовано</td><td>2026-09-19</td><td>середня</td></tr><tr id="src-13"><td>[13]</td><td>Homeserver/accounts/history/identity</td><td><a href="https://spec.matrix.org/latest/" target="_blank" rel="noopener">Matrix Specification</a></td><td>living v1.19; сторінка не датована</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-14"><td>[14]</td><td>Separate application service</td><td><a href="https://spec.matrix.org/v1.19/application-service-api/" target="_blank" rel="noopener">Matrix Application Service API</a></td><td>v1.19; сторінка не датована</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-15"><td>[15]</td><td>Iroh relay forwards without storage</td><td><a href="https://www.iroh.computer/blog/shared-relays" target="_blank" rel="noopener">Iroh shared relays, current engineering article</a></td><td>2026-09-08</td><td>2026-09-19</td><td>висока для relay, не для VIDA mailbox</td></tr><tr id="src-16"><td>[16]</td><td>Majority replicated log</td><td><a href="https://raft.github.io/raft.pdf" target="_blank" rel="noopener">Ongaro/Ousterhout, Raft</a></td><td>2014-05-20</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-17"><td>[17]</td><td>Threshold signing</td><td><a href="https://www.rfc-editor.org/rfc/rfc9591.html" target="_blank" rel="noopener">RFC 9591, FROST</a></td><td>2024-06</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-18"><td>[18]</td><td>Federated event acceptance</td><td><a href="https://spec.matrix.org/latest/server-server-api/" target="_blank" rel="noopener">Matrix Server-Server API</a></td><td>living v1.19; сторінка не датована</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-19"><td>[19]</td><td>PDS authoritative repo</td><td><a href="https://atproto.com/specs/repository" target="_blank" rel="noopener">AT Protocol Repository</a></td><td>living spec; сторінка не датована</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-20"><td>[20]</td><td>HTTP preconditions/unknown outcome</td><td><a href="https://www.rfc-editor.org/rfc/rfc9110.html" target="_blank" rel="noopener">RFC 9110</a></td><td>2022-06</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-21"><td>[21]</td><td>Bounded same-key retry</td><td><a href="https://docs.stripe.com/api/idempotent_requests" target="_blank" rel="noopener">Stripe Idempotent Requests</a></td><td>living API; сторінка не датована</td><td>2026-09-19</td><td>висока для Stripe, не для City Portal</td></tr><tr id="src-22"><td>[22]</td><td>Reservation delivery/ACK/dedupe</td><td><a href="https://developers.booking.com/connectivity/docs/reservations-api/reservations-overview" target="_blank" rel="noopener">Booking.com Reservations API</a></td><td>living API; сторінка не датована</td><td>2026-09-19</td><td>висока для inbound API</td></tr><tr id="src-23"><td>[23]</td><td>Inquiry/RTB/request vs reservation</td><td><a href="https://developers.booking.com/connectivity/docs/request-to-book/overview" target="_blank" rel="noopener">Booking.com Request to Book</a></td><td>living API; сторінка не датована</td><td>2026-09-19</td><td>висока для documented modes</td></tr><tr id="src-24"><td>[24]</td><td>RTB 2.0 approval path</td><td><a href="https://developers.booking.com/connectivity/docs/request-to-book/rtb-2.0/overview" target="_blank" rel="noopener">Booking.com RtB 2.0</a></td><td>living API; сторінка не датована</td><td>2026-09-19</td><td>висока для documented mode</td></tr><tr id="src-25"><td>[25]</td><td>Outbox duplicates/idempotent consumer</td><td><a href="https://docs.aws.amazon.com/en_en/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html" target="_blank" rel="noopener">AWS Transactional Outbox</a></td><td>не датовано</td><td>2026-09-19</td><td>висока</td></tr><tr id="src-26"><td>[26]</td><td>Offline retry, no created-date ordering and overwrite risk</td><td><a href="https://linear.app/docs/get-the-app" target="_blank" rel="noopener">Linear: Real-time sync and offline</a></td><td>living docs; сторінка не датована</td><td>2026-09-19</td><td>висока для документованої поведінки Linear</td></tr><tr id="src-27"><td>[27]</td><td>Record change tag, client/server/ancestor conflict</td><td><a href="https://developer.apple.com/documentation/cloudkit/ckerror/serverrecordchanged" target="_blank" rel="noopener">Apple CloudKit serverRecordChanged</a></td><td>living docs; сторінка не датована</td><td>2026-09-19</td><td>висока для CloudKit; механізм VIDA окремий</td></tr><tr id="src-28"><td>[28]</td><td>Deterministic winner plus retained conflicting revisions</td><td><a href="https://docs.couchdb.org/en/stable/replication/conflicts.html" target="_blank" rel="noopener">Apache CouchDB replication and conflicts</a></td><td>living 3.5 docs; сторінка не датована</td><td>2026-09-19</td><td>висока для CouchDB</td></tr><tr id="src-29"><td>[29]</td><td>Save-policy-dependent change-tag comparison</td><td><a href="https://developer.apple.com/documentation/cloudkit/ckmodifyrecordsoperation/savepolicy" target="_blank" rel="noopener">Apple CloudKit savePolicy</a></td><td>living docs; сторінка не датована</td><td>2026-09-19</td><td>висока для CloudKit</td></tr></tbody></table></details></section>
+</main><footer class="meta">Єдине джерело змісту — research.md; дата наступної перевірки live API наведена у звіті.</footer></body></html>

@@ -1,0 +1,32 @@
+# AD-19 and stack-selection brief — technology/currentness review
+
+Reviewed: 2026-09-20. Scope: [ARCHITECTURE-SPINE.md](../ARCHITECTURE-SPINE.md) AD-19 and [stack-selection-brief.md](../../../../../docs/03-architecture/stack-selection-brief.md). Read-only lens: upstream capability, current stable version, and security-source fit. This review does not choose the Windows shell, CRDT, browser profile or release stack.
+
+## Verdict
+
+**Conditional pass: no stale selected version, one high-priority security gate clarification.** Iroh 1.2.0 is current in the cited Rust documentation; Flutter mobile/Windows, Tauri 2 Windows, flutter_rust_bridge, Loro and Automerge capabilities are real upstream features. The brief appropriately labels Flutter/Tauri/CRDT/FRB as candidates and makes release behavior depend on prototypes. AD-19 is a VIDA business/authority rule, not a CRDT capability. Tauri's default app-command exposure must be addressed explicitly in STACK-G5 before treating the hostile-content test as sufficient.
+
+## Findings
+
+### P1 — STACK-G5 needs an explicit Tauri app-command deny/allow boundary
+
+At `stack-selection-brief.md:44`, the proposed gate names CSP, narrow capabilities, Rust recheck and an XSS→IPC fixture. [Tauri's current Capabilities documentation](https://v2.tauri.app/security/capabilities/) states that **all commands registered through `tauri::Builder::invoke_handler` are available to all app windows/webviews by default**, unless the app uses `AppManifest::commands` to constrain them. It also warns that a window/webview in multiple capabilities gets their combined permissions. Therefore “narrow capabilities” is not sufficient evidence for first-party app commands. Make the gate require an explicit app-command allowlist/manifest for each webview, separation of untrusted document/forum rendering from privileged webviews, and a negative fixture that injects script into the *same* rendering context that would otherwise have privileged IPC. Rust-side Space/object/action checks remain mandatory even after origin/window gating; [Tauri Runtime Authority](https://v2.tauri.app/security/runtime-authority/) guards permitted command invocation, not VIDA's per-object authorization. Treat CSP as mitigation, not isolation proof. This is a test-design correction, not a reason to select against Tauri.
+
+### P2 — Pin upstream evidence to the evaluated releases at prototype time
+
+The brief's “latest” links are valid now but will drift. As of this review, [Iroh 1.2.0](https://docs.rs/crate/iroh/1.2.0) is the latest stable Iroh core; [Tauri 2.11.6](https://docs.rs/crate/tauri/2.11.6) is a current stable 2.x release (3.0 is alpha); [Loro 1.13.9](https://docs.rs/crate/loro/1.13.9), [Automerge Rust 0.12.0](https://docs.rs/crate/automerge/0.12.0), and [flutter_rust_bridge 2.13.0](https://pub.dev/packages/flutter_rust_bridge/versions/2.13.0) are the contemporary stable package lines; Flutter's [support matrix](https://docs.flutter.dev/reference/supported-platforms) reflects 3.47.2. The draft does not falsely pin these candidates. When recording STACK-G1–G9 spike results, record exact release, platform, toolchain and package lock versions; don't rely on `latest` as reproducible evidence. AD-1/Stack already require exact Iroh lockfile/SBOM pin for a release.
+
+## Claims checked against primary sources
+
+| Claim | Result |
+|---|---|
+| Iroh 1.2 supplies direct/relay peer QUIC, authenticated by endpoint public key, Router/ALPN integration | Supported by [Iroh 1.2.0 documentation](https://docs.rs/crate/iroh/1.2.0). It does not supply VIDA roles, durable business acceptance or a mailbox; brief's boundary is correct. Browser and mobile lifecycle remain gated rather than asserted. |
+| Flutter can target Android, iOS and Windows and call native code | Supported by [Flutter supported platforms](https://docs.flutter.dev/reference/supported-platforms) and [Flutter FFI guide](https://docs.flutter.dev/platform-integration/bind-native-code). Neither source proves VIDA background delivery, accessibility or secure-store behavior; the brief correctly asks for device/release-build tests. |
+| `flutter_rust_bridge` is a plausible Flutter↔Rust spike | Supported by [FRB cross-platform overview](https://cjycode.com/flutter_rust_bridge/guides/cross-platform/overview) and [release-build guide](https://cjycode.com/flutter_rust_bridge/guides/how-to/build-release). FRB web has special build/runtime requirements; it is not evidence that Iroh native networking works in a browser. The brief keeps browser separate. Current Flutter FFI also has an official `package_ffi`/build-hooks path; FRB is a candidate, not the only possible binding path. |
+| Tauri 2 provides WebView/DOM with Rust backend and capability-controlled IPC | Supported by [Tauri architecture](https://v2.tauri.app/concept/architecture/), [Windows WebView2 reference](https://v2.tauri.app/reference/webview-versions/), [permissions](https://v2.tauri.app/security/permissions/) and [runtime authority](https://v2.tauri.app/security/runtime-authority/). Subject to the P1 default app-command caveat. |
+| Loro has text, tree and movable-list CRDT types; Automerge preserves concurrent map-property conflicts with a deterministic visible value | Supported by [Loro Rust docs](https://docs.rs/crate/loro/1.13.9), [Loro Map semantics](https://www.loro.dev/docs/tutorial/map) and [Automerge conflict docs](https://automerge.org/docs/reference/documents/conflicts/). LoroMap uses Lamport-based LWW; Automerge's visible conflict winner is deterministic but not an authority receipt. |
+| OWASP justifies current authorization and protected mobile local data, not a UI toolkit/CRDT choice | Supported by [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) and [MASVS-STORAGE-1](https://mas.owasp.org/MASVS/controls/MASVS-STORAGE-1/). The brief correctly presents these as security gates, not stack recommendations. |
+
+## AD-19 boundary check
+
+AD-19's first **authority-accepted** mutually exclusive task-status proposal, retained stale competitor, and intentional later transition are product semantics. Neither Iroh packet arrival nor LoroMap/Automerge deterministic winner establishes that receipt. The brief's `STACK-G2` correctly tests the VIDA rule and keeps ordering/receipt/stale handling in `OQ-0033`/`OQ-0034` rather than claiming a library already implements them. No unsupported or stale technology claim was found in AD-19 itself.

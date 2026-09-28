@@ -1,0 +1,49 @@
+import { Diagram } from './TechnicalDetails.jsx';
+import './ecosystem.css';
+
+const journey=[['features','01','Щоденні можливості','Що людина робить у VIDA'],['composition','02','Власні застосунки','Як поєднуються готові й спеціальні частини'],['marketplaces','03','Маркетплейси','Де знаходити пакети та розширення'],['external-platforms','04','Зовнішні платформи','Як самостійний сервіс приходить у VIDA'],['infrastructure','05','Релеї та вузли','Як забезпечується зв’язок і доступність'],['implementation','06','Технічна реалізація','Ядро, схеми, синхронізація та версії']];
+export function PresentationJourney(){return <nav className="presentation-journey wrap" aria-label="Послідовність презентації"><p className="eyebrow">ВІД ЩОДЕННИХ ЗАДАЧ ДО ВІДКРИТОЇ ЕКОСИСТЕМИ</p><div>{journey.map(([id,n,title,text])=><a href={'#'+id} key={id}><span>{n}</span><strong>{title}</strong><small>{text}</small></a>)}</div></nav>}
+const distribution=`flowchart TB
+ V[Керований маркетплейс VIDA] --> D[Знайдений реліз із видимим джерелом]
+ X[Підключений зовнішній репозиторій] --> D
+ D --> P[Отриманий AppPackage або розширення]
+ P --> C[Перевірка сумісності та запитуваних прав]
+ C --> A[Явна активація у Space]
+ A --> I[AppInstance з дозволеними залежностями]
+ D -. Нова версія .-> U[Оновлення доступне]
+ U --> G[Окреме рішення про оновлення та міграцію]`;
+const city=`flowchart TB
+ subgraph VIDA[Середовище VIDA]
+  P[Користувач і вибраний Space] --> A[City Portal App]
+  A --> S[Дозволені Calendar, Messenger, Notes]
+ end
+ A <-->|Версійний API та явна авторизація| I[Integration service або adapter]
+ subgraph EXTERNAL[Самостійна платформа City Portal]
+  I <-->|Контракт даних і команд| B[Backend платформи]
+  W[Публічний сайт міста] --> B
+  E[Редакція та адміністрування tenant] --> B
+  B --> C[Контент, каталоги та міські сервіси]
+ end`;
+const delivery=`flowchart TB
+ A[Пристрій A: журнал і outbox] --> D[Прямий канал Iroh]
+ D --> B[Пристрій B: перевірка та apply]
+ A --> R[Транспортний Iroh relay]
+ R --> B
+
+
+ B --> ID[Той самий OperationId: один domain apply]
+ H[Опційний Hosted Space] --> S[Зберігання та доступність за обраною policy]
+ H -. Лише за окремим дозволом Owner .-> K[Managed replica з доступом до ключів]`;
+function Ref({file,children}){return <a className="technical-source" href={'/reference/'+file} target="_blank" rel="noreferrer">{children} ↗</a>}
+export function Ecosystem(){return <div className="ecosystem" id="ecosystem">
+ <section className="wrap section ecosystem-chapter" id="marketplaces"><p className="eyebrow">03 / ПОШИРЕННЯ ЗАСТОСУНКІВ</p><div className="section-heading"><h2>Екосистема має<br/> кілька входів.</h2><p>Власний маркетплейс VIDA<br/> і підключені зовнішні джерела.</p></div><p className="technical-lead">Після стандартних застосунків і бізнес-пакетів постає питання: де їх знайти? VIDA передбачає керований каталог і можливість підключати сумісні репозиторії інших розробників, організацій та платформ.</p>
+ <div className="ecosystem-cards"><article><span>КАНАЛ 01</span><h3>Маркетплейс VIDA</h3><p>Вбудований пошук застосунків і розширень із видимими версією, джерелом та видавцем, якщо він відомий. Роль Developer стосується публікації пакета; доступ до даних користувача визначається окремо.</p></article><article><span>КАНАЛ 02</span><h3>Зовнішні репозиторії</h3><p>Організація може поширювати сумісний пакет через власне підключене джерело. Походження залишається видимим після встановлення; діють спільні перевірки сумісності й прав.</p></article><article><span>ДВА ВИДИ ПАКЕТІВ</span><h3>Застосунок і розширення</h3><p>Застосунок додає власний сценарій і ресурси. Розширення має визначений базовий застосунок: наприклад, спеціальні поля або процес для проєктів. Остаточний контракт такого зв’язку ще відкритий.</p></article></div>
+ <Diagram source={distribution} label="Маркетплейси: від знайденого пакета до активації"/><p className="contract-note">Підключити джерело → знайти реліз → отримати пакет → перевірити → активувати. Статус «оновлення доступне» не змінює працюючий AppInstance автоматично. Формати каталогу, довіра до видавців, підписи й правила оновлень ще потребують деталізації.</p><Ref file="package-distribution.md">Рішення про маркетплейс і канали поширення</Ref></section>
+ <section className="external-platforms" id="external-platforms"><div className="wrap section"><p className="eyebrow">04 / САМОСТІЙНІ ПЛАТФОРМИ В ЕКОСИСТЕМІ</p><div className="section-heading"><h2>Ціле місто.<br/> Власна платформа.<br/> Свій застосунок у VIDA.</h2><p>City Portal — більше, ніж сайт новин.<br/> Це приклад незалежного продукту<br/> зі своїм web та інтегрованим App.</p></div><p className="technical-lead">Зовнішня платформа може мати публічний сайт, редакцію, каталоги, партнерів і серверні процеси. Її застосунок у VIDA відкриває ці можливості в особистому середовищі людини та пов’язує їх зі стандартними інструментами.</p>
+ <div className="ecosystem-cards"><article><span>ПУБЛІЧНИЙ WEB</span><h3>Сайт міста</h3><p>Новини, матеріали та відкриті каталоги доступні як окремий web-продукт. Людина може користуватися ним без VIDA.</p></article><article><span>ПЛАТФОРМА</span><h3>City Portal</h3><p>Backend, керування контентом, організаціями й tenant-просторами. Редакція та партнери працюють у власному адміністративному контурі.</p></article><article><span>ЗАСТОСУНОК У VIDA</span><h3>City Portal App</h3><p>Міський контекст у VIDA: читання матеріалів, доступ до сервісів і дозволені зв’язки з календарем, нотатками та розмовами. Конкретний набір екранів — майбутня специфікація.</p></article></div>
+ <Diagram source={city} label="Зовнішня платформа: City Portal, її сайт та App у VIDA"/>
+ <div className="ecosystem-scenario"><div><p className="eyebrow">ПРИКЛАД ШЛЯХУ МЕШКАНЦЯ</p><h3>Від новини до дії</h3><ol><li>Мешканець знаходить City Portal App у каталозі та активує його у вибраному Space.</li><li>App отримує дозволений міський контент через інтеграційний контракт.</li><li>Людина читає новину про подію та явно додає її до свого календаря.</li><li>За потреби зберігає посилання в нотатку або починає обговорення через стандартний Messenger.</li><li>Запит до бізнесу лишається очікуваним до підтвердження визначеною authority; сама доставка запиту не бронює час.</li></ol></div><div><h3>Технічні межі</h3><dl className="technical-facts"><div><dt>API та адаптер</dt><dd>App → integration service → backend платформи. Версійний контракт замість прямого доступу до внутрішніх таблиць.</dd></div><div><dt>Ідентичності й доступ</dt><dd>Persona VIDA, акаунт порталу, роль бізнесу та міський tenant зіставляються явно. Домен сайту не робить платформу власником Space.</dd></div><div><dt>Офлайн та збої</dt><dd>Обсяг локально доступного контенту треба визначити контрактом. Серверні дії потребують явного pending-стану, повторів та ідемпотентності.</dd></div><div><dt>Власність даних</dt><dd>Контент порталу й особисті ресурси VIDA мають різні контури. Source of truth для booking, availability і notification state ще треба погодити.</dd></div></dl></div></div>
+ <p className="contract-note">Це цільовий приклад інтеграції. City Portal App і booking — майбутні сценарії після core v1. Розміщення integration service, API, ownership matrix та offline scope ще відкриті.</p><Ref file="product-boundary.md">Погоджена межа VIDA та City Portal</Ref></div></section>
+ <section className="wrap section ecosystem-chapter" id="infrastructure"><p className="eyebrow">05 / ЗВ’ЯЗОК ТА ДОСТУПНІСТЬ</p><div className="section-heading"><h2>Релеї передають.<br/> Вузли надають сервіси.</h2><p>Кожна можливість має власну роль,<br/> політику зберігання та межу довіри.</p></div><div className="ecosystem-cards"><article><span>ТРАНСПОРТ</span><h3>Iroh relay</h3><p>Резервний зашифрований шлях, коли прямий канал не встановився. Пересилає трафік між доступними пристроями. Не зберігає повідомлення для офлайн-адресата.</p></article><article><span>ТИМЧАСОВО БЕЗ ЗВ’ЯЗКУ</span><h3>Локальні зміни</h3><p>Доступні дані та зміни залишаються на пристрої. Обмін продовжується після відновлення з’єднання з авторизованим peer. Віддалену доставку не показуємо завершеною без відповідного підтвердження.</p></article><article><span>ДОДАТКОВА ДОСТУПНІСТЬ</span><h3>Hosted Space</h3><p>Опційний платний вузол для вибраного Space: encrypted blobs, backup або явно дозволена replica. Базове ядро й прямий sync працюють без підписки.</p></article></div><Diagram source={delivery} label="Інфраструктура: прямий шлях, relay та опційний hosted node"/>
+ <div className="ecosystem-scenario"><div><h3>Три рівні довіри</h3><ol><li><strong>Zero-knowledge host за замовчуванням:</strong> relay та encrypted blobs без plaintext і ключів Space.</li><li><strong>Managed replica:</strong> Owner окремо дозволяє вузлу отримати ключі конкретного Space; вузол може читати дані та виконувати дозволену логіку.</li><li><strong>Hosted authority:</strong> право остаточного прийняття дій окремо делегується конкретним застосунком або процесом.</li></ol></div><div><h3>Вузол не замінює ядро</h3><p>Той самий OperationId проходить прямим каналом або через транспортний relay; повторна доставка не створює нову доменну дію. Доступ, схема й підпис перевіряються на прийманні.</p><p>Relay, marketplace та backend зовнішньої платформи — різні ролі. Поширення пакета або пересилання даних саме по собі не дає права читати Space чи ухвалювати бізнес-рішення.</p></div></div><p className="contract-note">Транспортний relay першого Web-релізу не є платним Hosted Space. Hosted browser/server-backed mode — пізніший контур. Retention, failover та service contracts потребують реалізаційних перевірок.</p><div className="source-row"><Ref file="hosted-space.md">Hosted Space та рівні довіри</Ref></div><a className="ecosystem-next" href="#iroh-protocol">Далі: як працює протокол Iroh →</a></section>
+ </div>}

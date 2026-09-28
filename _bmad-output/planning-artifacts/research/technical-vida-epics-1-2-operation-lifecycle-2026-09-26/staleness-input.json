@@ -1,0 +1,7 @@
+[
+  {"claim":"Iroh 1.2 path and builder API for direct-first","class":"technical-library-version","pub_date":"2026-09-26"},
+  {"claim":"WebRTC custom transport prototype compatibility","class":"technical-library-version","pub_date":"2026-09-26"},
+  {"claim":"IndexedDB and browser persistence behavior","class":"platform-behavior","pub_date":"2026-09-26"},
+  {"claim":"SQLite WAL sync behavior","class":"stable-technical-pattern","pub_date":"2026-09-26"},
+  {"claim":"Automerge sync and conflict behavior","class":"technical-library-version","pub_date":"2026-09-26"}
+]

@@ -1,0 +1,4 @@
+[
+  {"claim":"RFC 9110 If-Match prevents lost updates at an origin server","class":"standard","pub_date":"2022-06-01"},
+  {"claim":"Eventually Consistent Register Revisited compares timestamp arbitration with application resolution","class":"paper","pub_date":"2015-11-16"}
+]

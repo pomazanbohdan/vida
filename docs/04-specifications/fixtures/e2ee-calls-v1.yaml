@@ -1,0 +1,106 @@
+spec: SPEC-E2EE-CALLS-CONFORMANCE-DRAFT
+version: 1
+status: candidate-fixtures
+candidates:
+  - {id: A-livekit, role: first_measured_baseline}
+  - {id: B-direct-plus-livekit, role: mandatory_architectural_control}
+  - {id: C-iroh-live, role: research_control}
+prototype_contract:
+  group_test_target: 8
+  release_contract: approved_target_pending_conformance
+  platforms: [android_physical, ios_physical, windows_x64, web_supported_browser_matrix]
+  version_pins_required: [flutter_sdk, rust_toolchain, iroh, media_sdk, media_server, e2ee_provider]
+  result_record_required: [candidate, pinned_versions, fixture_id, devices, network_profile, key_epoch_trace, assertions, raw_measurements, sbom, license_record, artifact_digest, pass, failure_log]
+selection:
+  hard_gates: [e2ee, platforms, reachability, lifecycle_consent, identity_replay, multi_device, recovery_quality, privacy_ops, forbidden_scope, supply_chain]
+  minimum_score: 80
+  inconclusive_lead_below: 8
+weights:
+  e2ee_key_identity: 20
+  cross_platform: 16
+  reachability_quality: 15
+  group_scaling: 12
+  os_lifecycle: 10
+  rust_iroh_boundary: 9
+  decentralization_privacy: 8
+  operations: 5
+  resources: 3
+  supply_chain: 2
+fixtures:
+  - id: F01-cross-platform-1to1
+    matrix: [android_ios, android_windows, ios_windows, web_android, web_ios, web_windows, web_web]
+    modes: [audio, video]
+    expect: [connect, bidirectional_media, clean_end]
+  - id: F02-small-team-group
+    participants: 8
+    platforms: [android, ios, windows, web]
+    operations: [join, leave, mute, camera_toggle, active_speaker, simulcast_or_declared_equivalent]
+    expect: [all_authorized_participants_consistent, no_ghost_participant]
+  - id: F03-e2ee-observer
+    observers: [sfu, turn, signaling, server_logs, network_capture]
+    probes: [known_plaintext, wrong_key, stale_key]
+    expect: [no_media_plaintext, no_media_key, wrong_and_stale_key_fail]
+  - id: F04-key-epochs
+    operations: [join, leave, kick, device_revoke, suspected_compromise, rejoin, second_device, restart_from_platform_keystore]
+    expect: [rotate_as_required, no_prejoin_decrypt, no_postleave_decrypt, protected_key_storage, compromised_epoch_rejected]
+  - id: F05-identity-replay
+    attacks: [forged_invite, replayed_invite, expired_token, persona_mismatch, device_mismatch, room_mismatch, space_mismatch, app_instance_mismatch, conversation_mismatch, guest_resource_scope_mismatch, control_frontier_mismatch, adapter_profile_mismatch, key_epoch_mismatch, cross_room_token_use, publish_without_grant, subscribe_without_grant]
+    expect: [fail_closed, denied_security_attempt_audited, least_privilege_enforced]
+  - id: F06-hostile-network
+    cases: [wifi_to_cellular, nat_rebind, airplane_interrupt, loss_5_percent, loss_10_percent, jitter_100ms, jitter_300ms, constrained_uplink, udp_blocked_turn_tls]
+    continuity_required: [wifi_to_cellular, nat_rebind, loss_5_percent, jitter_100ms, constrained_uplink, udp_blocked_turn_tls]
+    interruption_allowed_with_explicit_state: [airplane_interrupt, loss_10_percent, jitter_300ms]
+    expect: [bidirectional_audio_for_continuity_cases, explicit_reconnect_or_end_for_allowed_interruptions, no_identity_or_key_confusion]
+  - id: F07-multi-device-ring
+    devices_per_persona: 3
+    operations: [fanout, one_answer, simultaneous_answer, partitioned_simultaneous_answer, late_acceptance, cancel_losers, transfer, restart_replay]
+    expect: [one_core_authority_acceptance_proof, pending_without_proof, one_accepted_device, losing_tokens_invalidated, losing_rings_stop, no_duplicate_participant]
+  - id: F08-os-lifecycle
+    profiles:
+      - id: hosted_push
+        expect: [background_and_terminated_ringing_proven, answer_decline_end_consistent]
+      - id: anonymous_no_server
+        expect: [no_external_push_registration, foreground_reachable_call_works, suspended_or_terminated_limit_shown_truthfully]
+    ios: [foreground, background, locked, terminated_pushkit_callkit_for_hosted_push]
+    android: [foreground, doze, locked, terminated_supported_telecom_path_for_hosted_push]
+    windows: [foreground, tray, restart]
+    web: [active_tab, inactive_tab, suspend, reload, browser_close_and_reopen]
+    accessibility: [talkback, voiceover, narrator, windows_keyboard_only]
+    expect: [accessible_call_controls, truthful_reachability_state]
+  - id: F09-permissions-privacy
+    operations: [deny_mic, deny_camera, revoke_mic, revoke_camera, answer_audio_only]
+    expect: [no_preanswer_capture, correct_os_indicator, graceful_allowed_mode]
+  - id: F10-audio-routes
+    cases: [speaker, earpiece, bluetooth, headset_unplug, cellular_call_interruption]
+    expect: [explicit_route_state, recover_or_end_cleanly]
+  - id: F11-crash-restart
+    targets: [caller, callee, media_adapter, sfu]
+    expect: [explicit_reconnect_or_end, no_ghost_participant, no_key_reuse_across_invalid_epoch]
+  - id: F12-metadata-privacy
+    inspect: [packets, signaling, sfu_state, logs, diagnostics]
+    expect: [opaque_call_ids, no_space_title, no_contact_name, no_stable_persona_id, no_content_or_key_leak]
+  - id: F13-resource-baseline
+    runs: [audio_60m, video_1to1_30m, group_30m]
+    threshold_status: evidence_only_pending_oq4
+    measure: [battery, thermal, cpu, ram, network, install_delta, frame_and_audio_quality]
+    expect: [raw_measurements_recorded]
+  - id: F14-forbidden-scope
+    inspect: [ui_actions, permissions, mobile_extensions, server_egress, recorder_principals, key_access]
+    expect: [no_recording_capability, no_screen_capture_capability]
+  - id: F15-mixed-version
+    combinations: [old_supported_current, current_next_candidate]
+    vary: [client, media_adapter, e2ee_provider]
+    supply_chain: [license_compatible, sbom_complete, notices_complete, pinned_reproducible_artifacts, artifact_digests_verified]
+    expect: [interoperate_or_fail_closed, actionable_update_state, no_partial_insecure_fallback, supply_chain_evidence_complete]
+  - id: F16-owning-context
+    cases: [project_relation_to_messenger_conversation, cross_space_relation, shared_resource_guest, revoked_member, dedicated_space_dependency]
+    attacks: [wrong_space_invite, wrong_app_instance_join, wrong_conversation_reconnect, stale_grant_transfer, cross_space_key_package]
+    expect: [immutable_core_context, current_scope_revalidated, unauthorized_media_token_denied, no_private_metadata_leak]
+  - id: F17-signaling-finality
+    schedules: [direct_mailbox_duplicate, cancel_after_answer, partition_then_reconnect, restart_before_receipt, old_invite_replay]
+    inspect: [origin_durable, replicated, recipient_applied, authority_accepted, media_connected]
+    expect: [durable_control_replay_idempotent, transient_ring_not_authority, pending_without_proof, one_terminal_projection, expired_invite_does_not_ring]
+  - id: F18-web-media-boundary
+    platforms: [web_supported_browser_matrix]
+    cases: [active_tab_1to1, active_tab_group_8, deny_mic, deny_camera, key_loss, inactive_tab, suspend, reload, close_and_reopen, relay_loss_restore, mixed_web_native]
+    expect: [e2ee_and_core_authorization_proven, no_capture_before_consent, no_key_or_plaintext_at_relay_or_sfu, truthful_no_background_ringing_guarantee, pending_control_reconciled_on_reopen, no_insecure_media_fallback]

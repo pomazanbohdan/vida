@@ -1,0 +1,6 @@
+[
+  {"claim":"Android/Google/Apple/Windows contact compatibility","class":"compatibility","pub_date":"2026-09"},
+  {"claim":"vCard and CardDAV protocol baseline","class":"protocol","pub_date":"2011-08"},
+  {"claim":"Apple and Google background/store policy","class":"policy","pub_date":"2026-09"},
+  {"claim":"App size and Flutter deferred-component compatibility","class":"compatibility","pub_date":"2026-09"}
+]

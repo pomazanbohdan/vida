@@ -1,0 +1,18 @@
+[
+  {"claim":"Delta anonymous signup and privacy policy","class":"privacy","pub_date":"2026-09-01"},
+  {"claim":"Delta Core JSON-RPC, group, and Iroh 0.35 integration","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Iroh browser relay-only limitation","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Public Iroh and Chatmail relay usage policy","class":"service_policy","pub_date":"2026-09-25"},
+  {"claim":"Flutter Web/Rust Wasm bridge and browser storage","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Identity/service binding and adapter separation pattern","class":"architecture_pattern","pub_date":"2026-09-25"},
+  {"claim":"Chatmail in-progress wire profile, group headers and member actions","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"DCACCOUNT and DCLOGIN account URI schemes","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Autocrypt OpenPGP profile and current Core packet choices","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Current SecureJoin v3 differs from older prose","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Ordinary static Web lacks Chrome IWA Direct Sockets","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Current published Iroh, mail, MIME and OpenPGP crate versions","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Default-branch GitHub Atom activity sample for candidate Rust crates","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"VIDA-owned protocol adapter module boundary","class":"architecture_pattern","pub_date":"2026-09-25"},
+  {"claim":"Current stock Delta Chat uses email chat transport and Iroh for device setup/webxdc realtime","class":"compatibility","pub_date":"2026-09-25"},
+  {"claim":"Delta Chat Iroh webxdc ticket bootstrap uses encrypted regular message and ephemeral Iroh identity","class":"compatibility","pub_date":"2026-09-25"}
+]

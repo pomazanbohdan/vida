@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VIDA — порівняння чату</title>
+  <style>
+    * { box-sizing:border-box; }
+    html,body { width:1920px; height:1080px; margin:0; overflow:hidden; }
+    body { font-family:"Segoe UI",Arial,sans-serif; background:#f3f4f9; color:#202741; }
+    .slide { height:100%; padding:58px 74px 50px; display:flex; flex-direction:column; }
+    .eyebrow { color:#665dc4; font-size:19px; font-weight:800; letter-spacing:2.5px; text-transform:uppercase; }
+    h1 { font-size:48px; letter-spacing:-1.7px; line-height:1.08; margin:10px 0 7px; }
+    .subtitle { font-size:21px; color:#69738b; }
+    .comparison { display:grid; grid-template-columns:425px minmax(0,1fr) 425px; gap:58px; flex:1; min-height:0; padding-top:30px; align-items:start; }
+    .column { min-width:0; }
+    .label-row { display:flex; align-items:center; justify-content:space-between; height:40px; margin-bottom:11px; }
+    .label { font-size:19px; font-weight:780; }
+    .before { color:#69738b; }.after { color:#5954c6; }
+    .type { font-size:14px; color:#8b93a6; }
+    .device { width:343px; height:735px; margin:auto; border-radius:26px; overflow:hidden; background:white; border:1px solid #dbe0e9; box-shadow:0 16px 50px #31395a1c, 0 2px 8px #31395a12; }
+    .device img { display:block; width:100%; height:100%; object-fit:fill; }
+    .delta { padding-top:61px; }
+    .delta-head { color:#5954c6; font-size:16px; font-weight:800; text-transform:uppercase; letter-spacing:1.6px; margin-bottom:15px; }
+    .change { background:white; border:1px solid #e0e4ee; border-radius:18px; padding:19px 22px; margin-bottom:17px; box-shadow:0 4px 16px #31395a0a; }
+    .change b { font-size:21px; display:block; margin-bottom:5px; }
+    .change p { margin:0; color:#657087; font-size:17px; line-height:1.35; }
+    .change .num { display:inline-grid; place-items:center; width:31px; height:31px; border-radius:10px; background:#eeedff; color:#5954c6; font-size:15px; margin-right:8px; vertical-align:1px; }
+    .foot { font-size:14px; color:#8a92a4; text-align:right; padding-top:8px; }
+  </style>
+</head>
+<body>
+  <main class="slide">
+    <div class="eyebrow">VIDA / UX experiment</div>
+    <h1>Чат: той самий сценарій, чіткіша ієрархія</h1>
+    <div class="subtitle">Порівняння концептів · новий варіант спирається на ui-ux-pro-max, але не є затвердженим дизайном</div>
+    <div class="comparison">
+      <section class="column"><div class="label-row"><span class="label before">Було · v2</span><span class="type">початковий макет</span></div><div class="device"><img src="layout-chat-mobile-v2.png" alt="Попередній концепт чату VIDA"></div></section>
+      <section class="delta" aria-label="Що змінилося"><div class="delta-head">Що покращено</div>
+        <div class="change"><b><span class="num">1</span>Менше зорового шуму</b><p>Компактні повідомлення й повітря між групами; задача залишається в контексті розмови.</p></div>
+        <div class="change"><b><span class="num">2</span>Стани без підміни понять</b><p>«Онлайн» описує пристрій; «Доставлено 2/4» — конкретне повідомлення в групі.</p></div>
+        <div class="change"><b><span class="num">3</span>Стабільна навігація</b><p>Persona, Space, Чат/Форум і чотири базові розділи лишилися на звичних місцях.</p></div>
+        <div class="change"><b><span class="num">4</span>Простіші дії</b><p>Одна система піктограм, видимі підписи й великі цілі дотику для дзвінка, файлу й надсилання.</p></div>
+      </section>
+      <section class="column"><div class="label-row"><span class="label after">Стало · v3</span><span class="type">тест нової навички</span></div><div class="device"><img src="chat-skill-v3.png" alt="Оновлений концепт чату VIDA"></div></section>
+    </div>
+    <div class="foot">Концепт для обговорення · 22.09.2026 · бренд-палітра й шрифт ще не затверджені</div>
+  </main>
+</body>
+</html>

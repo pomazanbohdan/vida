@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Technical research: Vida identity modes</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#5d6678;--line:#dce2ec;--accent:#3659d9;--good:#146c43;--good-bg:#e9f7ef;--med:#8a4b08;--med-bg:#fff3d6;--warn:#8a1620;--warn-bg:#ffe8ea;--code:#eef2f8}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1420;--card:#171e2d;--ink:#eef2fa;--muted:#aab4c7;--line:#30394b;--accent:#90a8ff;--good:#8cddb3;--good-bg:#143b2a;--med:#ffd18a;--med-bg:#493413;--warn:#ffabb2;--warn-bg:#4b1c22;--code:#111827}}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--accent)}header{padding:48px max(24px,calc((100vw - 1120px)/2));background:linear-gradient(135deg,var(--card),var(--bg));border-bottom:1px solid var(--line)}header h1{max-width:900px;margin:0 0 14px;font-size:clamp(30px,5vw,54px);line-height:1.08}.meta{display:flex;flex-wrap:wrap;gap:8px}.meta span,.badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:700}.meta span{background:var(--code);color:var(--muted)}.layout{display:grid;grid-template-columns:230px minmax(0,850px);gap:32px;max-width:1160px;margin:auto;padding:32px 20px 80px}nav{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:14px}nav strong{display:block;margin-bottom:8px}nav a{display:block;padding:5px 7px;text-decoration:none;color:var(--muted);border-radius:7px}nav a:hover{background:var(--code);color:var(--ink)}.toc-l3{padding-left:20px;font-size:14px}main section,.opening,details{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 8px 28px rgba(15,23,42,.05)}main h2{margin-top:0;font-size:26px}main h3{margin-top:28px}table{width:100%;border-collapse:collapse;display:block;overflow-x:auto}th,td{border:1px solid var(--line);padding:10px;vertical-align:top;text-align:left}th{background:var(--code)}pre{overflow:auto;background:var(--code);padding:16px;border-radius:10px}code{background:var(--code);padding:2px 5px;border-radius:5px}pre code{padding:0}.badge{margin-left:8px;vertical-align:middle}.verified{color:var(--good);background:var(--good-bg);border:1px solid var(--good)}.medium{color:var(--med);background:var(--med-bg);border:1px solid var(--med)}.unverified,.disputed{color:var(--warn);background:var(--warn-bg);border:2px solid var(--warn)}details summary{cursor:pointer;font-size:24px;font-weight:750}.sources td:nth-child(2){min-width:270px}.sources td:last-child{font-weight:700}.note{color:var(--muted);font-size:14px}@media(max-width:820px){.layout{grid-template-columns:1fr}nav{position:relative;top:0;max-height:none}header{padding-top:32px}main section,.opening,details{padding:18px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Technical research: Vida identity modes</h1>
+  <p>Define autonomous anonymous, federated-node and public identity architecture</p>
+  <div class="meta"><span>type: technical</span><span>date: 2026-09-18</span><span>depth: standard</span><span>verification: normal</span><span>8 verified / 0 unverified</span></div>
+</header>
+<div class="layout">
+<nav><strong>Зміст</strong><a class="toc-l2" href="#executive-summary">Executive summary</a><a class="toc-l2" href="#recommended-decision">Recommended decision</a><a class="toc-l2" href="#1-identity">1. Незалежні шари identity</a><a class="toc-l3" href="#ux-presets-over-independent-axes">UX presets over independent axes</a><a class="toc-l2" href="#2-autonomous-anonymous-mode">2. Autonomous anonymous mode</a><a class="toc-l2" href="#3-federated-node-mode">3. Federated-node mode</a><a class="toc-l2" href="#4-public-identity">4. Public identity</a><a class="toc-l2" href="#5-recovery">5. Пристрої, ключі та recovery</a><a class="toc-l2" href="#6-independent-policy-axes">6. Independent policy axes</a><a class="toc-l2" href="#7">7. Переходи між режимами</a><a class="toc-l2" href="#8-cross-dimension-insights">8. Cross-dimension insights</a><a class="toc-l2" href="#9-contrary-evidence-and-trade-offs">9. Contrary evidence and trade-offs</a><a class="toc-l2" href="#10-decisions-still-required">10. Decisions still required</a><a class="toc-l3" href="#required-adrs-and-prototypes">Required ADRs and prototypes</a><a class="toc-l3" href="#policy-and-governance-questions">Policy and governance questions</a><a href="#sources">Appendix A. Sources</a><a href="#staleness">Appendix B. Staleness</a></nav>
+<main id="report"><p><strong>Decision this research serves:</strong> визначити identity-архітектуру Vida для повністю автономного anonymous mode, прив'язки до federated node, public identity, багатьох пристроїв, recovery та міграції.</p>
+<section class="opening"><h2 id="executive-summary">Executive summary</h2>
+<p>Vida не повинна мати поле <code>AccountType = Anonymous | Federated | Public</code>. Докази підтримують іншу модель: <strong>ідентичність, хостинг, discoverability, verification, device trust і authorization є незалежними осями</strong>.</p>
+<p>Рекомендована основа — локальний <code>Vault</code>, який містить одну або кілька криптографічних <code>Persona</code>. Persona може не мати жодного сервера, мати один чи кілька <code>ServiceBinding</code> до federated nodes, а також за окремою згодою отримати <code>PublicProfile</code> та <code>AliasBinding</code>. Anonymous Persona використовує окремі pairwise/contextual keys без публічного батьківського ідентифікатора.</p>
+<p>Ключовий наслідок: <code>Public</code> — не третій тип акаунта, а opt-in публічна проєкція Persona. <code>Federated</code> — не власник особи, а сервісна прив'язка для availability, mailbox, sync, address і policy. <code>Autonomous</code> — повноцінний режим без реєстрації, але з чесною відповідальністю користувача за backup/recovery.</p>
+<p>Найбільший ризик — кореляція: після явного зв'язування anonymous Persona з public Persona неможливо гарантувати, що зовнішні спостерігачі забудуть цей зв'язок. Тому merge/link має бути окремою дією з незворотними наслідками, а не автоматичним upgrade.</p>
+</section><section><h2 id="recommended-decision">Recommended decision</h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Required architectural action</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity modes are independent axes, not account types</td>
+<td>Заборонити <code>AccountType = Anonymous/Federated/Public</code> як canonical domain field</td>
+<td>§§1, 6; <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-4">[4]</a><a class="cite" href="#src-7">[7]</a></td>
+</tr>
+<tr>
+<td><code>Persona</code> is the stable application identity</td>
+<td>Не використовувати phone/email/handle/node account/<code>EndpointId</code> як root ID</td>
+<td>§§1, 3; <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a><a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-7">[7]</a><a class="cite" href="#src-8">[8]</a></td>
+</tr>
+<tr>
+<td>Anonymous identity is contextual</td>
+<td>Створювати pairwise/contextual Persona і не розкривати on-wire parent link</td>
+<td>§2; <a class="cite" href="#src-4">[4]</a><a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-6">[6]</a></td>
+</tr>
+<tr>
+<td>Federation is a revocable service relationship</td>
+<td>Моделювати node registration як <code>ServiceBinding</code> із contract for export/migration</td>
+<td>§3; <a class="cite" href="#src-7">[7]</a><a class="cite" href="#src-8">[8]</a><a class="cite" href="#src-9">[9]</a></td>
+</tr>
+<tr>
+<td>Publicity is explicit projection</td>
+<td>Публікувати через <code>PublicProfile</code> + <code>AliasBinding</code>; попереджати про незворотну кореляцію</td>
+<td>§§4, 7; <a class="cite" href="#src-4">[4]</a><a class="cite" href="#src-10">[10]</a><a class="cite" href="#src-11">[11]</a><a class="cite" href="#src-12">[12]</a></td>
+</tr>
+<tr>
+<td>Devices never equal the person</td>
+<td>Використовувати per-device keys і signed <code>DeviceGrant</code>; revoke з ротацією affected keys</td>
+<td>§5; <a class="cite" href="#src-14">[14]</a><a class="cite" href="#src-15">[15]</a><a class="cite" href="#src-16">[16]</a><a class="cite" href="#src-17">[17]</a><a class="cite" href="#src-18">[18]</a></td>
+</tr>
+</tbody>
+</table>
+<p>Вибір DID method, alias registry і конкретної криптосистеми відновлення слід винести в окремі ADR та перевірки прототипів після прийняття цієї моделі.</p>
+</section><section><h2 id="1-identity">1. Незалежні шари identity</h2>
+<p>AT Protocol відокремлює persistent DID, mutable handle і PDS location; handle перевіряється двостороннім зв'язком із DID <a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a>. Nostr також вимагає зберігати первинне посилання на public key, а не на змінний NIP-05 address <a class="cite" href="#src-3">[3]</a>. W3C DID Core прямо попереджає, що глобальні ідентифікатори створюють correlation risk, і рекомендує pairwise identifiers, коли публічна кореляція не потрібна <a class="cite" href="#src-4">[4]</a>.</p>
+<p>Звідси випливає запропоноване розділення:</p>
+<table>
+<thead>
+<tr>
+<th>Сутність</th>
+<th>Призначення</th>
+<th>Мережева видимість</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LocalVault</code></td>
+<td>Локальний контейнер персон, пристроїв і recovery material</td>
+<td>Ніколи не передається як identity</td>
+</tr>
+<tr>
+<td><code>Persona</code></td>
+<td>Криптографічний суб'єкт взаємодії</td>
+<td>Лише в обраному scope</td>
+</tr>
+<tr>
+<td><code>ControllerState</code></td>
+<td>Поточні controller/recovery keys і versioned history</td>
+<td>За потреби перевірки control</td>
+</tr>
+<tr>
+<td><code>DeviceGrant</code></td>
+<td>Дозволений пристрій, його signing/key-agreement keys і статус</td>
+<td>Лише учасникам відповідного trust context</td>
+</tr>
+<tr>
+<td><code>ServiceBinding</code></td>
+<td>Зв'язок Persona з node account, mailbox, quota та address</td>
+<td>Відомий обраному node і peers за policy</td>
+</tr>
+<tr>
+<td><code>AliasBinding</code></td>
+<td>Людинозрозумілий змінний address/handle</td>
+<td>За discoverability policy</td>
+</tr>
+<tr>
+<td><code>Credential</code></td>
+<td>Підтверджений телефон, email, організація або інша claim</td>
+<td>Розкривається вибірково</td>
+</tr>
+<tr>
+<td><code>PublicProfile</code></td>
+<td>Публічна проєкція Persona для directory/web/search</td>
+<td>Публічна за явною згодою</td>
+</tr>
+<tr>
+<td><code>EndpointBinding</code></td>
+<td>Зв'язок Device з Iroh <code>EndpointId</code> та transport metadata</td>
+<td>Транспортний рівень</td>
+</tr>
+</tbody>
+</table>
+<p><code>Phone</code>, <code>email</code>, username, domain і node-local account ID не повинні ставати кореневим <code>PersonaId</code>.</p>
+<pre><code class="language-text">LocalVault
+  └─ Persona ─┬─ ControllerState ──authorizes──&gt; DeviceGrant ──&gt; EndpointBinding
+              ├─ ServiceBinding[] ─────────────&gt; federated nodes
+              ├─ AliasBinding[] ───────────────&gt; exact/public addresses
+              ├─ Credential[]
+              └─ PublicProfile? ───────────────&gt; directory/web/search
+</code></pre>
+<h3 id="ux-presets-over-independent-axes">UX presets over independent axes</h3>
+<table>
+<thead>
+<tr>
+<th>Сценарій</th>
+<th>Ідентичність</th>
+<th>Hosting</th>
+<th>Discoverability</th>
+<th>Відновлення за замовчуванням</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Autonomous anonymous</td>
+<td>Pairwise/contextual Persona</td>
+<td>none; optional opaque relay</td>
+<td>invitation/exact link</td>
+<td>trusted device або recovery package</td>
+</tr>
+<tr>
+<td>Federated private</td>
+<td>Stable Persona + <code>ServiceBinding</code></td>
+<td>provider/self-hosted node</td>
+<td>invitation або exact address</td>
+<td>device/recovery package; optional node assistance</td>
+</tr>
+<tr>
+<td>Public</td>
+<td>Stable Persona + <code>PublicProfile</code></td>
+<td>будь-який compatible hosting</td>
+<td>directory/public/web</td>
+<td>controller recovery + visible key history</td>
+</tr>
+</tbody>
+</table>
+<p>Presets спрощують onboarding, але не зливають identity, hosting і publicity в один тип акаунта.</p>
+</section><section><h2 id="2-autonomous-anonymous-mode">2. Autonomous anonymous mode</h2>
+<p>SimpleX демонструє робочу модель без network-wide user ID: контакт встановлюється invitation link, а сервери обслуговують окремі queues без user authentication <a class="cite" href="#src-5">[5]</a>. Його Incognito Mode приховує вибраний profile і генерує нове випадкове ім’я profile для кожного нового контакту <a class="cite" href="#src-6">[6]</a>. W3C DID Core підтверджує, що pairwise identifiers мають бути унікальними для відносин і не повинні повторно використовувати ті самі verification methods <a class="cite" href="#src-4">[4]</a>.</p>
+<p>Для Vida autonomous mode означає:</p>
+<ul>
+<li>створення encrypted <code>LocalVault</code> і Persona keys без телефону, email або node registration;</li>
+<li>локальну роботу Messenger, Notes/Knowledge і Projects/Tasks;</li>
+<li>контакт через одноразовий invite, QR або переданий contact card;</li>
+<li>direct/LAN/P2P sync, коли peers доступні;</li>
+<li>optional relay або availability node, який бачить лише transport/service capability, але не стає identity authority;</li>
+<li>відсутність public directory entry та network-wide handle;</li>
+<li>recovery лише через trusted device або encrypted recovery package.</li>
+</ul>
+<p>Для найвищого рівня приватності використовуйте окремі ключі контролера й пристрою для кожного вибраного контексту: контакту, кімнати або простору. Спільний прихований root key не повинен бути видимим у wire data, signatures, aliases чи service endpoints.</p>
+<p>Anonymous не означає unauthenticated: peer може криптографічно довести, що контролює ключ Persona, не розкриваючи legal identity, телефон або public profile.</p>
+</section><section><h2 id="3-federated-node-mode">3. Federated-node mode</h2>
+<p>AT Protocol показує сильний portability pattern: identity залишається DID, тоді як PDS location і signing configuration можуть змінюватися при міграції <a class="cite" href="#src-7">[7]</a><a class="cite" href="#src-8">[8]</a>. Matrix показує простішу, але жорсткішу альтернативу: Matrix user ID містить domain homeserver, який його видав <a class="cite" href="#src-9">[9]</a>. Для Vida server-bound root ID створив би зайву залежність від оператора та ускладнив би міграцію.</p>
+<p>Рекомендована модель federated node:</p>
+<ul>
+<li>Persona локально доводить control над своїм <code>PersonaId</code>;</li>
+<li>node створює власний <code>remoteAccountId</code> і підписаний <code>ServiceBinding</code>;</li>
+<li>binding може містити Vida address, mailbox, sync endpoint, quota, retention і federation policy;</li>
+<li>node <code>MAY</code> видавати attestation, але <code>MUST NOT</code> непомітно замінювати Persona controller;</li>
+<li>система <code>MUST</code> дозволяти експортувати й переносити ідентичність та зашифровані дані;</li>
+<li>зміна node створює новий binding і відкликає старий, не змінюючи Persona, якщо користувач свідомо зберігає continuity.</li>
+</ul>
+<p>Federated Persona може залишатися private й доступною лише за exact address/invite. Наявність node не означає directory listing.</p>
+</section><section><h2 id="4-public-identity">4. Public identity</h2>
+<p>Public identity має бути окремою opt-in projection. SimpleX Names прямо визначає name як discovery layer, а не account чи identity <a class="cite" href="#src-10">[10]</a>. Signal usernames також є optional способом почати контакт, а не profile name чи незмінним public identity <a class="cite" href="#src-11">[11]</a>. ActivityPub корисний для public federation surfaces, але його Actor та inbox/outbox є server URLs <a class="cite" href="#src-12">[12]</a>; це не підходить як єдине приватне identity-ядро Vida.</p>
+<p><code>PublicProfile</code> має містити лише явно опубліковані поля:</p>
+<ul>
+<li>display name, avatar, description;</li>
+<li>public alias/handle;</li>
+<li>дозволені contact entry points;</li>
+<li>public channels, businesses, communities або pages;</li>
+<li>selected credentials/attestations;</li>
+<li>discoverability і message-request policy.</li>
+</ul>
+<p>Public content і public identity — теж різні речі. SimpleX Channels показує, що public content можна поєднати з participation privacy; публічно joinable content не слід описувати як секретний лише через encryption <a class="cite" href="#src-13">[13]</a>.</p>
+<p>Public Persona може бути hosted provider, self-hosted або використовувати resolver/registry. Public handle повинен резолвитися в stable Persona reference, але не замінювати його.</p>
+</section><section><h2 id="5-recovery">5. Пристрої, ключі та recovery</h2>
+<p>Signal Sesame окремо моделює UserID, DeviceID і session state та допускає per-device identity keys <a class="cite" href="#src-14">[14]</a>. Matrix cross-signing використовує user-level master/self-signing keys для довіри до device keys <a class="cite" href="#src-15">[15]</a>. Keybase додає нові пристрої через уже trusted device або paper key і після device revocation обертає per-user encryption material <a class="cite" href="#src-16">[16]</a><a class="cite" href="#src-17">[17]</a>. Automerge Repo Keyhive показує ризик протилежного підходу: якщо єдина локальна keypair втрачена без backup, identity зникає без відновлення <a class="cite" href="#src-18">[18]</a>.</p>
+<p>Для Vida потрібні різні ключі та ідентифікатори:</p>
+<pre><code class="language-text">PersonaId != DeviceId != EndpointId != ServiceAccountId
+
+Controller/Recovery keys
+  └─ authorize DeviceGrant
+       ├─ device signing key
+       ├─ device key-agreement key
+       └─ EndpointBinding → Iroh EndpointId
+</code></pre>
+<p>Базові recovery paths:</p>
+<ol>
+<li>trusted-device approval із QR/short authentication string;</li>
+<li>encrypted recovery package із recovery secret;</li>
+<li>optional organization recovery/quorum для managed Persona;</li>
+<li>node-assisted account recovery, яке може відновити service access, але не повинно саме розшифровувати приватні дані чи непомітно замінювати controller.</li>
+</ol>
+<p>Якщо autonomous користувач втратив усі trusted devices і recovery package, Vida має чесно повідомити про безповоротну втрату зашифрованих даних.</p>
+</section><section><h2 id="6-independent-policy-axes">6. Independent policy axes</h2>
+<p>Кожний UX preset компонується з таких незалежних axes:</p>
+<pre><code class="language-text">Identity scope:     pairwise | contact | room | space | public
+Hosting:            none | provider | self-hosted | multiple bindings
+Discoverability:    invitation | exact address | directory | public web
+Verification:       none | phone | domain | organization | government | custom
+Network privacy:    direct allowed | relay required | onion/privacy route
+Authorization:      memberships + roles + resource grants
+</code></pre>
+</section><section><h2 id="7">7. Переходи між режимами</h2>
+<table>
+<thead>
+<tr>
+<th>Перехід</th>
+<th>Рекомендована семантика</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Autonomous → Federated</td>
+<td>Додати <code>ServiceBinding</code>; зберегти Persona лише після явного вибору continuity</td>
+</tr>
+<tr>
+<td>Federated node A → node B</td>
+<td>Перенести state, додати binding B, переключити address, відкликати binding A</td>
+</tr>
+<tr>
+<td>Private → Public</td>
+<td>Створити <code>PublicProfile</code> і alias після preview даних, що стануть публічними</td>
+</tr>
+<tr>
+<td>Anonymous → Public</td>
+<td>За замовчуванням створити нову Persona; link/merge дозволити лише з попередженням про незворотну кореляцію</td>
+</tr>
+<tr>
+<td>Public → Private</td>
+<td>Припинити майбутню directory/web видачу; не обіцяти стирання вже скопійованих profile/content/linkage</td>
+</tr>
+<tr>
+<td>Device lost</td>
+<td>Revoke <code>DeviceGrant</code>, rotate affected key envelopes/epochs, зберегти Persona continuity</td>
+</tr>
+</tbody>
+</table>
+</section><section><h2 id="8-cross-dimension-insights">8. Cross-dimension insights</h2>
+<ol>
+<li><strong>Persona є одиницею identity, а Vault — одиницею локального володіння.</strong> Один Vault може містити непов'язані Persona; ця спорідненість не повинна витікати в мережу.</li>
+<li><strong>Federation і publicity ортогональні.</strong> Можливі federated-private, self-hosted-public та anonymous Persona з opaque availability service.</li>
+<li><strong>Portability потребує власного controller layer.</strong> Якщо node одночасно є адресою, controller і recovery authority, міграція або стає неможливою, або повністю залежить від довіри до оператора.</li>
+<li><strong>Transport identity не є user identity.</strong> Iroh EndpointId потрібний для з'єднання; Iroh підтримує public, dedicated і self-hosted relay paths <a class="cite" href="#src-19">[19]</a>, але Vida окремо визначає Persona, devices, authorization і recovery.</li>
+</ol>
+</section><section><h2 id="9-contrary-evidence-and-trade-offs">9. Contrary evidence and trade-offs</h2>
+<ul>
+<li>Server-bound identifiers, як у Matrix, простіші для routing і moderation <a class="cite" href="#src-9">[9]</a>. Ціна — складніша portability та зміна адреси/identity при зміні namespace.</li>
+<li>Один глобальний public key, як базова Nostr identity, спрощує signatures і discovery <a class="cite" href="#src-3">[3]</a>, але збільшує cross-context correlation; Vida має дозволяти його лише як свідомо public Persona.</li>
+<li>Повна автономність прибирає provider dependency, але сама собою не забезпечує доступність або recovery. Без relay/node offline peers не отримають нові дані; без backup втрачені ключі не відновлюються.</li>
+<li>Public alias registry створює питання врядування, захоплення імен і протидії зловживанням незалежно від identity protocol.</li>
+</ul>
+</section><section><h2 id="10-decisions-still-required">10. Decisions still required</h2>
+<h3 id="required-adrs-and-prototypes">Required ADRs and prototypes</h3>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Required output</th>
+<th>Affects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Власний Vida <code>PersonaId</code> із DID-compatible document model чи standardized DID method?</td>
+<td>ADR + interoperability prototype</td>
+<td>Persona/controller model</td>
+</tr>
+<tr>
+<td>Signed append-only identity log, DID document чи інша canonical controller history?</td>
+<td>ADR + key-rotation prototype</td>
+<td>Recovery, migration, revocation</td>
+</tr>
+<tr>
+<td>Per-contact, per-room чи policy-selected per-Space anonymous Persona?</td>
+<td>Privacy threat model + metadata test</td>
+<td>Anonymous mode</td>
+</tr>
+<tr>
+<td>Recovery package format, KDF і storage UX для v1?</td>
+<td>Security ADR + recovery usability test</td>
+<td>Device loss and onboarding</td>
+</tr>
+</tbody>
+</table>
+<h3 id="policy-and-governance-questions">Policy and governance questions</h3>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Required output</th>
+<th>Affects</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Хто адмініструє public alias registry та вирішує conflicts/abuse?</td>
+<td>Governance policy + abuse process</td>
+<td>Public identity</td>
+</tr>
+<tr>
+<td>Які дані federated node може бачити для moderation, quotas та legal compliance?</td>
+<td>Data-classification and node-visibility policy</td>
+<td>Federation and privacy</td>
+</tr>
+</tbody>
+</table></section>
+<details id="sources"><summary>Appendix A. Source register</summary><p class="note">Первинні джерела; посилання перевірені й безпечно екрановані.</p><table class="sources"><tbody><tr id="src-1"><td>[1]</td><td>DID is stable identity; PDS is a service endpoint</td><td><a href="https://atproto.com/specs/did" target="_blank" rel="noopener">AT Protocol</a></td><td>n.d.</td><td>2026-09-18</td><td>high</td></tr><tr id="src-2"><td>[2]</td><td>Handle is mutable discovery alias resolved bidirectionally</td><td><a href="https://atproto.com/specs/handle" target="_blank" rel="noopener">AT Protocol</a></td><td>n.d.</td><td>2026-09-18</td><td>high</td></tr><tr id="src-3"><td>[3]</td><td>Public key remains primary over NIP-05 address</td><td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md" target="_blank" rel="noopener">Nostr protocol</a></td><td>n.d.</td><td>2026-09-18</td><td>medium</td></tr><tr id="src-4"><td>[4]</td><td>Pairwise DIDs mitigate correlation</td><td><a href="https://www.w3.org/TR/did/#did-correlation-risks" target="_blank" rel="noopener">W3C DID Core</a></td><td>2022-07-19</td><td>2026-09-18</td><td>high</td></tr><tr id="src-5"><td>[5]</td><td>Messaging without network-wide user identifier</td><td><a href="https://simplex.chat/docs/simplex.html" target="_blank" rel="noopener">SimpleX Chat</a></td><td>n.d.</td><td>2026-09-18</td><td>high</td></tr><tr id="src-6"><td>[6]</td><td>Locally stored profiles and per-connection incognito profile</td><td><a href="https://simplex.chat/docs/guide/chat-profiles.html" target="_blank" rel="noopener">SimpleX Chat</a></td><td>n.d.</td><td>2026-09-18</td><td>medium</td></tr><tr id="src-7"><td>[7]</td><td>Identity, account hosting and lifecycle are distinct</td><td><a href="https://atproto.com/specs/account" target="_blank" rel="noopener">AT Protocol</a></td><td>n.d.</td><td>2026-09-18</td><td>high</td></tr><tr id="src-8"><td>[8]</td><td>Identity and content can migrate between PDS hosts</td><td><a href="https://atproto.com/guides/account-migration" target="_blank" rel="noopener">AT Protocol</a></td><td>n.d.</td><td>2026-09-18</td><td>high</td></tr><tr id="src-9"><td>[9]</td><td>Matrix user ID is namespaced to allocating homeserver</td><td><a href="https://spec.matrix.org/v1.18/appendices/#user-identifiers" target="_blank" rel="noopener">Matrix.org Foundation</a></td><td>v1.18</td><td>2026-09-18</td><td>high</td></tr><tr id="src-10"><td>[10]</td><td>Public name is discovery layer, not account/identity</td><td><a href="https://simplex.chat/docs/protocol/names-overview.html" target="_blank" rel="noopener">SimpleX Chat</a></td><td>2026-07-14</td><td>2026-09-18</td><td>high</td></tr><tr id="src-11"><td>[11]</td><td>Username is optional contact initiation mechanism</td><td><a href="https://support.signal.org/hc/en-us/articles/6712070553754-Phone-Number-Privacy-and-Usernames" target="_blank" rel="noopener">Signal</a></td><td>n.d.</td><td>2026-09-18</td><td>medium</td></tr><tr id="src-12"><td>[12]</td><td>Public federation uses server-hosted Actor inbox/outbox</td><td><a href="https://www.w3.org/TR/activitypub/" target="_blank" rel="noopener">W3C ActivityPub</a></td><td>2018-01-23</td><td>2026-09-18</td><td>high</td></tr><tr id="src-13"><td>[13]</td><td>Public content can preserve participation privacy</td><td><a href="https://simplex.chat/docs/protocol/channels-overview.html" target="_blank" rel="noopener">SimpleX Channels</a></td><td>2026-04-28</td><td>2026-09-18</td><td>high</td></tr><tr id="src-14"><td>[14]</td><td>User/device/session separation for multi-device E2EE</td><td><a href="https://signal.org/docs/specifications/sesame/" target="_blank" rel="noopener">Signal Sesame</a></td><td>2017</td><td>2026-09-18</td><td>high</td></tr><tr id="src-15"><td>[15]</td><td>User-level cross-signing authorizes device keys</td><td><a href="https://github.com/matrix-org/matrix-spec/blob/main/content/client-server-api/modules/end_to_end_encryption.md#cross-signing" target="_blank" rel="noopener">Matrix.org Foundation</a></td><td>n.d.</td><td>2026-09-18</td><td>high</td></tr><tr id="src-16"><td>[16]</td><td>Trusted device or paper key provisions/revokes devices</td><td><a href="https://book.keybase.io/account" target="_blank" rel="noopener">Keybase</a></td><td>2022</td><td>2026-09-18</td><td>high</td></tr><tr id="src-17"><td>[17]</td><td>Device revocation rotates per-user encryption key</td><td><a href="https://book.keybase.io/docs/teams/puk" target="_blank" rel="noopener">Keybase</a></td><td>n.d.</td><td>2026-09-18</td><td>high</td></tr><tr id="src-18"><td>[18]</td><td>Local key without backup makes identity loss irreversible</td><td><a href="https://automerge.org/docs/keyhive/ark-api-guide/" target="_blank" rel="noopener">Automerge</a></td><td>2026</td><td>2026-09-18</td><td>high</td></tr><tr id="src-19"><td>[19]</td><td>Connectivity supports shared, dedicated and self-hosted relays</td><td><a href="https://www.iroh.computer/services/hosting" target="_blank" rel="noopener">Iroh</a></td><td>n.d.</td><td>2026-09-18</td><td>medium</td></tr></tbody></table></details>
+<section id="staleness"><h2>Appendix B. Staleness map</h2><table>
+<thead>
+<tr>
+<th>Claim class</th>
+<th>Re-check by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Product patterns and integration assumptions</td>
+<td>2027-09-18</td>
+</tr>
+<tr>
+<td>Architecture, security, privacy and recovery patterns</td>
+<td>2028-09-18</td>
+</tr>
+</tbody>
+</table>
+<p>Earliest refresh: <strong>2027-09-18</strong>. Refresh sooner if Vida selects a DID method, public alias registry, recovery implementation or a materially different Iroh release/API.</p></section>
+</main>
+</div>
+<script>
+for(const h of document.querySelectorAll('main h2,main h3')){if(!h.id)h.id=h.textContent.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/(^-|-$)/g,'')}
+const mediumRefs=new Set(['3','6','11','19']);
+for(const el of document.querySelectorAll('#report p,#report li,#report tr')){
+  if(el.closest('#sources')||el.querySelector('.badge'))continue;
+  const refs=[...el.textContent.matchAll(/\[(\d+)\]/g)].map(m=>m[1]);
+  const level=refs.some(r=>mediumRefs.has(r))?'medium':'verified';
+  const badge=document.createElement('span');badge.className='badge '+level;badge.textContent=level;el.appendChild(badge);
+  if(el.tagName==='TR'){const cell=el.lastElementChild;if(cell)cell.appendChild(badge)}else{el.appendChild(badge)}
+}
+</script>
+</body></html>

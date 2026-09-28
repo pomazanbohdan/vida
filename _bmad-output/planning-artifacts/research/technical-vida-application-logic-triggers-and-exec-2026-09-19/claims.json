@@ -1,0 +1,17 @@
+[
+  {"claim":"[1] Airtable automation trigger taxonomy","class":"pattern","pub_date":"2026-08-12","date_basis":"published"},
+  {"claim":"[2] Airtable condition re-entry semantics","class":"pattern","pub_date":"2026-09-18","date_basis":"published"},
+  {"claim":"[3] Appwrite execution modes","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[4] PostgreSQL transaction trigger semantics","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[5] AWS transactional outbox","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[6] WordPress hook model","class":"pattern","pub_date":"2024-01-29","date_basis":"published"},
+  {"claim":"[7] Shopify unstable discount Functions API","class":"unstable-api","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[8] Wasmtime interruption API","class":"executor","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[9] Rhai operation cap","class":"executor","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[10] Automerge offline sync","class":"local-first","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[11] Replicache optimistic rebase","class":"local-first","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[12] Temporal history and retries","class":"workflow","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[13] Lexical command continuation","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[14] Tiptap parent override","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy"},
+  {"claim":"[15] Supabase async webhook","class":"pattern","pub_date":"2026-09-19","date_basis":"access-proxy"}
+]

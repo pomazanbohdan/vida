@@ -1,0 +1,56 @@
+spec: SPEC-PLATFORM-RESOURCE-CONFORMANCE-001
+version: 1
+status: approved-native-method_web-g0-pending
+scope:
+  clients: [android_flutter_rust, ios_flutter_rust, windows_x64_flutter_rust, web_flutter_rust_wasm]
+  bundled: [messenger, notes_knowledge, project, files, contacts, calls]
+  excluded: [hosted_service]
+profiles:
+  devices:
+    android: [low, mid, high]
+    ios: [oldest_supported, mid, current]
+    windows_x64: [minimum, mid, high]
+    web: [supported_browser_os_device_matrix_pending_OQ_0075]
+  networks: [offline_reconnect, lan_direct, broadband_relay, cellular, wifi_cellular_switch, constrained, udp_blocked_fallback]
+  datasets: [empty, representative, large]
+run_record_required:
+  - run_id
+  - fixture_id
+  - source_and_build_hash
+  - tool_versions
+  - device_and_os
+  - ram_and_free_storage
+  - power_thermal_charging_state
+  - network_profile
+  - dataset_version
+  - raw_trace_artifacts
+  - distribution_summary
+  - privacy_redaction_result
+  - result
+measurement_policy:
+  build_mode: [release, profile]
+  physical_devices_required: true
+  web_final_static_build_required: true
+  web_profile_records: [browser_version, storage_quota_and_persistence, app_shell_cache_version, initial_download, cached_reload, offline_cold_reopen]
+  debug_results_are_diagnostic_only: true
+  minimum_repetitions: 10
+  report_percentiles: [p50, p95]
+  missing_value: not-measured
+  numeric_budgets: TBD-from-baseline
+fixtures:
+  - {id: P01-size, journeys: [delivered_download, installed_size, feature_delta]}
+  - {id: P02-startup, journeys: [cold_empty, cold_large, warm_empty, warm_large], milestones: [shell_visible, meaningful_interaction]}
+  - {id: P03-ui, journeys: [global_search, rich_document, project_board], measure: [frame_time, jank, cpu, memory]}
+  - {id: P04-sync, journeys: [local_commit, direct_sync, relay_sync, reconnect_recovery], measure: [durability, convergence_time, cpu, memory, network]}
+  - {id: P05-files, journeys: [upload_download, low_disk_failure, retry], measure: [throughput, cpu, memory, storage_growth, recovery]}
+  - {id: P06-background, journeys: [baseline_8h, android_opt_in_high_availability_8h], measure: [battery, wake_locks, background_network, reconnects, thermal]}
+  - {id: P07-call-1to1, journeys: [audio_60m, video_30m], measure: [join, reconnect, webrtc_stats, cpu, memory, battery, network, thermal]}
+  - {id: P08-call-group, participants: 8, duration_minutes: 30, measure: [join, reconnect, webrtc_stats, cpu, memory, battery, network, thermal]}
+  - {id: P09-reliability, journeys: [process_kill_local_commit, process_kill_sync, crash_restart, anr_or_hang_detection], measure: [data_integrity, recovery_time, crash_anr]}
+  - {id: P10-web-storage, clients: [web_flutter_rust_wasm], journeys: [offline_cold_reopen, quota_failure, browser_profile_eviction, both_paths_lost_restore], measure: [local_state_integrity, pending_outbox_integrity, recovery_time, user_visible_status]}
+  - {id: P11-web-path, clients: [web_flutter_rust_wasm, android_flutter_rust], journeys: [iroh_1_2_custom_transport_build, direct_without_relay_forwarding, direct_timeout_relay_fallback, relay_to_direct_migration, both_paths_lost, web_to_web_direct], measure: [selected_path, ice_candidate_pair_class, lookup_signaling_bytes, relay_application_payload_bytes, direct_attempt_budget, application_receipt, convergence_time, duplicate_domain_apply, user_visible_status]}
+gates:
+  G0_method_freeze: [profiles_fixed, fixtures_valid, result_schema_fixed]
+  G1_baseline: [all_required_profiles_executed, raw_artifacts_reproducible]
+  G2_budget_freeze: [absolute_budgets_approved, regression_tolerances_approved]
+  G3_release: [budget_compliance, current_store_vitals_compliance]

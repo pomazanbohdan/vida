@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VIDA — пряме з’єднання Iroh та власний relay</title>
+<style>
+:root{color-scheme:light dark;--bg:#f6f4f0;--paper:#fffdf9;--fg:#242b32;--muted:#59636c;--line:#ddd8cf;--accent:#ad5f43}
+@media(prefers-color-scheme:dark){:root{--bg:#181c20;--paper:#23292e;--fg:#f3f1ed;--muted:#bdc4c7;--line:#495057;--accent:#e0a184}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.62 system-ui,-apple-system,Segoe UI,sans-serif}a{color:var(--accent)}
+.mast{background:#262b30;color:#f9f6f0;padding:2rem max(1rem,calc((100vw - 1080px)/2)) 1.7rem}.mast h1{font-size:clamp(1.6rem,3vw,2.5rem);line-height:1.2;margin:.4rem 0}.mast p{margin:.25rem 0;color:#d6d3cd}.tag{display:inline-block;border:1px solid #96745f;border-radius:99px;padding:.2rem .65rem;margin-right:.4rem;font-size:.8rem}
+.layout{display:grid;grid-template-columns:210px minmax(0,1fr);gap:1.5rem;max-width:1120px;margin:auto;padding:1.5rem 1rem}.toc{align-self:start;position:sticky;top:1rem;font-size:.86rem;max-height:calc(100vh - 2rem);overflow:auto}.toc a{display:block;padding:.3rem 0;text-decoration:none;color:var(--muted)}main{min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:1.5rem 2rem;box-shadow:0 8px 24px #0000000b}main>h1:first-child{display:none}h2{border-top:1px solid var(--line);padding-top:1.4rem;margin-top:2rem}h2:first-of-type{border-top:0;margin-top:.6rem;padding-top:0}p,li{max-width:80ch}table{width:100%;border-collapse:collapse;display:block;overflow:auto;font-size:.88rem}td,th{text-align:left;vertical-align:top;padding:.55rem .7rem;border-bottom:1px solid var(--line)}th{background:color-mix(in srgb,var(--accent) 12%,var(--paper))}summary{cursor:pointer;font-weight:700;padding:.5rem 0}code{overflow-wrap:anywhere}.evidence{font-size:.86rem;color:var(--muted)}
+@media(max-width:760px){.layout{display:block}.toc{position:static;max-height:none;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.5rem 1rem;margin-bottom:1rem}main{padding:1.2rem}}
+</style></head><body>
+<header class="mast"><span class="tag">BMad Deep Recon · Technical</span><span class="tag">2026-09-25</span><span class="tag">2 підтверджено · 3 потребують runtime proof</span><h1>VIDA: direct-first Iroh і власний relay</h1><p>UniClipboard показує патерн, а не залежність. Нативні клієнти можуть працювати напряму; Web на поточному Iroh потребує relay.</p></header>
+<div class="layout"><nav class="toc" aria-label="Зміст"><strong>Зміст</strong><div id="toc-list"></div></nav><main id="report"><h1 id="technical-research-direct-first-iroh-connectivity-and-uniclipboard-patterns-for-vida">Technical research: direct-first Iroh connectivity and UniClipboard patterns for VIDA</h1>
+<p><strong>Decision this research serves:</strong> Define a direct-first VIDA connection architecture independent of Delta Chat Relay and UniClipboard services, with VIDA-operated Iroh relay fallback.</p>
+<h2 id="section">Висновок</h2>
+<p><strong>Так: нативні Iroh-пристрої можуть з'єднуватися без relay</strong>, якщо знають актуальну адресу й можуть досягти один одного: LAN через opt-in mDNS, публічний IPv6/IPv4 або налаштований прямий маршрут. Це transport capability, не автоматична гарантія для двох телефонів у різних мобільних мережах. <a href="#src-1">1</a><a href="#src-2">2</a></p>
+<p><strong>Для типового cross-NAT шляху Iroh використовує relay двічі:</strong> як місце початкового контакту для обміну адресами й спроби UDP hole punching; якщо прямий шлях не відкрився — для передачі зашифрованих пакетів. Після успішного direct дані йдуть повз relay. Це не Delta Chat Relay і не поштовий сервіс. <a href="#src-3">3</a><a href="#src-4">4</a></p>
+<p><strong>Рекомендація VIDA:</strong> власна Persona/Space/authorization/sync-семантика над Iroh 1.2; <code>direct-first</code> для нативних клієнтів; локальний <code>LAN-only</code> профіль без relay; VIDA-operated Iroh-compatible relays як fallback; окремо керована address lookup. <strong>Статичний браузерний клієнт є винятком:</strong> поточний Iroh Wasm завжди передає трафік через relay. <a href="#src-5">5</a><a href="#src-6">6</a><a href="#src-7">7</a> Отже, для Web фраза «direct-first» зараз не є правдивою.</p>
+<p>Це <strong>дослідницька рекомендація</strong>, не зміна вже прийнятих ADR. <a href="../../../../docs/03-architecture/decisions/ADR-0005-iroh-transport-foundation.md">ADR-0005</a> уже погоджує native direct + relay fallback і VIDA-owned ALPN; окремий <a href="../../../../docs/03-architecture/decisions/ADR-0014-native-only-vida-clients.md">ADR-0014</a> поки виключає браузер із Release 1, хоча в пізнішому обговоренні його запитали. Релізні документи треба узгодити окремо.</p>
+<h2 id="section-1">1. Як виникає з'єднання</h2>
+<table>
+<thead>
+<tr>
+<th>Крок</th>
+<th>Хто і що робить</th>
+<th>Якщо немає relay</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Довіра</td>
+<td>VIDA створює окремі Persona, Device і Space ключі; запрошення/підтвердження додає Device або людину за правилами Space. <code>EndpointId</code> Iroh не є правом доступу VIDA.</td>
+<td>Iroh ticket у QR може передати адресу без сервера, але він сам по собі повторно використовуваний і може розкрити IP; одноразовість, строк і права мають бути окремою VIDA invitation. <a href="#src-14">14</a></td>
+</tr>
+<tr>
+<td>2. Пошук адреси</td>
+<td>За відомим <code>EndpointId</code> потрібні поточні direct IP/порт або relay URL. Iroh має окремі DNS/Pkarr, mDNS і opt-in DHT lookup. <a href="#src-8">8</a><a href="#src-9">9</a></td>
+<td>LAN mDNS або попередньо передана актуальна адреса; DHT може прибрати hosted lookup, але не створює мережевої досяжності.</td>
+</tr>
+<tr>
+<td>3. З'єднання</td>
+<td>Native Iroh пробує відомі прямі адреси; у cross-NAT relay допомагає координувати hole punching. <a href="#src-1">1</a><a href="#src-3">3</a></td>
+<td>Пряме native з'єднання можливе лише за реально досяжної адреси/маршруту.</td>
+</tr>
+<tr>
+<td>4. Fallback</td>
+<td>Якщо NAT/firewall блокує direct, Iroh передає E2EE трафік через relay. <a href="#src-4">4</a></td>
+<td>Якщо direct неможливий, peer недоступний: зберігаємо операцію локально і повторюємо після появи шляху; не називаємо її доставленою.</td>
+</tr>
+<tr>
+<td>5. Sync</td>
+<td>Після з'єднання VIDA обмінюється власними versioned ALPN/envelopes, перевіряє членство та application-level receipts.</td>
+<td>Шлях не змінює семантику операцій, конфліктів і підтверджень.</td>
+</tr>
+</tbody>
+</table>
+<p>Критична відмінність: <strong>relay ≠ discovery ≠ mailbox ≠ authority</strong>. Транспортний relay не зберігає історію й не вирішує бізнес-конфлікт. Address Lookup лише показує, куди пробувати dial. DHT/публічний DNS не замінюють relay для складного NAT. <a href="#src-4">4</a><a href="#src-8">8</a><a href="#src-9">9</a></p>
+<h2 id="uniclipboard">2. Що насправді показує UniClipboard</h2>
+<p>UniClipboard явно розділяє <strong>trust</strong> (одноразове запрошення + passphrase/PAKE), <strong>discovery</strong> (mDNS, власний HTTPS rendezvous, кешовані адреси) та <strong>transport</strong> (Iroh QUIC direct, за потреби encrypted relay). Це корисний архітектурний патерн, але не готовий VIDA account або sync protocol. <a href="#src-10">10</a></p>
+<p>Його <code>LAN-only</code> вимикає Iroh relay і публічний n0 DNS: уже спарені desktop peers можуть синхронізуватися на одному LAN навіть без WAN. Проте опублікована інструкція зазначає, що <strong>первинне pairing коротким кодом усе ще використовує сервіс rendezvous UniClipboard</strong>. Для повністю автономної VIDA треба власний QR/локальний bootstrap, а не копіювати цей прихований сервісний крок. <a href="#src-11">11</a></p>
+<p>Важлива межа застосовності: продуктова документація UniClipboard описує поточний мобільний companion як HTTP до desktop, без Iroh P2P і без phone↔phone sync; Engine README водночас описує мобільні bindings та P2P-архітектуру. Це різні рівні доказу. Тому UniClipboard не доводить, що Android↔Android↔Web VIDA уже працюватиме: потрібен власний міжплатформний prototype. <a href="#src-10">10</a><a href="#src-12">12</a></p>
+<h2 id="transport-profiles-vida">3. Рекомендовані transport profiles VIDA</h2>
+<table>
+<thead>
+<tr>
+<th>Профіль</th>
+<th>Discovery</th>
+<th>Шлях даних</th>
+<th>Призначення</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LAN-only</code></td>
+<td>Локальний mDNS і явні QR/known-address hints; без default n0 lookup</td>
+<td>Native direct; relay disabled</td>
+<td>Офлайн-зустріч двох пристроїв на досяжному LAN; невдачу показувати чесно. <a href="#src-2">2</a><a href="#src-11">11</a></td>
+</tr>
+<tr>
+<td><code>Direct-first</code></td>
+<td>Локальний mDNS + затверджений lookup + кешовані короткоживучі адреси</td>
+<td>Native direct; <strong>власний</strong> Iroh relay для NAT coordination/fallback</td>
+<td>Звичайний online-режим Android/iOS/desktop. <a href="#src-3">3</a><a href="#src-4">4</a><a href="#src-8">8</a></td>
+</tr>
+<tr>
+<td><code>Browser</code></td>
+<td>Профіль Web окремо від native</td>
+<td>За поточним Iroh Wasm <strong>relay-only</strong>, навіть якщо Android поруч у тому самому Wi-Fi</td>
+<td>Статичний Flutter Web, якщо його повернути в scope; потрібен доступний relay. <a href="#src-5">5</a></td>
+</tr>
+<tr>
+<td><code>IP-private</code> (окреме рішення)</td>
+<td>Вимагає явного privacy profile</td>
+<td>Direct-first <strong>не</strong> обіцяє приховати IP від peer</td>
+<td>Не називати звичайний native direct «повністю анонімним». <a href="#src-13">13</a></td>
+</tr>
+</tbody>
+</table>
+<p>Для власної інфраструктури варто <strong>експлуатувати protocol-compatible open-source <code>iroh-relay</code></strong>, а не писати новий wire relay. Iroh дозволяє custom relay URLs; власний оператор прибирає залежність від Delta/Chatmail і публічних n0 relay, але не прибирає залежності від Iroh як узгодженого transport substrate. Окремо треба вибрати власний або незалежний Address Lookup: заміна relay URL сама по собі не вимикає default n0 DNS/Pkarr. Висновок — інференція з конфігурації Iroh та його deployment docs. <a href="#src-6">6</a><a href="#src-7">7</a><a href="#src-8">8</a></p>
+<h2 id="section-2">4. Ризики та перевірка</h2>
+<ol>
+<li><strong>Доступність:</strong> одна LAN може блокувати mDNS/P2P через ізоляцію клієнтів; два різні NAT можуть не пропустити hole punch; браузер без relay не працює. Тому в UI показувати фактичний шлях <code>direct / relay / недоступний</code>, а не один маркетинговий статус «P2P». <a href="#src-2">2</a><a href="#src-3">3</a><a href="#src-5">5</a></li>
+<li><strong>Метадані:</strong> native direct розкриває IP адреси сторонам; власний relay бачить час, обсяг і учасників з'єднання, хоча не вміст. «Повна анонімність» потребує окремого threat model і, можливо, іншого транспортного профілю. <a href="#src-13">13</a></li>
+<li><strong>Сервісна незалежність:</strong> для релізу перевірити, що custom relay + chosen lookup не роблять прихованих запитів до n0/UniClipboard/Delta; relay не є durable mailbox. <a href="#src-7">7</a><a href="#src-8">8</a><a href="#src-10">10</a></li>
+<li><strong>Конформанс:</strong> одна й та сама VIDA operation має application-level результат на direct та relayed path; transport ACK не є <code>synced</code> чи business-approved receipt.</li>
+</ol>
+<p><strong>Proof matrix до остаточного ADR:</strong> Android↔Android на одному LAN із відключеним WAN і relay; два native peers з різних мереж, де direct вдався; мережа з примусовим relay fallback; Web↔Android через власний relay; reconnect після sleep/network switch; outage одного relay; перевірка DNS/relay egress; packet/receipt trace без приватного вмісту. Для всіх сценаріїв збирати факт обраного шляху, а не виводити його з очікування. <a href="#src-1">1</a><a href="#src-2">2</a><a href="#src-3">3</a><a href="#src-5">5</a><a href="#src-7">7</a></p>
+<h2 id="section-3">Відкриті рішення</h2>
+<ul>
+<li>Чи підтримувати <code>LAN-only</code> як явний user-facing режим уже в першому релізі, чи лише як conformance/profile для автономної Persona? Технічно можливий, але не гарантує кросмережеву доставку.</li>
+<li>Чи повертаємо static Web в Release 1, змінивши ADR-0014/PRD? Якщо так, relay стає обов'язковою частиною Web availability, попри direct-first native.</li>
+<li>Яким буде VIDA-owned lookup у production і хто оперує щонайменше двома relay instances? Не треба змішувати lookup, relay, mailbox і федеративний вузол.</li>
+</ul>
+<h2 id="section-4">Джерела</h2>
+<details open><summary>14 опорних джерел</summary><table class="sources"><tbody><tr id="src-1"><td>[1]</td><td>Direct dial �� disabled relay native API</td><td><a href="https://docs.rs/iroh/latest/iroh/endpoint/struct.Builder.html" target="_blank" rel="noopener">Iroh 1.2 endpoint Builder</a></td><td>1.2.0</td><td>2026-09-25</td><td>high</td></tr><tr id="src-2"><td>[2]</td><td>mDNS LAN direct, opt-in</td><td><a href="https://docs.iroh.computer/connecting/local-address-lookup" target="_blank" rel="noopener">Iroh mDNS</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr><tr id="src-3"><td>[3]</td><td>NAT coordination � direct attempt</td><td><a href="https://docs.iroh.computer/concepts/nat-traversal" target="_blank" rel="noopener">Iroh NAT traversal</a></td><td>living docs</td><td>2026-09-25</td><td>high mechanism</td></tr><tr id="src-4"><td>[4]</td><td>Relay fallback, no durable app state</td><td><a href="https://docs.iroh.computer/concepts/relays" target="_blank" rel="noopener">Iroh relays</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr><tr id="src-5"><td>[5]</td><td>Browser Iroh relay-only</td><td><a href="https://docs.iroh.computer/languages/wasm-browser" target="_blank" rel="noopener">Iroh WebAssembly/browser</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr><tr id="src-6"><td>[6]</td><td>Open-source self-hosted Iroh relay</td><td><a href="https://docs.iroh.computer/iroh-services/relays/self-hosted" target="_blank" rel="noopener">Iroh self-hosted relay</a></td><td>living docs</td><td>2026-09-25</td><td>high capability; config guide caveat</td></tr><tr id="src-7"><td>[7]</td><td>Custom relays vs default public infra</td><td><a href="https://docs.iroh.computer/deployment/dedicated-infrastructure" target="_blank" rel="noopener">Iroh dedicated infrastructure</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr><tr id="src-8"><td>[8]</td><td>Address lookup providers and defaults</td><td><a href="https://docs.iroh.computer/concepts/address-lookup" target="_blank" rel="noopener">Iroh Address Lookup</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr><tr id="src-9"><td>[9]</td><td>DHT removes hosted lookup, not reachability</td><td><a href="https://docs.iroh.computer/connecting/dht-address-lookup" target="_blank" rel="noopener">Iroh DHT</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr><tr id="src-10"><td>[10]</td><td>UniClipboard trust/discovery/transport and mobile boundary</td><td><a href="https://docs.uniclipboard.app/guides/pairing" target="_blank" rel="noopener">UniClipboard pairing</a></td><td>living docs</td><td>2026-09-25</td><td>high documented; runtime untested</td></tr><tr id="src-11"><td>[11]</td><td>UniClipboard LAN-only still uses rendezvous for initial code pairing</td><td><a href="https://docs.uniclipboard.app/help/faq" target="_blank" rel="noopener">UniClipboard FAQ</a></td><td>living docs</td><td>2026-09-25</td><td>high documented; runtime untested</td></tr><tr id="src-12"><td>[12]</td><td>Engine architecture vs released mobile behavior</td><td><a href="https://github.com/UniClipboard/Engine" target="_blank" rel="noopener">UniClipboard Engine README</a></td><td>main</td><td>2026-09-25</td><td>medium for release comparison</td></tr><tr id="src-13"><td>[13]</td><td>Direct IP exposure; relay metadata</td><td><a href="https://docs.iroh.computer/concepts/security-privacy" target="_blank" rel="noopener">Iroh security/privacy</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr><tr id="src-14"><td>[14]</td><td>QR endpoint ticket ��� �������, ��� reusable/stale/IP exposure</td><td><a href="https://docs.iroh.computer/concepts/tickets" target="_blank" rel="noopener">Iroh tickets</a></td><td>living docs</td><td>2026-09-25</td><td>high</td></tr></tbody></table></details>
+<h2 id="section-5">Актуальність</h2>
+<p>Iroh version/API та браузерні можливості перевіряти перед implementation pin (ціль ≤1 місяць). UniClipboard product/mobile режим і власні relay/discovery налаштування — перед використанням як release evidence (ціль ≤1 місяць). Джерела — живі документи без стабільної дати публікації, тому висновки чинні для перевірки 2026-09-25, не безстроково.</p>
+</main></div><script>const heads=[...document.querySelectorAll('main h2')];const toc=document.getElementById('toc-list');heads.forEach((h,i)=>{if(!h.id)h.id='section-'+i;const a=document.createElement('a');a.href='#'+h.id;a.textContent=h.textContent;toc.appendChild(a)});</script></body></html>

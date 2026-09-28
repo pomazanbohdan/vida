@@ -1,0 +1,7 @@
+[
+  {"claim":"Signal and Element recovery UX","class":"product","pub_date":"2026-09-26"},
+  {"claim":"Android, browser and Windows storage behavior","class":"platform","pub_date":"2026-09-26"},
+  {"claim":"OWASP key-management guidance","class":"security","pub_date":"2026-09-26"},
+  {"claim":"RFC 5869 HKDF","class":"standard","pub_date":"2010-05-01"},
+  {"claim":"RFC 9106 Argon2","class":"standard","pub_date":"2021-09-01"}
+]

@@ -1,0 +1,3 @@
+# Citation audit · 2026-09-20
+
+Read-only independent checker verified 13 external URLs (HTTP 200), local ADR link, and official-source support for NIP, MSC, Lexicon, CDDL/CBOR/JCS and Protobuf claims. Corrections applied in `research.md`: NIP-29/78 marked draft/optional; NIP-78 not portrayed as public interchange; OpenAPI linked directly to normative 3.2.1; OWASP ASVS scope narrowed to web-app controls. Remaining inference: recommendation to publish own VIDA open specifications is architectural judgment, explicitly not an accepted project decision. Legal license/IPR selection and implementation interoperability remain unverified/open.

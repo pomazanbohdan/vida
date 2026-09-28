@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VIDA client boundary — research briefing</title>
+  <style>
+    :root{color-scheme:light dark;--bg:#f6f7fb;--panel:#fff;--ink:#172033;--muted:#5d6779;--line:#dce1ea;--brand:#5a45d6;--accent:#0a7c66;--warn:#a55a00;--shadow:0 14px 35px rgba(26,35,58,.09)}
+    @media(prefers-color-scheme:dark){:root{--bg:#10131a;--panel:#171b24;--ink:#edf1f8;--muted:#a8b1c2;--line:#2b3342;--brand:#a99cff;--accent:#63d5b9;--warn:#ffc36b;--shadow:0 14px 35px rgba(0,0,0,.28)}}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.62 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--brand)}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:color-mix(in srgb,var(--brand) 10%,transparent);padding:.12rem .34rem;border-radius:.35rem}.wrap{max-width:1180px;margin:auto;padding:28px 22px 64px}.hero{background:linear-gradient(135deg,color-mix(in srgb,var(--brand) 18%,var(--panel)),var(--panel));border:1px solid var(--line);border-radius:22px;padding:34px;box-shadow:var(--shadow)}.eyebrow{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--brand);font-weight:800}.hero h1{font-size:clamp(2rem,5vw,4rem);line-height:1.04;margin:.35rem 0 1rem;max-width:900px}.meta{display:flex;gap:10px;flex-wrap:wrap}.pill,.confidence{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-size:.82rem;background:var(--panel)}.confidence.high{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}.confidence.medium{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}.grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:26px;margin-top:26px}.toc{position:sticky;top:18px;align-self:start;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}.toc strong{display:block;margin-bottom:10px}.toc a{display:block;text-decoration:none;padding:6px 8px;border-radius:8px;color:var(--muted)}.toc a:hover{background:color-mix(in srgb,var(--brand) 9%,transparent);color:var(--ink)}main{min-width:0}.card,section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:26px;margin-bottom:20px}.summary{border-left:5px solid var(--brand)}h2{font-size:1.65rem;margin:0 0 14px}h3{font-size:1.12rem;margin:24px 0 8px}.decision{font-size:1.25rem;font-weight:750;padding:18px;border-radius:14px;background:color-mix(in srgb,var(--brand) 10%,transparent);border:1px solid color-mix(in srgb,var(--brand) 35%,var(--line))}.layers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.layer{padding:18px;border:1px solid var(--line);border-radius:14px}.layer b{color:var(--brand)}.cite{text-decoration:none;font-size:.78em;vertical-align:super;font-weight:700}.callout{border-left:4px solid var(--warn);padding:12px 16px;background:color-mix(in srgb,var(--warn) 8%,transparent);border-radius:10px}.rules li,.steps li{margin:.42rem 0}table{width:100%;border-collapse:collapse;font-size:.92rem}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px 8px}th{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em}.sources td:first-child{white-space:nowrap;font-weight:800}.sources a{overflow-wrap:anywhere}details summary{cursor:pointer;font-weight:750;font-size:1.1rem}.stale{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stale div{border:1px solid var(--line);border-radius:12px;padding:14px}.footer{color:var(--muted);text-align:center;font-size:.85rem;margin-top:28px}@media(max-width:820px){.grid{grid-template-columns:1fr}.toc{position:static}.layers,.stale{grid-template-columns:1fr}.hero{padding:24px}section,.card{padding:20px}}@media print{.toc{display:none}.grid{display:block}.hero,section,.card{box-shadow:none;break-inside:avoid}body{background:#fff;color:#111}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Technical research · decision briefing</div>
+    <h1>Shared headless core with native platform clients</h1>
+    <p>Defines the VIDA boundary between stable product logic, Iroh/runtime infrastructure, and native client implementations.</p>
+    <div class="meta"><span class="pill">2026-09-19</span><span class="pill">Standard depth</span><span class="pill">12 sources</span><span class="confidence high">High: precedent correction</span><span class="confidence medium">Medium-high: VIDA application</span></div>
+  </header>
+  <div class="grid">
+    <nav class="toc" aria-label="Contents"><strong>Contents</strong><a href="#summary">Executive summary</a><a href="#decision">Proposed decision</a><a href="#evidence">Evidence</a><a href="#boundary">VIDA boundary</a><a href="#delivery">Delivery model</a><a href="#risks">Risks & open decisions</a><a href="#sources">Sources</a><a href="#freshness">Freshness</a></nav>
+    <main>
+      <section id="summary" class="summary">
+        <h2>Executive summary</h2>
+        <p>The remembered case combines two precedents. <strong>Shopify</strong>, not Spotify, announced that it is moving mobile apps from React Native to native Swift and Kotlin. Its Shop app uses SwiftUI and Jetpack Compose. Shopify says React Native succeeded; coding agents changed the economics of maintaining two native implementations. Parity is maintained through shared specifications, tests, checkpoints, review, and release gates. Business logic is decoupled from UI, runnable headlessly, and exposed through a CLI.<a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a></p>
+        <p><strong>Spotify</strong> is a separate precedent: independently released platform clients with selected common libraries and historical shared native C++ capabilities. Public evidence does not support a Spotify React Native exit.<a class="cite" href="#src-3">[3]</a><a class="cite" href="#src-4">[4]</a><a class="cite" href="#src-7">[7]</a></p>
+        <p class="callout"><strong>Caveat.</strong> Shopify has not published the language or binary boundary of its headless logic. Recommending a Rust core for VIDA is a synthesis of Shopify’s agent-addressable design, 1Password’s deployed Rust core, Mozilla’s packaging/design evidence, and VIDA’s Iroh/Rust direction.</p>
+      </section>
+
+      <section id="decision">
+        <h2>Proposed Architecture Spine</h2>
+        <p class="decision">Headless local-first shared core with native/platform shells and ports-and-adapters at external seams.</p>
+        <ol class="rules">
+          <li><code>vida-core</code> is the normative executable implementation of shared domain and protocol semantics.</li>
+          <li><code>vida-runtime</code> hosts Iroh, delivery, sync, blob, and storage coordination in Rust.</li>
+          <li>Iroh core is strategic and mandatory; version integration and optional higher-level libraries remain controlled seams.</li>
+          <li>Native/platform shells own UI and OS policy and may release independently.</li>
+          <li>Language-neutral specs, golden vectors, replay fixtures, and parity tests govern every implementation.</li>
+          <li>Storage, delivery, and discovery providers change only through explicit ports, migrations, and conformance gates.</li>
+          <li>The headless core/runtime expose a CLI and deterministic test harness for developers and coding agents.</li>
+        </ol>
+      </section>
+
+      <section id="evidence">
+        <h2>Evidence and precedents</h2>
+        <h3>Shopify: native clients, shared behavior contracts</h3>
+        <p>Shopify’s public model is two native implementations aligned by specifications and verification artifacts—not evidence of one retained executable cross-platform core. Its transferable architectural idea is that product behavior becomes executable and reviewable without UI.<a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a></p>
+        <h3>Spotify: selected shared native capabilities</h3>
+        <p>Spotify currently describes Android, iOS, and Desktop as independent release tracks sharing some libraries.<a class="cite" href="#src-3">[3]</a> Historical evidence describes a native C++ core shared across most platforms, a shared sequencing module with C++ tests, and a Java/JNI Android boundary.<a class="cite" href="#src-5">[5]</a><a class="cite" href="#src-7">[7]</a> Liked Songs modernization changed about 100,000 shared-client lines plus Android/iOS integration.<a class="cite" href="#src-4">[4]</a></p>
+        <h3>1Password and Mozilla: Rust below native shells</h3>
+        <p>1Password places server communication, database behavior, permissions, cryptography, search, and other feasible non-UI behavior in a shared Rust Core while keeping native mobile frontends.<a class="cite" href="#src-8">[8]</a> It also generates shared frontend types and uses Rust/WASM for browser contexts.<a class="cite" href="#src-9">[9]</a> Mozilla documents Rust-to-iOS packaging through XCFramework/Swift Package artifacts and generated bindings; its Sync Manager document proposes a Rust-low-level/platform-orchestration split.<a class="cite" href="#src-10">[10]</a><a class="cite" href="#src-11">[11]</a></p>
+      </section>
+
+      <section id="boundary">
+        <h2>Recommended VIDA boundary</h2>
+        <div class="layers">
+          <article class="layer"><b>A · Conformance Plane</b><p>Normative, language-neutral schemas, IDs, operation envelopes, authorization/sync/migration specs, golden vectors, replay fixtures, security negatives, parity scenarios, and compatibility matrix.</p></article>
+          <article class="layer"><b>B · vida-core</b><p>Headless Rust product kernel: domain types, invariants, deterministic transitions/conflicts, capabilities, signed operations, causal/snapshot semantics, crypto envelopes, serialization, projections, test clock, replay, and CLI.</p></article>
+          <article class="layer"><b>C · vida-runtime</b><p>Shared Rust infrastructure: Iroh Router/Endpoint/VIDA ALPNs, delivery, sync log, blob transfer, storage coordination, telemetry, failures, and platform-neutral background-job graph.</p></article>
+          <article class="layer"><b>D · Platform shells</b><p>SwiftUI, Compose, desktop, and browser UI; accessibility; OS lifecycle; background execution; notifications; deep links; permissions; secure-store handles; packaging; diagnostics; rollout.</p></article>
+        </div>
+        <h3>Controlled replacement seams</h3>
+        <table><thead><tr><th>Seam</th><th>Stable contract</th><th>Replaceable implementation</th></tr></thead><tbody>
+          <tr><td>Iroh</td><td>VIDA ALPNs, operation semantics, endpoint profiles</td><td>Pinned Iroh version and optional higher-level adapters</td></tr>
+          <tr><td>Storage</td><td>Transaction, migration, snapshot, encryption, recovery</td><td>SQLite, RocksDB, native DB, or service-side engine</td></tr>
+          <tr><td>Delivery</td><td>Envelope, ACK, deduplication, retry, privacy semantics</td><td>Managed, federated, or self-hosted topology</td></tr>
+          <tr><td>Discovery</td><td>Endpoint/address records and trust rules</td><td>Address Lookup provider order and caches</td></tr>
+          <tr><td>Platform</td><td>Headless commands/events and conformance fixtures</td><td>Swift, Kotlin, desktop, and browser shells</td></tr>
+        </tbody></table>
+      </section>
+
+      <section id="delivery">
+        <h2>Development and migration model</h2>
+        <p>Shopify supports the foundation: headless CLI access, small ordered checkpoints, behavior tests, visual review, adversarial review, human approval, and parity review.<a class="cite" href="#src-1">[1]</a><a class="cite" href="#src-2">[2]</a> VIDA adds protocol, determinism, accessibility, and rollback controls:</p>
+        <ol class="steps"><li>Approve one behavior/specification slice.</li><li>Record approval against an immutable specification revision.</li><li>Implement the headless command/state path first.</li><li>Run deterministic core and golden-vector tests.</li><li>Implement every shell against the same slice.</li><li>Run behavior, analytics, accessibility, and visual checkpoints.</li><li>Run independent adversarial review and human acceptance.</li><li>Release behind flags with staged cohorts and rollback evidence.</li></ol>
+        <p>Spotify provides precedent for side-by-side paths, phased cohorts, and crash/performance monitoring.<a class="cite" href="#src-4">[4]</a><a class="cite" href="#src-12">[12]</a> VIDA should add artifact and behavior-differential checks.</p>
+      </section>
+
+      <section id="risks">
+        <h2>Risks and unresolved decisions</h2>
+        <ul><li>Shopify’s result is contextual; it does not prove React Native is generally inferior.</li><li>A shared native core adds boundary, packaging, debugging, threading, cancellation, and versioning costs.</li><li>UI, permissions, lifecycle, and OS integrations should stay native even when that duplicates orchestration.</li><li>Browser/WASM needs a separate conformance profile; full native-runtime reuse is not assumed.</li></ul>
+        <h3>Decisions still required</h3>
+        <ol><li>Canonical binding strategy: UniFFI, narrow C ABI with generated wrappers, or another IDL?</li><li>Does <code>vida-core</code> own storage semantics only, or a portable embedded implementation?</li><li>Which runtime capabilities compile to browser WASM, and which need a gateway?</li><li>Which desktop shell strategy applies per platform?</li><li>Which behavior belongs in executable shared code versus specification only?</li><li>What ABI/schema window permits independent client releases?</li></ol>
+      </section>
+
+      <section id="sources">
+        <details open><summary>Source appendix · 12 sources</summary>
+          <table class="sources"><thead><tr><th>Ref</th><th>Supported finding</th><th>Publisher</th><th>Published</th><th>Accessed</th><th>Confidence</th></tr></thead><tbody>
+            <tr id="src-1"><td>[1]</td><td>Native decision, rationale, headless logic/CLI, specs/tests/reviews</td><td><a href="https://shopify.engineering/back-to-native" target="_blank" rel="noopener">Shopify Engineering</a></td><td>2026-09-10</td><td>2026-09-19</td><td>high</td></tr>
+            <tr id="src-2"><td>[2]</td><td>Shop migration, native parity, checkpoint workflow</td><td><a href="https://shopify.engineering/shop-app-migration" target="_blank" rel="noopener">Shopify Engineering</a></td><td>2026-09-10</td><td>2026-09-19</td><td>high</td></tr>
+            <tr id="src-3"><td>[3]</td><td>Common libraries; independent Android/iOS/Desktop releases</td><td><a href="https://engineering.atspotify.com/2026/2/how-we-release-the-spotify-app-part-2" target="_blank" rel="noopener">Spotify Engineering</a></td><td>2026-02-09</td><td>2026-09-19</td><td>high</td></tr>
+            <tr id="src-4"><td>[4]</td><td>Liked Songs shared-client architecture and staged migration</td><td><a href="https://engineering.atspotify.com/2020/5/spotify-modernizes-client-side-architecture-to-accelerate-service-on-all-devices" target="_blank" rel="noopener">Spotify Engineering</a></td><td>2020-05-28</td><td>2026-09-19</td><td>high</td></tr>
+            <tr id="src-5"><td>[5]</td><td>Shared sequencing module and C++ property-based tests</td><td><a href="https://engineering.atspotify.com/2015/6/rapid-check" target="_blank" rel="noopener">Spotify Engineering</a></td><td>2015-06-25</td><td>2026-09-19</td><td>high · historical</td></tr>
+            <tr id="src-6"><td>[6]</td><td>Native Android/iOS animation for 2023 Wrapped</td><td><a href="https://engineering.atspotify.com/2024/1/exploring-the-animation-landscape-of-2023-wrapped" target="_blank" rel="noopener">Spotify Engineering</a></td><td>2024-01-24</td><td>2026-09-19</td><td>high · scoped</td></tr>
+            <tr id="src-7"><td>[7]</td><td>Native C++ core, Java layer, and JNI boundary</td><td><a href="https://liu.diva-portal.org/smash/get/diva2:910711/FULLTEXT01.pdf" target="_blank" rel="noopener">Linköping University / Spotify-supervised thesis</a></td><td>2016-03-08</td><td>2026-09-19</td><td>high · historical</td></tr>
+            <tr id="src-8"><td>[8]</td><td>Shared Rust Core stopping short of UI</td><td><a href="https://1password.com/blog/1password-8-the-story-so-far" target="_blank" rel="noopener">1Password</a></td><td>2021-08-12</td><td>2026-09-19</td><td>high · historical</td></tr>
+            <tr id="src-9"><td>[9]</td><td>Generated Rust/frontend types and WASM core use</td><td><a href="https://1password.com/blog/passkey-crates" target="_blank" rel="noopener">1Password</a></td><td>2023</td><td>2026-09-19</td><td>high</td></tr>
+            <tr id="src-10"><td>[10]</td><td>Proposed Rust components below platform orchestration</td><td><a href="https://mozilla.github.io/application-services/book/design/sync-manager.html" target="_blank" rel="noopener">Mozilla Application Services</a></td><td>n.d.</td><td>2026-09-19</td><td>medium-high</td></tr>
+            <tr id="src-11"><td>[11]</td><td>Rust XCFramework, Swift Package, generated bindings</td><td><a href="https://mozilla.github.io/application-services/book/design/swift-package-manager.html" target="_blank" rel="noopener">Mozilla Application Services</a></td><td>n.d.</td><td>2026-09-19</td><td>medium-high</td></tr>
+            <tr id="src-12"><td>[12]</td><td>Side-by-side builds, phased rollout, telemetry</td><td><a href="https://engineering.atspotify.com/2023/10/switching-build-systems-seamlessly" target="_blank" rel="noopener">Spotify Engineering</a></td><td>2023-10-17</td><td>2026-09-19</td><td>high · analogous</td></tr>
+          </tbody></table>
+        </details>
+      </section>
+
+      <section id="freshness">
+        <h2>Staleness map</h2>
+        <div class="stale"><div><strong>Shopify direction</strong><br>Re-check 2027-09-10</div><div><strong>Spotify release boundary</strong><br>Re-check 2028-02-09</div><div><strong>Spotify C++ scope</strong><br>Historical; current full scope unverified</div><div><strong>1Password / Mozilla tooling</strong><br>Re-check before binding-tool selection</div></div>
+      </section>
+    </main>
+  </div>
+  <p class="footer">VIDA technical research · offline self-contained briefing · generated 2026-09-19</p>
+</div>
+</body>
+</html>

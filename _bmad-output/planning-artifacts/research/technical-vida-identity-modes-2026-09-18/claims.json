@@ -1,0 +1,10 @@
+[
+  {"claim":"Identity, aliases, hosting and discoverability are independent records.","class":"architecture-pattern","pub_date":"2026-09-18"},
+  {"claim":"Anonymous mode needs pairwise or contextual identities.","class":"security-pattern","pub_date":"2026-09-18"},
+  {"claim":"Federated hosting is a replaceable service binding.","class":"architecture-pattern","pub_date":"2026-09-18"},
+  {"claim":"Public identity is an explicit discoverability projection.","class":"product-pattern","pub_date":"2026-09-18"},
+  {"claim":"Persona, device and transport identities must be separate.","class":"security-pattern","pub_date":"2026-09-18"},
+  {"claim":"Device enrollment needs a trusted device or recovery material.","class":"recovery-pattern","pub_date":"2026-09-18"},
+  {"claim":"Publishing or merging personas creates lasting correlation.","class":"privacy","pub_date":"2026-09-18"},
+  {"claim":"Relay and discovery infrastructure is connectivity, not application identity authority.","class":"integration-pattern","pub_date":"2026-09-18"}
+]

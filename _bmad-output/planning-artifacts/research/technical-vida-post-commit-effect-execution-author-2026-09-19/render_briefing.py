@@ -1,0 +1,62 @@
+"""Render the cited Markdown report as an offline HTML briefing."""
+
+from __future__ import annotations
+
+import html
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+import markdown
+
+
+ROOT = Path(__file__).resolve().parent
+REPORT = ROOT / "research.md"
+OUTPUT = ROOT / "research-briefing.html"
+RECON = Path("C:/Users/pomaz/.codex/plugins/cache/bmad/bmad-toolbox/6.13.0-next/skills/bmad-deep-recon/scripts/recon_kit.py")
+
+
+def main() -> None:
+    source = REPORT.read_text(encoding="utf-8")
+    body_md = source.split("---\n", 2)[2] if source.startswith("---\n") else source
+    first, rest = body_md.split("## Джерела\n", 1)
+    _, freshness = rest.split("## Мапа актуальності\n", 1)
+    body_md = first + "## Джерела\n\nSRC-TABLE-PLACEHOLDER\n\n## Мапа актуальності\n" + freshness
+    renderer = markdown.Markdown(extensions=["tables", "toc", "fenced_code"])
+    body = renderer.convert(body_md)
+    status = {2: "unverified", 3: "medium", 11: "medium"}
+    for number in range(11, 0, -1):
+        confidence = status.get(number, "verified")
+        marker = f"[{number}]"
+        body = body.replace(marker, f'<a class="cite {confidence}" href="#src-{number}" aria-label="Джерело {number}, {confidence}">{marker}</a>')
+    proc = subprocess.run(
+        [sys.executable, str(RECON), "escape-sources", str(REPORT)],
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+    )
+    sources = json.loads(proc.stdout)
+    if sources["invalid_urls"] or sources["rows"] != 11:
+        raise ValueError("Invalid or incomplete source appendix")
+    body = body.replace(
+        "<p>SRC-TABLE-PLACEHOLDER</p>",
+        "<details><summary>11 першоджерел · відкрити таблицю</summary>" + sources["html"] + "</details>",
+    )
+    headings = re.findall(r'<h2 id="([^"]+)">([^<]+)</h2>', body)
+    toc = "".join(f'<a href="#{html.escape(anchor)}">{html.escape(label)}</a>' for anchor, label in headings)
+    page = """<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>VIDA · Виконання реакцій</title><style>
+:root{color-scheme:light dark;--bg:#f5f7fb;--fg:#152033;--card:#fff;--muted:#586478;--line:#dce3ed;--accent:#2859bd;--warn:#913b0b;--ok:#1f6b49}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1725;--fg:#edf3fc;--card:#1b2838;--muted:#afbdd1;--line:#34465d;--accent:#9db9ff;--warn:#ffbe80;--ok:#83dbad}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}a{color:var(--accent)}header{padding:2rem max(1rem,calc((100vw - 1120px)/2));background:var(--card);border-bottom:1px solid var(--line)}header h1{margin:.2rem 0;font-size:clamp(1.8rem,3vw,2.7rem)}.meta{color:var(--muted)}.shell{max-width:1120px;margin:auto;padding:1rem;display:grid;grid-template-columns:220px minmax(0,1fr);gap:1.5rem}.toc{position:sticky;top:1rem;align-self:start;display:grid;gap:.35rem;padding:1rem;background:var(--card);border:1px solid var(--line);border-radius:12px;max-height:90vh;overflow:auto}.toc a{text-decoration:none;font-size:.9rem}main{min-width:0}section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.4rem;margin:0 0 1rem}h2{margin:1.5rem 0 .6rem;scroll-margin-top:1rem}table{border-collapse:collapse;width:100%;font-size:.88rem;display:block;overflow-x:auto}th,td{border:1px solid var(--line);padding:.55rem;text-align:left;vertical-align:top}th{background:var(--bg)}code{background:var(--bg);padding:.15rem .3rem;border-radius:4px}details{margin:.5rem 0}summary{cursor:pointer;color:var(--accent);font-weight:600}.cite{font-size:.82em;margin-left:.08em;padding:.08rem .25rem;border-radius:.35rem;text-decoration:none}.cite.verified{border:1px solid var(--ok)}.cite.medium{border:1px solid var(--line)}.cite.unverified{border:2px solid var(--warn);color:var(--warn);font-weight:700}.badge{display:inline-block;padding:.16rem .55rem;border:1px solid var(--line);border-radius:999px;font-size:.82rem}.badge.warn{border-color:var(--warn);color:var(--warn)}p,li{max-width:90ch}@media(max-width:760px){.shell{display:block}.toc{position:static;max-height:none;margin-bottom:1rem}.sources{font-size:.78rem}}
+</style></head><body><header><div class="meta">Технічне дослідження · 19 вересня 2026 · standard / normal verification</div><h1>VIDA: хто виконує реакцію після commit</h1><div class="meta">Автономний personal і приватний federated Space · рекомендація, не затверджена архітектура</div><p><span class="badge">5 перевірених ключових claims</span> <span class="badge warn">1 claim без незалежної перевірки</span></p></header><div class="shell"><nav class="toc" aria-label="Зміст"><strong>Зміст</strong>""" + toc + """</nav><main><section>""" + body + """</section></main></div></body></html>"""
+    OUTPUT.write_text(page, encoding="utf-8")
+    print(f"Rendered {OUTPUT} ({len(page)} chars, {sources['rows']} sources)")
+
+
+if __name__ == "__main__":
+    main()

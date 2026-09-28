@@ -1,0 +1,9 @@
+[
+  {"claim":"Shopify moved its mobile apps from React Native toward native Swift/Kotlin","class":"landscape","pub_date":"2026-09-10"},
+  {"claim":"Shopify uses shared specifications, tests and review checkpoints to maintain native parity","class":"architecture","pub_date":"2026-09-10"},
+  {"claim":"Shopify decouples business logic from UI and runs it headlessly through a CLI","class":"architecture","pub_date":"2026-09-10"},
+  {"claim":"Spotify clients share libraries but release independently","class":"architecture","pub_date":"2026-02-09"},
+  {"claim":"Spotify has long used selected shared C++ logic under native clients","class":"architecture","pub_date":"2015-06-25"},
+  {"claim":"1Password uses a shared Rust Core below platform frontends","class":"architecture","pub_date":"2021-08-12"},
+  {"claim":"Mozilla proposes separating shared Rust components from platform-specific orchestration and documents shipped Rust packaging","class":"architecture","pub_date":"2026-09-19"}
+]

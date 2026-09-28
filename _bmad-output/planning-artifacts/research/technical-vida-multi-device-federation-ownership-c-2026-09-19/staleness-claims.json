@@ -1,0 +1,10 @@
+[
+  {"claim":"AT Protocol PDS/Relay/AppView role descriptions", "class":"landscape", "pub_date":"2026-09-19"},
+  {"claim":"Matrix homeserver/application-service split", "class":"landscape", "pub_date":"2026-09-19"},
+  {"claim":"Iroh relay offline behavior", "class":"landscape", "pub_date":"2026-09-19"},
+  {"claim":"Stripe same-key retry/retention contract", "class":"live-api", "pub_date":"2026-09-19"},
+  {"claim":"Booking.com INQUIRY/RTB state contracts", "class":"live-api", "pub_date":"2026-09-19"},
+  {"claim":"Linear offline overwrite behavior", "class":"live-api", "pub_date":"2026-09-19"},
+  {"claim":"CloudKit change-tag conflict handling", "class":"pattern", "pub_date":"2026-09-19"},
+  {"claim":"CouchDB retained conflict revisions", "class":"pattern", "pub_date":"2026-09-19"}
+]

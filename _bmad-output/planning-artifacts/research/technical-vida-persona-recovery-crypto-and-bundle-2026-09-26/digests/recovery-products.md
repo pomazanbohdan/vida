@@ -1,0 +1,12 @@
+# Recovery product references — checked 2026-09-26
+
+| Source | Primary observation | VIDA implication | Limit |
+|---|---|---|---|
+| [Signal Secure Backups](https://support.signal.org/hc/en-us/articles/9708267671322-Signal-Secure-Backups) | Optional encrypted archive uses a user-held 64-character recovery key; Signal cannot recover a lost key. | Explain key custody and require an actual encrypted archive for message-history recovery. | Signal operates a hosted backup service; VIDA cannot assume one. |
+| [Signal backup troubleshooting](https://support.signal.org/hc/en-us/articles/10075139325850-Troubleshooting-Signal-Secure-Backups) | If no backup was enabled, history cannot be restored from one. | Never treat secret possession as proof of data availability. | Support article can change; recheck before implementation. |
+| [Matrix secret storage](https://spec.matrix.org/latest/client-server-api/#secret-storage) and [server-side key backups](https://spec.matrix.org/latest/client-server-api/#server-side-key-backups) | Secret-storage metadata and encrypted backup versions are explicit, and recovery depends on the stored ciphertext. | Version key envelopes and independently track ciphertext replicas. | Matrix's precise legacy crypto choices are not prescribed for VIDA. |
+| [Element recovery-key guide](https://docs.element.io/latest/element-support/device-verification/how-to-ensure-you-have-a-recovery-key/) | User can verify a recovery key by signing into another client and verifying the device. | Make an isolated fresh-profile restore test, not a checkbox, the proof gate. | Element assumes its homeserver ecosystem. |
+| [SimpleX data management](https://simplex.chat/docs/guide/managing-data.html) and [security](https://simplex.chat/docs/guide/privacy-security.html) | Local encrypted database, platform-held passphrase and explicit export/import are separate mechanisms. | Device-local protection is not portable recovery. | No direct interoperability claim. |
+| [Delta Chat FAQ](https://delta.chat/en/help) | Additional device setup uses QR; local chat export is a separate later action. | Trusted-device transfer and lost-all-devices recovery are different flows. | Chatmail transport is outside VIDA's Iroh-only design. |
+
+Confidence: high for each source's stated behavior; medium for applying its pattern to VIDA. No product reference establishes an offline, serverless recovery guarantee for lost ciphertext.
