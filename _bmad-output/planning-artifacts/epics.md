@@ -73,7 +73,7 @@ This document decomposes Release-1 requirements into user-valued epics and, afte
 - **FR-37** Personal/Shared Calendar Events with time zones, one-off and simple recurrence, reminders and creation from Contact Card in current Space.
 - **FR-38** Invite existing VIDA Personas to a specific Event without Space membership; scoped preview, RSVP, time proposal and renewed consent after time change.
 - **FR-39** Full static Flutter Web/Rust-Wasm client in public Release 1: local browser storage, authorized equal-Device direct-first peer sync with VIDA-operated encrypted Iroh relay fallback, all applicable Core-App/call flows and separate browser security/recovery conformance without paid Hosted Space. Stock Iroh/Wasm does not itself prove browser direct P2P; browser-compatible direct transport is a prototype gate. Static origin/code delivery is a trust boundary; offline cold reopen requires cached shell/JS/Wasm; a closed/suspended tab has no guaranteed call, reminder or sync.
-- **FR-40** Any Persona may explicitly toggle Tor routing on installed Android, iOS and Flutter Windows. When enabled, discovery, authorized E2EE communication, Resource sync and receipts use verified Tor-compatible paths or remain pending; ordinary direct/relay fallback is forbidden until the owner explicitly turns Tor off. Separately, a communication may require both peers to use Tor, without silent downgrade. Static Chromium Web remains a full ordinary client but does not perform Tor-required network actions in Release 1.
+- **FR-40** Any Persona may explicitly toggle Tor routing on installed Android, iOS and Flutter Windows; the preference synchronizes across its authorized Devices. When enabled, discovery, authorized E2EE communication, Resource sync and receipts use verified Tor-compatible paths or remain pending; ordinary direct/relay fallback is forbidden until the owner explicitly turns Tor off. Separately, an individual chat may require both peers to use Tor, and a Space may require Tor for all its network actions; neither policy silently downgrades. Static Chromium Web remains a full ordinary client but does not perform Tor-required network actions in Release 1.
 
 ### NonFunctional Requirements
 
@@ -127,7 +127,7 @@ This document decomposes Release-1 requirements into user-valued epics and, afte
 - **UX-DR-9 Sharing:** preview precise Note/Section, attachment and recipient scope before grant; link/navigation does not confer access and inaccessible backlinks/titles remain hidden.
 - **UX-DR-10 Per-surface failure:** save, sync, denied access, search, package activation, contact import, calendar invitation and call failure each show the affected item and a recoverable next action without misleading success.
 - **UX-DR-11 Prototype gate:** validate concept on small/large phone, landscape/tablet, resizable Windows window and supported Web breakpoints for safe areas, active destination, focus/scroll/back behavior, enlarged text, reduced motion and screen-reader order. UJ-2W records first-slice Web behavior; exact layout and conformance proof remain pending.
-- **UX-DR-12 Tor state:** Any Persona with Tor enabled distinctly shows local save, pending Tor, syncing, application receipt and route failure without implying absolute anonymity; the off switch warns about possible linkability. Static Chromium Web explains that Tor-required network actions are unavailable there and never presents an ordinary-route fallback as Tor-protected.
+- **UX-DR-12 Tor state:** Any Persona with Tor enabled distinctly shows local save, pending Tor, syncing, application receipt and route failure without implying absolute anonymity; the off switch warns about possible linkability. A Device never presents its synced Tor preference as active on other offline Devices without their receipts. Static Chromium Web explains that Tor-required network actions are unavailable there and never presents an ordinary-route fallback as Tor-protected.
 
 ### FR Coverage Map
 
@@ -172,7 +172,7 @@ This document decomposes Release-1 requirements into user-valued epics and, afte
 | FR-37 | 7 | Personal/Shared Calendar Events |
 | FR-38 | 7 | Scoped Event invitations and RSVP |
 | FR-39 | 2 primary, 1 and 3–10 cross-cutting | Android↔Web equal-Device sync foundation in Epic 2; full static-Web Persona/Space/App/call/security/recovery parity completed across all affected epics before Release 1 |
-| FR-40 | 2 primary, later Resource/App epics cross-cutting | Epic 2 proves optional Tor routing for any Persona and a generic installed-Device sync; later communication Apps prove strict mutual-Tor and no-leak actions on Android, iOS and Windows before Release 1 |
+| FR-40 | 2 foundation, 3 Space governance, 6 chat, later Resource/App epics cross-cutting | Epic 2 proves synchronized Tor preference for any Persona and generic installed-Device sync; Epic 3 owns strict Space policy, Epic 6 strict chat policy; affected Apps prove no-leak actions on Android, iOS and Windows before Release 1 |
 
 ### NFR Coverage and Evidence Plan
 
@@ -669,12 +669,17 @@ So that I can choose the network route while understanding its privacy limits.
 **Given** any Persona uses ordinary direct-first networking
 **When** I enable Tor for that Persona
 **Then** its pending and new network actions use only a verified Tor route or wait locally
-**And** no other Persona changes route, no ordinary retry escapes, and active sessions are re-evaluated before reuse.
+**And** a signed preference change is synchronized to the other authorized Devices of this Persona; no other Persona changes route, no ordinary retry escapes, and active sessions are re-evaluated before reuse.
+
+**Given** another authorized Device is offline when I enable Tor
+**When** I view the setting before that Device returns an application receipt
+**Then** VIDA shows that propagation is pending or unknown rather than claiming the other Device already uses Tor
+**And** when it reconnects, the Device applies the current signed preference before presenting its own Tor-protected state.
 
 **Given** Tor is enabled
 **When** I explicitly turn it off after a clear warning that earlier exposure cannot be undone and ordinary routing may link sessions
 **Then** ordinary networking may resume for that Persona under its normal policy
-**And** a separately configured mutual-Tor conversation remains pending rather than silently downgrading.
+**And** a separately configured strict chat or strict Space operation remains pending rather than silently downgrading.
 
 **Given** Tor is unavailable or Android restarts during a route change
 **When** I save an operation or reopen VIDA
@@ -736,7 +741,7 @@ The user can create a Shared Space, invite people under explicit rights and revo
 
 **FRs covered:** FR-5, FR-6, FR-7.
 
-**Implementation considerations:** Full layered ACL, role presets, control-before-data sync, key epochs and seven-day recheck are Core governance APIs. Minimal owner checks exist from Epic 1; Shared-Space grants/revocations require the signed durable operation path from Epic 2. Include a revocation-race acceptance case: an offline candidate authored under an apparently valid grant but presented after revocation is revalidated at its actual authority-acceptance point; an invalid candidate remains recoverable locally but is not projected as an accepted shared change. Delivery order alone neither grants nor revokes earlier valid acceptance. Epic 5 applies the same grants to Note/Section sharing.
+**Implementation considerations:** Full layered ACL, role presets, control-before-data sync, key epochs and seven-day recheck are Core governance APIs. Minimal owner checks exist from Epic 1; Shared-Space grants/revocations require the signed durable operation path from Epic 2. A Space may require Tor for all network actions; this policy overrides a Persona's ordinary-route preference and cannot be weakened by a chat. Whether an existing ordinary Space may be upgraded while Devices are offline remains an open security decision; do not claim immediate protection for stale Devices. Include a revocation-race acceptance case: an offline candidate authored under an apparently valid grant but presented after revocation is revalidated at its actual authority-acceptance point; an invalid candidate remains recoverable locally but is not projected as an accepted shared change. Delivery order alone neither grants nor revokes earlier valid acceptance. Epic 5 applies the same grants to Note/Section sharing.
 
 ### Epic 4: Add and update Space applications safely
 
