@@ -1,1 +1,6 @@
 /target/
+# Temporary presentation and publishing artifacts
+/.chart-data-*/
+/presentation-build/*
+!/presentation-build/*.mjs
+/website/.sites-runtime/
