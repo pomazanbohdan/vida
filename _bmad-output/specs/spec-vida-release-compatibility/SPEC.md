@@ -56,6 +56,8 @@ One public fixture set covers the approved Android/iOS/Windows host × package �
 
 ## Open Questions
 
+- **Product behavior approved 2026-09-29:** [D7–D8](../../planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md): own/previous major envelope reading when mandatory capabilities match; new mandatory semantics wait for required Devices; signed active policy cannot be downgraded by peer advertisement. Exact version tuples, duration and conformance remain open.
+
 - Which exact host/API/FFI/schema/protocol versions coexist, for how long, and when does an affected old AppInstance become read-only/update-required?
 - Who accepts schema/package activation in a shared Space, and what signed proof makes the transition current for equal Devices?
 - Which old offline writes are losslessly convertible, and which must remain pending until the client is updated?

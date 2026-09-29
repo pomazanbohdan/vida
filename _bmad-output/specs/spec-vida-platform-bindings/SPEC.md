@@ -66,6 +66,8 @@ One fixture set runs through the headless reference and Android, iOS, Windows an
 
 ## Open Questions
 
+- **Product behavior approved 2026-09-29:** [D5–D6, D9](../../planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md): browser tabs do not become extra Devices or receipts, restart resolves an unknown commit by OperationId, and direct Android↔Web means non-relay application payload in release-build evidence. Bridge and transport implementations remain unselected.
+
 - Which tested bridge and generated-code/native packaging tuple pass the three-platform release-build fixtures?
 - Which tested Rust/Wasm bridge and atomic Flutter/JS/Wasm asset tuple pass Web offline-reopen, storage and compatibility fixtures?
 - What exact versioned command/event DTOs, handle/cancellation operations and bulk-data path implement this behavior without leaking secrets or duplicating domain logic?

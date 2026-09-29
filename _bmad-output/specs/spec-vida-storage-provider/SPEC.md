@@ -5,6 +5,8 @@ companions:
   - storage-behavior.md
   - fault-injection-cases.md
   - provider-evidence.md
+  - provider-contract-v1.md
+  - prototype-dispatch.md
   - ../../planning-artifacts/architecture/architecture-vida-2026-09-19/ARCHITECTURE-SPINE.md
   - ../../../docs/02-requirements/native-client-requirements.md
   - ../../../docs/02-requirements/platform-nfr.md
@@ -52,6 +54,7 @@ Messenger, Notes, Projects and Files must continue offline, survive process deat
 - Sensitive local data and keys need a platform-aware protection boundary. Encryption, key custody, recovery material and secure deletion claims require a separate threat-model/OWASP verification.
 - SQLite/FTS is the **first provider prototype candidate**, as proposed in the storage research and stack brief; it is not the adopted logical model or an approved provider lock.
 - The provider comparison is evidence for prototyping, not a choice: SQLite/SQLCipher, redb and Fjall have different durability, query and protection surfaces. `provider-evidence.md` records the dated source check and common gate.
+- The candidate port and Android/Web prototype sequence are in `provider-contract-v1.md` and `prototype-dispatch.md`. They refine inherited behavior without adopting a production provider, crypto profile or public wire ABI; all new fixtures remain unexecuted.
 
 ## Non-goals
 
@@ -64,6 +67,8 @@ Messenger, Notes, Projects and Files must continue offline, survive process deat
 The Android, iOS, Windows and Web vertical slices and a headless harness pass applicable provider fault matrices: crash/restart, disk-full/quota, Persona bootstrap, interrupted blob staging, migration/restore and projection rebuild produce no false “saved” claim, lost pending operation, dangling published reference or duplicate domain effect. Web has a distinct browser provider and loss/eviction limits under ADR-0021. Until the provider tuples and fixtures pass, OQ-0036 remains open.
 
 ## Open Questions
+
+- **Product behavior approved 2026-09-29:** [D4–D6](../../planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md): Web remains usable if persistent storage is denied, but its recovery risk is visible in setup/settings; same-origin browser tabs share one logical Device and coordinated journal/writer; unknown UI commit outcome is recovered by the original OperationId. Provider durability and multi-tab fixtures remain open.
 
 - Which power-loss durability tier, filesystem assumptions and SQLite configuration pass the physical-device crash/power-cut gate?
 - Which encryption/key/backup design protects each Persona vault and restores it after device loss without weakening revocation?

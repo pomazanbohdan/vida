@@ -1,10 +1,12 @@
 ---
 id: GOV-OPEN-QUESTIONS
 status: review
-last_updated: 2026-09-25
+last_updated: 2026-09-29
 ---
 
 # Відкриті питання
+
+**Epic 1–2, 2026-09-29:** Власник продукту затвердив D1–D15 з [повного readiness-аудиту](../../_bmad-output/planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md). Це закриває відповідні продуктові вибори, але не байтові профілі, вибір provider/bridge/transport, conformance fixtures або story-level review 2.13–2.15. Наведені нижче `OQ` лишаються відкритими **лише у своїй невирішеній технічній частині**; затверджені рішення не питати повторно.
 
 | ID | Контур | Питання | Статус |
 |---|---|---|---|

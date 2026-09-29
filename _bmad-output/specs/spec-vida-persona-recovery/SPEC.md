@@ -69,5 +69,7 @@ sources:
 
 ## Open Questions
 
+- **Product behavior approved 2026-09-29:** [D1–D3, D15](../../planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md): backup frontier alone is not latest-rights proof; duplicated same-key invitation is one logical scoped grant, another key is rejected/conflicted; grants derived from no-witness recovery stay provisional; copied invite cannot silently substitute target key. The following questions are implementation/proof gates, not renewed product votes.
+
 - `OQ-0022/0024`: сумісні signed grants різних Space scopes для того самого логічного Device/key однієї Persona складаються лише у своїх дозволених межах; відкриті їх wire representation та merge proof. Також відкриті: proof чинності підписувача reconciliation і frontier без привілейованого Device/сервера; одноразовість запрошення при partition; proof відкликання старого комплекту; byte format, KDF/AEAD/nonce, causal-cut/closure backup, bundle-to-controller/key-epoch binding, commit-time guard і crash-safe repair/rotation, integrity/version/ownership validation, manifest visibility та cross-platform restore fixtures.
 - `OQ-0049`: хто контролює окрему корпоративну Persona і які саме grants може відновити або припинити компанія?

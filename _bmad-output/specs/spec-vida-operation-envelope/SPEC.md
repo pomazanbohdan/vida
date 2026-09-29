@@ -64,6 +64,8 @@ An independent implementation reads a public fixture bundle and returns the same
 
 ## Open Questions
 
+- **Product behavior approved 2026-09-29:** [D7–D9](../../planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md): minimum own/previous major envelope read compatibility when mandatory capabilities match; signed active policy forbids security downgrade; Story 2.2 requires a measured non-relay Android↔Web application-payload path. Exact wire bytes and release-build proof remain open.
+
 - Which typed PDM subset and exact canonical serialization profile represent the signed operation, including field IDs, map order, numeric/tag/Unicode rules, duplicate keys and size limits?
 - Which operation-ID, digest, signature, domain-separation and encryption-layer rules bind clear routing fields to protected payload and immutable Space/AppInstance/Resource/control context?
 - How do ALPN major, mandatory/optional features, unknown-field preservation and the OQ-0037 compatibility manifest negotiate a mixed-version session?

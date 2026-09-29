@@ -56,6 +56,8 @@ status: product-scope-approved-implementation-open
 
 ## Open Questions
 
+- **Product behavior approved 2026-09-29:** [D13–D14](../../planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md): queued unsent payload follows the newly committed Tor-required policy; ordinary egress does not finish that queue, and a stale Device receives only authenticated policy control before protected data. A blocked peer is shown as awaiting Tor, not synchronized. Runtime, ordering proof and leak fixtures remain open.
+
 - Який Rust Tor runtime та Iroh adapter проходять release-build security, onion, mobile-lifecycle і leak-proof tests?
 - Який перевірний clock/order protocol порівнює фактичний час двох офлайн-дій при розбіжності годинників і рівних timestamps? Це інженерний доказ погодженого правила «пізніша дія», а не повторне продуктове голосування чи дозвіл замінити його порядком доставки.
 - Який мінімальний автентифікований policy-only handshake та acknowledgment гарантує control-before-data при переході на Tor, включно із застарілими чергами й одночасним reconnect? Жоден протокол не може заднім числом змінити поведінку двох ізольованих Devices, що ще не отримали політику.

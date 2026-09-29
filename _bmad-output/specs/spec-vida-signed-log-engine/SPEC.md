@@ -62,6 +62,8 @@ The same recorded fixtures pass for a candidate implementation and a minimal ref
 
 ## Open Questions
 
+- **Product behavior approved 2026-09-29:** [D10–D12](../../planning-artifacts/implementation-readiness-epics-1-2-2026-09-29.md): stable Note blocks plus range-aware operations, explicit conflict only for truly overlapping intent; equivalent resolutions require equal canonical content and domain effects, unknown remains conflict; no age-only history deletion, with verified snapshot+tail repair. Exact predicates, frontiers and fixtures remain open.
+
 - Which candidate parts are reusable as libraries rather than architectural patterns after version-pinned builds and fixtures?
 - Which authority topology gives a comparable current frontier for serverless exclusive operations?
 - What equivalence predicate, snapshot proof and retention frontier permit safe compaction across offline peers?
