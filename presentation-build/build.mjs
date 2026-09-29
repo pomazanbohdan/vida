@@ -1,0 +1,63 @@
+import fs from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
+import {Presentation,PresentationFile} from '@oai/artifact-tool';
+import {research,projectStates,contributions} from '../website/src/presentation-data.js';
+const skill='C:/Users/pomaz/.codex/plugins/cache/openai-primary-runtime/presentations/26.921.10847/skills/presentations';
+const {finalizePresentation,applyPresentationChartFont}=await import(pathToFileURL(skill+'/container_tools/artifact_tool_utils.mjs'));
+const root='C:/project/vida',out=root+'/presentation-build';
+const p=Presentation.create({slideSize:{width:1280,height:720}});
+const font='Arial',ink='#19202E',accent='#A74E36',muted='#5E656E';
+function text(s,t,x,y,w,h,size=28,color=ink,bold=false){const o=s.shapes.add({geometry:'textbox',position:{left:x,top:y,width:w,height:h},fill:'none',line:{fill:'none',width:0}});o.text=t;o.text.style={typeface:font,fontSize:size,color,bold,autoFit:'none'};return o}
+function slide(title,n,dark=false){const s=p.slides.add();s.background.fill=dark?'#2D3234':'#FDFCFB';text(s,title,70,55,1120,122,48,dark?'#FFF7F1':ink,true);text(s,`VIDA   /   ${n} з 8`,70,660,1100,26,17,dark?'#DDD4CD':muted);return s}
+function notes(s,seconds,t,source=''){s.speakerNotes.textFrame.setText(`Тривалість: ${seconds} секунд.\n\n${t}\n\nДжерела: ${source||'Концепція VIDA та технічні матеріали сайту https://vida-project.pomazan-bogdan.chatgpt.site/#technical-details'}`)}
+let s=slide('Контекст губиться між інструментами',1);
+text(s,'Розмова залишається в чаті.\nРішення живе в окремій нотатці.\nЗадача втрачає пояснення.',70,230,680,235,37);
+text(s,'VIDA пов’язує ці кроки\nв одному просторі.',70,500,820,90,36,accent,true);
+notes(s,30,'Уявімо звичайну командну зустріч. Ми домовилися про рішення в чаті, описали його в документі, а задачу створили в іншому сервісі. Коли повертаємося до роботи, доводиться відновлювати причини та шукати посилання. VIDA задумана як простір, у якому цей контекст зберігається разом із дією. Сьогодні я запрошую розробників допомогти перевірити та реалізувати цю ідею.');
+s=slide('Особистий і спільний простір',2);
+s.images.add({blob:new Uint8Array(await fs.readFile(root+'/website/public/assets/shared-space.png')),contentType:'image/png',alt:'Ілюстрація спільного робочого простору',fit:'contain',position:{left:800,top:200,width:360,height:360}});
+text(s,'Локальні дані на пристрої',70,210,680,70,35,accent,true);
+text(s,'Personal Space для власних матеріалів.\nShared Space для спільної роботи.\nДоступ до ресурсів за явними правами.',70,305,650,200,30);
+text(s,'Заплановано. Публічний реліз ще попереду.',70,575,1050,40,23,muted);
+notes(s,35,'VIDA розділяє особистий і спільний простір. Людина обирає, що зберігає для себе, а що відкриває команді. Local-first означає, що доступні дані та локальна робота не залежать від постійного з’єднання. Подальший обмін потребує доступного авторизованого вузла. Ми не обіцяємо, що будь-яка серверна дія доступна офлайн. Ця модель є цільовим дизайном продукту, а не заявою про готовий реліз.');
+s=slide('Розмова, нотатка, задача',3);
+text(s,'01  Розмова',70,210,360,60,33,accent,true);text(s,'Команда обговорює\nнаступну зустріч.',70,295,330,110,28);
+text(s,'02  Нотатка',465,210,360,60,33,accent,true);text(s,'Рішення зберігає\nзв’язок із джерелом.',465,295,330,110,28);
+text(s,'03  Задача',860,210,350,60,33,accent,true);text(s,'Виконавець бачить\nконтекст роботи.',860,295,330,110,28);
+text(s,'Прототип: інтерактивний концепт на сайті',70,490,1110,60,31,accent,true);
+text(s,'Три кроки з підказками та перезапуском. Дані існують лише на сторінці.',70,565,1120,64,23,muted);
+notes(s,40,'Покажу короткий сценарій. У чаті є повідомлення про підготовку зустрічі. Натискаємо збереження рішення й відкриваємо нотатку. З неї переходимо до задачі та позначаємо виконання. Посилання назад зберігає контекст. На сайті це три кроки з підказками й перезапуском. Це інтерфейсний концепт: він не надсилає повідомлень у мережу й не демонструє реалізовану синхронізацію VIDA. Він допомагає перевірити, чи зрозумілий людям сам сценарій.');
+s=slide('Спільне ядро та транспорт',4,true);
+text(s,'Flutter',70,215,290,60,40,'#DCA88F',true);text(s,'Інтерфейси\nта поведінка екранів',70,290,300,130,27,'#F5F1EE');
+text(s,'Rust core',475,215,350,60,40,'#DCA88F',true);text(s,'Ресурси, команди,\nправа та перевірки',475,290,320,130,27,'#F5F1EE');
+text(s,'Iroh',890,215,300,60,40,'#DCA88F',true);text(s,'Захищений канал\nміж пристроями',890,290,310,130,27,'#F5F1EE');
+text(s,'Заплановано: локальна операція, перевірка, обмін, підтвердження',70,490,1110,90,29,'#FFF7F1');
+text(s,'Доставка та доменне прийняття мають окремі докази.',70,590,1110,35,23,'#D4CFCA');
+notes(s,45,'Архітектура відокремлює інтерфейс від правил. Flutter показує екрани, Rust core визначає ресурси, команди та права, runtime керує інфраструктурою. Iroh створює захищений транспортний канал. Він не вирішує, хто може редагувати документ чи підтверджувати запис до бізнесу. У цільовій native-політиці VIDA прямий шлях пріоритетний, relay допомагає зі зв’язком. Relay не зберігає повідомлення для офлайн-адресата. Локальне збереження, доставка та доменне прийняття мають окремі підтвердження. Реалізаційні деталі перевіряємо прототипами.');
+s=slide('Застосунки на спільній основі',5);
+text(s,'Стандартний набір',70,205,510,50,34,accent,true);
+text(s,'Messenger, Notes, Projects\nКалендар, контакти та файли Core',70,290,560,155,29);
+text(s,'Власні домени',710,205,480,50,34,accent,true);
+text(s,'CRM, ОСББ, запис до бізнесу\nCity Portal зі своїм App у VIDA',710,290,485,155,29);
+text(s,'Заплановано: пакети через маркетплейс і зовнішні джерела',70,505,1120,90,31);
+notes(s,35,'Застосунки поєднують стандартні можливості з власними ресурсами та процесами. CRM використовує контакт і розмову, але додає бізнесові поля. ОСББ додає заявки й погодження. Сервіс запису потребує власної логіки доступності. Окрема міська платформа може мати новинний сайт, backend і свій App у VIDA. Маркетплейс та зовнішні джерела поширюють пакети. Підключення пакета саме по собі не надає доступу до приватних даних. Бізнесові сценарії заплановані та потребують окремих специфікацій.');
+s=slide('Iroh: розширення дослідницького каталогу',6);
+text(s,'54 → ≈102',70,192,535,105,69,accent,true);
+text(s,'≈48 доданих URL за 18–29 вересня 2026',70,302,1090,48,29);
+const chart=s.charts.add('bar',{position:{left:60,top:368,width:650,height:222},categories:research.timeline.map(x=>x[0]),series:[{name:'URL у каталозі',values:research.timeline.map(x=>x[1]),fill:accent}],barOptions:{direction:'column',grouping:'clustered'},hasLegend:false,dataLabels:{showValue:true,position:'outEnd'}});applyPresentationChartFont(chart,{fontFamily:font});
+text(s,'29.09: +5 URL\nWalkie, FarSail, Portal,\nahole, ErisAuth',765,387,440,150,26);
+text(s,'Каталог включає суміжні референси. Новостворені проєкти за останні 30 днів не підраховано.',70,604,1110,48,19,muted);
+notes(s,45,'Ресерч за вересень показує збільшення нашого каталогу від 54 до приблизно 102 окремих URL репозиторіїв. Це приблизно 48 нових записів за доступне вікно від 18 до 29 вересня. У найновішому доповненні п’ять URL: Walkie, FarSail, Portal, ahole та ErisAuth. Теми охоплюють агентні середовища, віддалений доступ, файли й авторизацію. Це показує широту знайдених застосувань. Ми не називаємо всі ці проєкти створеними за місяць: частина має давнішу історію, а повної бази за останні 30 днів немає. Розширення нашого огляду не є виміром зростання всієї екосистеми.', 'research/iroh-local-first-research-index-2026-09-18.md, вступ, актуалізація 29.09.2026; research/iroh-reference-projects-update-2026-09-29.md. Опублікована методика: https://vida-project.pomazan-bogdan.chatgpt.site/reference/iroh-research-september.md');
+s=slide('Стан проєкту',7);
+for(let i=0;i<4;i++){const st=projectStates[i];text(s,st.status,70,205+i*99,340,44,29,accent,true);text(s,st.title,440,205+i*99,745,42,29);}
+text(s,'Статуси описують конкретні результати. Дату релізу не оголошено.',70,607,1120,40,22,muted);
+notes(s,35,projectStates.map(x=>`${x.status}. ${x.title}. ${x.text}`).join(' ')+' Архітектурні межі описані в документації. Наявність такого опису не означає, що всі компоненти вже працюють у продукті. Ця межа важлива для чесного запрошення до розробки.');
+s=slide('Перший внесок у VIDA',8,true);
+text(s,contributions.map(x=>x.title).join('   /   '),70,210,1120,80,32,'#DCA88F',true);
+text(s,'Оберіть невелику ділянку.\nУзгодьте зміну через репозиторій.\nДодайте результат і спосіб перевірки.',70,320,1100,190,34,'#FFF7F1');
+text(s,'github.com/pomazanbohdan/vida',70,555,1100,55,31,'#DCA88F',true);
+notes(s,35,'Запрошуємо людей із Rust, Flutter, тестування, UX і документації. Найкращий початок — невелика зрозуміла ділянка, погоджена з супроводжувачем. Наприклад, сценарій конфлікту, пояснення SDK або перевірка зрозумілості статусів. Це запропоновані напрями, а не готові призначення. На 29 вересня відкритих issues із міткою good first issue не знайдено. Тому сайт веде до актуального репозиторію. Приєднуйтеся, щоб перетворити описані контракти на перевірену реалізацію.', 'https://github.com/pomazanbohdan/vida; GitHub issue search repo:pomazanbohdan/vida is:issue is:open label:"good first issue", 29.09.2026');
+await (await PresentationFile.exportPptx(p)).save(out+'/candidate.pptx');
+for(let i=0;i<8;i++){const b=await p.export({slide:p.slides.items[i],format:'png',scale:1});await fs.writeFile(out+`/slide-${i+1}.png`,new Uint8Array(await b.arrayBuffer()))}
+const result=await finalizePresentation({workspaceDir:root,candidatePath:out+'/candidate.pptx',finalPath:root+'/presentation-output/VIDA-developers-5min.pptx',pythonExecutable:'C:/Users/pomaz/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe',integrityValidatorPath:skill+'/container_tools/inspect_presentation_package_integrity.py',layoutValidatorPath:skill+'/container_tools/inspect_presentation_layout_geometry.py',layoutArgs:['--expected-slide-size-emu','12192000,6858000','--validate-heading-fit'],explicitTotalSlideCount:8,requiredNativeChartOwnerSlides:[6],materializeLiteralChartWorkbooks:true,fontPolicy:{basis:'design',families:[font]},verifyArtifactToolImport:true,receiptPath:out+'/validation.json'});
+console.log(JSON.stringify(result));

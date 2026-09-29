@@ -55,6 +55,8 @@ Federated service contract `MUST` дозволяти export/migration identity s
 
 `PersonaId`, `DeviceId`, `EndpointId` та `ServiceAccountId` `MUST` бути різними. Кожний device `MUST` мати окремі keys і revocable `DeviceGrant`.
 
+Підписані controller-події кожного Device `MUST` зберігати причинні посилання й обидві гілки одночасного конфлікту. Два сумісні grants різних Devices `MUST` сходитися автоматично. Peer, який виявив несумісні renewal/revoke чинного Device, `MUST` призупинити для нього нові захищені читання/записи, key envelopes і прийняття операцій до явного підписаного рішення власника на неспірному чинному Device; попередній plaintext не обіцяється стерти. Device-enrollment QR, файл і текст `MUST` бути представленнями короткоживучого одноразового наміру, прив'язаного до ключа нового Device, який не надає доступу без явного підтвердження trusted Device. Відновлення після втрати всіх Devices — окремий provisional flow; proof для partition лишається `OQ-0022/0024`.
+
 ### REQ-ID-011 — Recovery boundary
 
 Recovery через trusted device або recovery package `MUST` відновлювати controller authority без непомітної заміни Persona node operator-ом. До затвердження recovery contract Vida `MUST` чесно попереджати про незворотну втрату після втрати всіх trusted devices і recovery material.
@@ -105,4 +107,4 @@ Clients `MAY` пропонувати presets `Autonomous anonymous`, `Federated 
 
 ## Deferred requirements
 
-До окремих ADR/prototypes відкладено: DID method, controller history format, contextual Persona granularity, recovery cryptosystem, alias registry governance та node metadata visibility.
+До окремих ADR/prototypes відкладено: DID method, byte/crypto format погодженої causal controller history та proof reconciliation/freshness, contextual Persona granularity, recovery cryptosystem, alias registry governance та node metadata visibility.

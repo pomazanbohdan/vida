@@ -1,0 +1,9 @@
+# Grant scope on one physical device — source digest
+
+Accessed: 2026-09-29. Publication dates: not stated unless noted. Scope: official product/specification sources only.
+
+- **1Password:** One app may contain work and personal accounts and show their vaults together; the user selects the account/vault when saving. This demonstrates combined UI, not merged authority. Source: [1Password multiple accounts](https://support.1password.com/multiple-accounts/). Confidence: high for observed product policy.
+- **Slack:** A client can sign into several workspaces; an account is workspace-specific even with the same email. Source: [sign in](https://slack.com/help/articles/212681477-Sign-in-to-Slack), [change email](https://slack.com/help/articles/207262907-Change-your-email-address). Confidence: high for product policy.
+- **Tailscale:** A physical device registered in multiple tailnets has separate logical nodes/keys/approvals. Its ordinary client is active in one tailnet at a time; it does not prove VIDA's simultaneous sync behavior. Source: [identity](https://tailscale.com/docs/concepts/tailscale-identity), [fast switching](https://tailscale.com/docs/features/client/fast-user-switching). Confidence: high for stated model.
+- **Matrix:** Device identity, tokens and cross-signing are user/account-scoped; this does not itself demonstrate multiple Personas on one device. Source: [Matrix Client-Server API v1.18](https://spec.matrix.org/v1.18/client-server-api/). Confidence: high for specification, medium as analogy.
+- **Inference for VIDA, not a reference requirement:** One physical installation can display a union of separately authorized Space access. Each Persona/logical Device and Space grant must remain independently identified, validated and revocable; disjoint valid grants are not a contradictory controller event merely because the same hardware receives both. Cross-Persona key reuse remains an architectural/privacy question.

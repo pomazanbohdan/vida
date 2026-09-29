@@ -261,3 +261,19 @@ vectors:
     expect:
       evidence_axis_advanced: false
       error: invalid_receipt
+
+  - id: same-host-browser-profiles-are-not-independent-replicas
+    given:
+      origin_committed: true
+      receipts:
+        - kind: replication
+          authorized: true
+          independent: false
+          same_physical_host_as_origin: true
+          durable: true
+          applied_at_frontier: true
+    expect:
+      second_copy_visible_in_details: true
+      default_independent_replica_count: 0
+      synchronized: false
+      off_device_recoverable: false

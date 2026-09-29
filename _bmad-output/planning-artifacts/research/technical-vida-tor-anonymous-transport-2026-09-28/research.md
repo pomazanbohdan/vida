@@ -36,3 +36,41 @@ status: researched-not-library-selected
 ## Release-1 proof gate, не виконаний дослідженням
 
 Threat model визначає, від кого приховуємо IP та metadata. Integration prototype має довести Tor-only transport на кожній заявленій платформі, onion discovery/connection, E2EE Iroh payload і receipt, network-capture tests без DNS/STUN/WebRTC/direct/relay витоків, fail-closed після втрати Tor, cross-Persona isolation, recovery та revoked-device поведінку, медіа/вкладення, зовнішні URL/preview, push і diagnostics. Окремо перевіряються battery/background policy і latency. Ні бібліотеку, ні Web анонімний режим цим документом не затверджено.
+
+## Доповнення 2026-09-28: перехід на Tor у вже наявному Space
+
+Це **архітектурна пропозиція для перевірки**, а не доказ реалізації. Погоджене продуктове правило: суворий Tor можна ввімкнути в тому самому Space; інший Device після отримання налаштування прозоро застосовує його і без Tor не продовжує синхронізацію даних. Перемикач Persona можна вмикати й вимикати, але він не послаблює суворішу політику Space/чату. Для двох офлайн-перемикань Persona задуманий пріоритет **фактичного часу дії**, не часу sync.
+
+### Поведінка референсів і переносимість
+
+| Референс | Перевірена поведінка | Межа для VIDA |
+|---|---|---|
+| [Briar](https://briarproject.org/how-it-works/) | Через інтернет синхронізує пристрої через Tor; без інтернету використовує Bluetooth/Wi-Fi/носії. | Доводить, що транспорт можна відділити від моделі даних; **не** доводить безпечний атомарний перехід існуючого VIDA Space. |
+| [SimpleX settings](https://simplex.chat/docs/guide/app-settings.html) | Має `when available` та `required` для onion-адрес. У `required` за відсутності onion-шляху з'єднання завершується помилкою. | Для суворого Space потрібна семантика **required/fail-closed**, не «віддавати перевагу Tor». |
+| [Iroh Tor custom transport](https://www.iroh.computer/blog/tor-custom-transport) і [Iroh 1.2 Builder](https://docs.rs/iroh/latest/iroh/endpoint/struct.Builder.html) | Iroh показав Tor custom transport, але автор називає його експериментальним; Builder має `clear_ip_transports`, `clear_relay_transports`, `clear_address_lookup`, а custom transport/path selector позначені unstable. | Для Tor-контексту будувати **окремий Tor-only endpoint** без звичайних IP/relay/discovery, а не покладатися на пріоритет шляху в змішаному endpoint. Приклад із неавтентифікованим Tor control port не переносити в production. |
+| [Tor stream isolation](https://spec.torproject.org/path-spec/stream-isolation.html) і [Arti client](https://docs.rs/arti-client/latest/arti_client/struct.TorClient.html) | Різні акаунти/сесії не слід неявно вести одним circuit; Arti підтримує ізольовані клієнтські контексти. | Не змішувати мережеві контексти Personas; Rust runtime/мобільний lifecycle ще потребують proof. |
+| [Tor SOCKS specification](https://spec.torproject.org/socks-extensions) | SOCKS є TCP proxy; `UDP ASSOCIATE` не підтримується, локальний DNS може розкрити адресу. | Просто поставити SOCKS-проксі перед QUIC/WebRTC недостатньо; Tor-адаптер мусить мати окремий перевірений транспорт та leak tests. |
+| [OWASP MASVS-PRIVACY-1](https://mas.owasp.org/MASVS/controls/MASVS-PRIVACY-1/) | Принцип мінімізації доступу/передачі чутливих даних і контролю сторонніх компонентів. | Policy-only bootstrap перед Tor не повинен переносити payload, назви ресурсів, ключі або telemetry сторонніх SDK; сам факт контакту все одно може бути видимим. |
+
+### Оптимальний маршрут переходу (пропозиція)
+
+1. Уповноважена дія створює підписаний `RoutePolicyChange(space_id, previous_policy_hash, control_epoch, required=tor, operation_id)`. Після **атомарного локального commit** Core зупиняє outbox цього Space на звичайному маршруті, закриває його старі сесії та готує окремий Tor-only endpoint. Політика маршруту не є новою Space-копією й не змінює історію даних.
+2. Оновлений peer не приймає від застарілого Device жодної data-operation на старому шляху. Якщо той уже звернувся звичайним каналом, дозволений лише мінімальний автентифікований **policy-only** обмін: ідентифікатор/epoch, digest підписаної політики, потрібні для переходу Tor-координати та ack — без вмісту Space. Сам факт такого контакту може розкрити мережеві метадані; його не називати Tor-захищеним.
+3. Застарілий Device перевіряє підпис, повноваження, `previous_policy_hash` і monotonic `control_epoch`; надійно зберігає політику **до** будь-якого data apply/receipt. Він припиняє старий канал, перебудовує route context як Tor-only і лише потім запитує відсутні операції. Якщо Tor недоступний, лишає локальні зміни pending. Старі локальні наміри не губляться; їхню чинність перевіряють за ACL/causal rules після Tor-reconnect.
+4. Наявні peer-и ведуть application receipts окремо від policy ack. Ack, що Device прийняв policy, **не означає**, що нотатку синхронізовано. Під час повторів `operation_id`/epoch роблять перехід ідемпотентним. Вихід із Tor за налаштуванням Persona переоцінює черги та створює новий route context; якщо Space вимагає Tor, звичайний маршрут усе одно заборонений.
+5. Два старі ізольовані Devices можуть не знати про перехід і обмінятися між собою старим шляхом; мережевий протокол не може це заборонити заднім числом. Строгий доказ починається **для оновлених peer-ів з моменту local policy commit**. Якщо продукт вимагатиме блокувати також повністю ізольовані Devices, знадобиться змінити offline-модель (наприклад, короткі online leases); це не входить до вже погодженої поведінки.
+
+### Окремий невирішений доказ: «пізніша за фактичним часом дія»
+
+[Лампорт](https://lamport.azurewebsites.net/pubs/time-clocks.pdf) формалізує причинний **частковий** порядок; [Spanner TrueTime](https://docs.cloud.google.com/spanner/docs/true-time-external-consistency) отримує зовнішній порядок лише завдяки часовій невизначеності з відомою межею та додатковому протоколу. Це **висновок для VIDA**, а не готовий алгоритм з цих джерел: дві довго офлайн дії на незалежних годинниках можуть мати мілісекундні timestamps, які не доводять, котра реально сталася пізніше. Підпис захищає записане значення, але не правильність локального годинника.
+
+Пропозиція для proof: до дії зберігати підписаний wall-time, локальний monotonic sequence та оцінку похибки від останньої перевірки часу; при неперетинних інтервалах порівнювати фактичний час, при причинній залежності — причинний порядок. **Якщо інтервали перетинаються і причинного порядку немає, правильного автоматичного вибору довести неможливо:** показати конфлікт двох намірів і дати власнику створити нову дію. Це не підміняє продуктове правило `Tor-on wins` або `first sync wins`; питання автоматичного результату в такому невизначеному випадку потребує окремого рішення.
+
+### Мінімальні negative fixtures перед статусом Done
+
+- Перемкнути Space під час відкритої direct/relay сесії та при queued large file: після barrier — нуль data-пакетів старим маршрутом.
+- Старий Device запитує Space через звичайний канал: отримує тільки policy-only control, durable-commit policy перед Tor data; при Tor outage — pending без direct fallback.
+- Повторити policy update/ack і receipt після crash: один policy epoch, жодної подвійної data-operation, status sync тільки після application receipt.
+- Два старі Devices окремо офлайн: тест явно показує межу гарантії, а не зелений `all devices Tor protected`.
+- Вимкнути Tor у Persona при strict Space/chat: Space/chat лишаються Tor-only; capture включає DNS, STUN/WebRTC, push, preview, diagnostics та cross-Persona circuits.
+- Два офлайн toggle з переставленим/неточним годинником: не маскувати невизначений фактичний порядок сортуванням за мілісекундами.

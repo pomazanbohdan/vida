@@ -2,3 +2,4 @@ node_modules/
 dist/
 preview.log
 preview-error.log
+.sites-runtime/

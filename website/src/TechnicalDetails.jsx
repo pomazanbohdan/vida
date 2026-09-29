@@ -1,8 +1,19 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, ArrowUpRight, CaretDown, Code, Stack, Check, FileText } from '@phosphor-icons/react';
 import './technical.css';
 
 let mermaidReady;
+const diagramExplanations = {
+ 'Схема 1. Композиція бізнес-застосунку':'Бізнес-пакет поєднує стандартні Messenger, Notes і Projects із власними сутностями та процесами. Core надає спільні сервіси. Залежності відкривають лише дозволені операції та представлення даних.',
+ 'Схема 2. Межі спільного ядра та інфраструктури':'Flutter звертається до SDK і контрактів. vida-core перевіряє значення команд та права, vida-runtime підключає збереження й інфраструктуру. VidaNodeHost керує Iroh, а BlobStore передає великі файли окремо від журналу операцій.',
+ 'Схема 3. Як декларативний пакет стає працюючим AppInstance':'Версійний AppPackage містить схеми, команди, workflow, UI та декларації прав. Перевірка сумісності передує активації конкретного AppInstance у Space. UI використовує доступні primitives, а кожна зміна повторно проходить перевірку Core.',
+ 'Схема 4. Пряма сесія між двома авторизованими пристроями':'Послідовність читається зверху вниз: пристрій зберігає локальну операцію, встановлює канал, узгоджує відсутні зміни й передає їх. Отримувач перевіряє підпис, права, схему та причинні залежності. Підтвердження доставки й доменне прийняття мають різні значення.',
+ 'Схема 5. Версії схем і безпечна активація змін':'Кандидат нової версії проходить перевірки сумісності й міграції до активації. За відмови чинною лишається попередня версія. Історичні операції зберігають початкову schema/version; старі клієнти мають явний safe або read-only режим.',
+ 'Маркетплейси: від знайденого пакета до активації':'Користувач підключає джерело та знаходить реліз. Після отримання пакета система перевіряє походження, сумісність і дозволи. Лише потім створюється або оновлюється AppInstance у вибраному Space.',
+ 'Зовнішня платформа: City Portal, її сайт та App у VIDA':'City Portal має власний backend і публічний сайт. Його App у VIDA звертається до платформи через інтеграційний контракт. Зв’язки з календарем, нотатками й розмовами використовують явні права; платформа не отримує весь приватний Space.',
+ 'Інфраструктура: прямий шлях, relay та опційний hosted node':'Доступні пристрої обмінюються напряму або через зашифрований relay. Якщо з’єднання немає, зміни лишаються локально. Hosted Space може окремо надавати blobs, backup або дозволену replica; relay не зберігає повідомлень для офлайн-адресата.',
+ 'Як Iroh встановлює канал: цільова direct-first політика VIDA':'EndpointId задає транспортну ідентичність вузла. Відомі адреси або lookup допомагають знайти шлях, NAT traversal перевіряє пряме з’єднання, а relay підтримує доступність. QUIC/TLS захищають канал, ALPN обирає прикладний протокол. Права VIDA перевіряються окремо.'
+};
 function engine() {
   mermaidReady ??= import('mermaid').then(({ default: mermaid }) => {
     mermaid.initialize({ startOnLoad:false, securityLevel:'strict', theme:'base', fontFamily:'Manrope, Arial, sans-serif', themeVariables:{primaryColor:'#f3ebe5',primaryTextColor:'#19202e',primaryBorderColor:'#c0937c',lineColor:'#9b6850',secondaryColor:'#f6f4f1',tertiaryColor:'#fff',fontSize:'16px'}, flowchart:{htmlLabels:false,useMaxWidth:true,curve:'linear'}, sequence:{useMaxWidth:true,wrap:true,actorMargin:45,messageMargin:35} });
@@ -10,11 +21,18 @@ function engine() {
   });
   return mermaidReady;
 }
+function zoomCopy(svg, prefix) {
+  const ids=[...svg.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]).sort((a,b)=>b.length-a.length);
+  return ids.reduce((copy,id)=>copy.replaceAll(`id="${id}"`,`id="${prefix}${id}"`).replaceAll(`#${id}`,`#${prefix}${id}`).replaceAll(`aria-labelledby="${id}"`,`aria-labelledby="${prefix}${id}"`),svg);
+}
 export function Diagram({ source, label }) {
   const id=useId().replace(/[^a-zA-Z0-9]/g,'');
-  const [svg,setSvg]=useState(''),[error,setError]=useState(false);
-  useEffect(()=>{let active=true; setSvg('');setError(false); engine().then(m=>m.render(`vida${id}`,source)).then(r=>{if(active)setSvg(r.svg.replace(/max-width: ([\d.]+)px;/,'width: $1px;'))}).catch(()=>{if(active)setError(true)});return()=>{active=false}},[source,id]);
-  return <figure className="technical-diagram"><figcaption>{label}</figcaption>{error?<p role="alert">Не вдалося відобразити схему. Її текст доступний нижче.</p>:svg?<div className="diagram-scroll" role="img" aria-label={label} dangerouslySetInnerHTML={{__html:svg}}/>:<p className="diagram-loading" role="status">Готуємо схему…</p>}<details className="diagram-source"><summary>Текстова версія схеми</summary><pre>{source}</pre></details></figure>
+  const figure=useRef(null),dialog=useRef(null);
+  const [svg,setSvg]=useState(''),[error,setError]=useState(false),[visible,setVisible]=useState(false),[zoom,setZoom]=useState(1);
+  useEffect(()=>{if(!('IntersectionObserver' in window)){setVisible(true);return}const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){setVisible(true);observer.disconnect()}},{rootMargin:'250px'});observer.observe(figure.current);return()=>observer.disconnect()},[]);
+  useEffect(()=>{if(!visible)return;let active=true; setSvg('');setError(false); engine().then(m=>m.render(`vida${id}`,source)).then(r=>{if(active)setSvg(r.svg.replace(/max-width: ([\d.]+)px;/,'width: $1px;'))}).catch(()=>{if(active)setError(true)});return()=>{active=false}},[source,id,visible]);
+  const description=diagramExplanations[label] || label;
+  return <figure ref={figure} className="technical-diagram"><figcaption>{label}</figcaption><p className="diagram-description">{description}</p>{error?<p role="alert">Не вдалося відобразити схему. Її текст доступний нижче.</p>:svg?<><div className="diagram-scroll" tabIndex={0} role="img" aria-label={label} dangerouslySetInnerHTML={{__html:svg}}/><div className="diagram-controls"><button onClick={()=>{setZoom(1);dialog.current.showModal()}}>Збільшити схему</button></div></>:<p className="diagram-loading" role="status">Схема завантажиться під час перегляду розділу.</p>}<details className="diagram-source"><summary>Вихідний текст схеми (Mermaid)</summary><pre>{source}</pre></details><dialog ref={dialog} className="diagram-dialog" aria-label={label}><form method="dialog"><strong>{label}</strong><label>Масштаб <input aria-label="Масштаб схеми" type="range" min="0.5" max="2" step="0.25" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/></label><button autoFocus>Закрити</button></form><div className="diagram-scroll" tabIndex={0} role="img" aria-label={label}><div style={{zoom}} dangerouslySetInnerHTML={{__html:zoomCopy(svg,`zoom${id}-`)}}/></div><p className="diagram-description">{description}</p></dialog></figure>
 }
 
 const standardApps=[
@@ -138,7 +156,7 @@ const syncSteps=[
  ['Підтвердження','Локальний запис, реплікація, доставка, доменне рішення та зовнішній ефект підтверджуються окремо. Повторне з’єднання відновлює обмін із frontiers, не гублячи pending намірів.']
 ];
 
-function Source({file,label}){return <a className="technical-source" href={'/reference/'+file} target="_blank" rel="noreferrer"><FileText size={16}/>{label}<ArrowUpRight size={15}/></a>}
+function Source({file,label}){return <a className="technical-source" href={import.meta.env.BASE_URL+'reference/'+file} target="_blank" rel="noreferrer"><FileText size={16}/>{label}<ArrowUpRight size={15}/></a>}
 function TechTable({headers,rows}){return <div className="technical-table-scroll"><table className="technical-table"><thead><tr>{headers.map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i}>{r.map((c,j)=><td key={j}>{c}</td>)}</tr>)}</tbody></table></div>}
 
 export function ImplementationDetails(){const [step,setStep]=useState(0);return <section className="implementation section" id="implementation"><div className="wrap"><div className="section-heading"><div><p className="eyebrow">ТЕХНІЧНИЙ РОЗБІР</p><h2>Від схеми застосунку<br/> до узгоджених даних.</h2></div><p>Схеми нижче пояснюють цільову реалізацію.<br/> Вони не означають, що runtime уже реалізовано.</p></div><nav className="technical-toc" aria-label="Технічні розділи"><a href="#core-details">01 · Спільне ядро</a><a href="#schema-details">02 · Схеми даних</a><a href="#sync-details">03 · Синхронізація</a><a href="#evolution-details">04 · Конфлікти й версії</a></nav>

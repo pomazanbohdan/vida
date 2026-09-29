@@ -8,7 +8,7 @@ status: direction-approved-details-open
 preset: standard
 validation: normal
 created: '2026-09-26'
-updated: '2026-09-26'
+updated: '2026-09-29'
 ---
 
 # Technical research: VIDA Persona recovery crypto and bundle
@@ -75,6 +75,18 @@ updated: '2026-09-26'
 
 Власник продукту **погодив** окреме збереження secret і зашифрованого bundle та додаткову потребу в ciphertext для повернення нотаток. Наступні рішення не стосуються повторного вибору цієї моделі: вони визначать точні криптографічні параметри, актуальність controller state, ротацію й перевірюваний restore.
 
+### Поглиблення 2026-09-29: окремі дозволи, межа snapshot і перевірка export
+
+**Один фізичний пристрій, кілька незалежних доступів.** 1Password об'єднує робочі й особисті акаунти в одному інтерфейсі, а Tailscale реєструє той самий фізичний пристрій як окремі логічні вузли з окремими ключами/approval у різних tailnets [22][23]. Це аналогії, не доказ VIDA-протоколу. Відповідь власника продукту: незалежні чинні дозволи на Personal і Work для одного нового ноутбука **сумісні**. Попереднє запитання змішало enrollment Device і права Space. Пропонована точна модель: інсталяція показує сумарно доступні контексти, але кожна Persona має власний логічний Device grant/key; доступ до кожного Space окремо визначають його membership/ключі. Не зливати Personas або grants лише через спільне залізо. Правило несумісних *рольових змін того самого Space* є питанням governance, не Device enrollment.
+
+**Що дає відновлений snapshot.** SQLite називає завершений online backup знімком бази на момент його початку [21]. Signal оновлює свій hosted backup раз на 24 години, отже інтервал між snapshots реальний [20]. Висновок, не цитата референсів: restore не доводить, що пізніших дій не було. Якщо після snapshot зміна збереглася лише на втраченому телефоні, комплект ключів не відтворить її. Якщо зміна є на іншому авторизованому peer, можна довантажити її після звірки. Пропозиція: розрізняти успішне локальне збереження, наявну другу replica й перевірне покриття backup; показувати останній охоплений causal frontier, а час — тільки для людини.
+
+**Що означає «backup пройшов».** andOTP надає внутрішній export і попереджає, що стороння копія encrypted app files без Android Keystore key непридатна [17]. Його changelog документує automatic encrypted backup при зміні записів і виправлення хибного повідомлення про невдале резервування [18]. Aegis розрізняє ручний export та automatic backup, хоча формат однаковий [19]. Жодне з перевірених джерел не документує обов'язковий decrypt/read-back чи повний restore після кожного запису; не приписуємо їм цього. Для VIDA пропонується сильніший результат: після запису *саме збережених байтів* перечитати файл, перевірити authenticated decryption/manifest і лише тоді показати «копію перевірено на цьому носії». Це не доводить, що людина зберегла копію незалежно. У Chromium user-granted File System Access дозволяє read/write того самого file handle; звичайний download не дає тих самих гарантій без повторного вибору файла [24]. Додатковий isolated restore test перевіряє повний шлях, але не потрібен після кожного edit.
+
+**Погоджений висновок 2026-09-29:** (1) backup не відновить пізнішу зміну, яка була лише на втраченому Device; це не доказ, що зміни не було. (2) «Перевірена копія» потребує запису, read-back, authenticated parse і звірки покриття саме з destination; створений export та підтвердження незалежного збереження — окремі факти. (3) Локальна робота не блокується, якщо зовнішній backup недоступний; останній перевірений frontier показує фактичне покриття. (4) Повний fresh-profile restore test проводиться після першої копії з даними та ротації комплекту, не після кожної зміни й не як gate активації Persona. Окремі scoped Persona grants на одному фізичному Device також погоджено. Періодичність автоматичного incremental backup, точна реалізація і platform proof лишаються `OQ-0024`.
+
+Детальні джерельні дайджести: [grant scopes](digests/grant-scope-r1-2026-09-29.md), [snapshots](digests/snapshot-recovery-r1-2026-09-29.md), [backup verification](digests/backup-verification-r1-2026-09-29.md). Ці змінювані product/platform сторінки перевірено 2026-09-29; наступне рутинне переперевіряння — не пізніше 2026-12-29 та перед реалізацією.
+
 ### Джерела
 
 | № | Первинне джерело | Тип / перевірка |
@@ -95,6 +107,14 @@ updated: '2026-09-26'
 | [14] | [Web Cryptography API][14] | W3C working draft/specification, 2026-09-26 |
 | [15] | [Windows DPAPI][15] | Офіційна документація, 2026-09-26 |
 | [16] | [WHATWG Storage Standard][16] | Відкритий стандарт, 2026-09-26 |
+| [17] | [andOTP README][17] | Офіційний архів репозиторію, перевірено 2026-09-29 |
+| [18] | [andOTP changelog][18] | Офіційний архів репозиторію, перевірено 2026-09-29 |
+| [19] | [Aegis FAQ][19] | Офіційна документація, перевірено 2026-09-29 |
+| [20] | [Signal backup improvements][20] | Офіційний блог, 2026-09-28; перевірено 2026-09-29 |
+| [21] | [SQLite Online Backup API][21] | Офіційна документація, перевірено 2026-09-29 |
+| [22] | [1Password multiple accounts][22] | Офіційна довідка, перевірено 2026-09-29 |
+| [23] | [Tailscale identity][23] | Офіційна документація, перевірено 2026-09-29 |
+| [24] | [Chrome File System Access API][24] | Офіційна документація, перевірено 2026-09-29 |
 
 [1]: https://support.signal.org/hc/en-us/articles/9708267671322-Signal-Secure-Backups "Signal Secure Backups, official support"
 [2]: https://support.signal.org/hc/en-us/articles/10075139325850-Troubleshooting-Signal-Secure-Backups "Signal backup troubleshooting, official support"
@@ -112,5 +132,13 @@ updated: '2026-09-26'
 [14]: https://www.w3.org/TR/WebCryptoAPI/ "Web Cryptography API"
 [15]: https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata "Windows DPAPI"
 [16]: https://storage.spec.whatwg.org/ "WHATWG Storage Standard"
+[17]: https://github.com/andOTP/andOTP "andOTP README"
+[18]: https://github.com/andOTP/andOTP/blob/master/CHANGELOG.md "andOTP changelog"
+[19]: https://github.com/beemdevelopment/Aegis/blob/master/FAQ.md "Aegis FAQ"
+[20]: https://signal.org/blog/backup-improvements/ "Signal backup improvements"
+[21]: https://sqlite.org/backup.html "SQLite Online Backup API"
+[22]: https://support.1password.com/multiple-accounts/ "1Password multiple accounts"
+[23]: https://tailscale.com/docs/concepts/tailscale-identity "Tailscale identity"
+[24]: https://developer.chrome.com/docs/capabilities/web-apis/file-system-access "Chrome File System Access API"
 
 Дати публікації змінюваних сторінок не всюди вказані; у `staleness-input.json` дата перевірки 2026-09-26 використана як **proxy**, не як твердження про дату публікації. Найраніше планове переперевіряння змінюваних product/platform джерел — 2026-12-26, і обов'язково перед імплементацією. RFC є стабільними стандартами. Дані VIDA з репозиторію — продуктова вимога, не зовнішнє джерело.

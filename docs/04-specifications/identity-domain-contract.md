@@ -83,7 +83,9 @@ LocalVault
 - `DisablePublicProfile` / `PublicProfileDisabled`;
 - `LinkPersonas` / `PersonaLinkDeclared` — лише після explicit irreversible-correlation acknowledgement.
 
-Конкретні payload schemas лишаються окремою protocol specification після вибору controller history.
+**Погоджена controller history:** кожен Device підписує власну append-only послідовність подій з посиланням на відомий причинний frontier. Peers об'єднують послідовності; `ControllerState` і можливий DID-документ — проєкції, не джерело правди. Сумісні переходи сходяться, а одночасні несумісні grant/revoke чи recovery залишаються двома підписаними гілками: спірний новий доступ не діє спільно, доки підписане reconciliation не посилається на обидві. Пріоритету Device, часу його годинника чи довільного CRDT winner для authority немає. Точний reconciliation proof і payload schemas лишаються `OQ-0022/0024`.
+
+Погоджений наслідок: незалежні валідні grants для різних Devices сходяться автоматично. Якщо peer уже знає про невирішений renewal/revoke того самого чинного Device, він тимчасово не приймає від нього нових захищених операцій і не видає йому нових ключів чи доступу до захищеного вмісту; раніше отриманий plaintext не відкликається ретроактивно. Власник явно вирішує конфлікт на чинному перевіреному Device, доступ якого не спірний, і підписує посилання на обидві гілки. Два provisional відновлення без перевірного frontier лишаються provisional до порівняння та вибору власника. Запрошення нового Device через QR/файл/текст має обмежену чинність, одноразове, прив'язане до ключа нового Device і потребує явного підтвердження на чинному trusted Device; контактний locator не є таким запрошенням. Enforcement під час partition і proof чинності підписувача лишаються `OQ-0022/0024`.
 
 ## Lifecycle and failure behavior
 

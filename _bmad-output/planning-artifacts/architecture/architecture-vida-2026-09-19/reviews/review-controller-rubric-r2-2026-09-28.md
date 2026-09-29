@@ -1,0 +1,11 @@
+# Persona controller-history slice — BMad rubric, second pass (2026-09-28)
+
+**Scope:** Read-only semantic review of AD-37/AD-40 against the updated Persona recovery SPEC, recovery cases and linked Epic 1/2 stories after the five product-owner approvals. No whole-spine lint or implementation claim.
+
+**Verdict:** Pass for the architecture slice, with one high downstream acceptance ambiguity. The rules now bind causal signed history, projection-only `ControllerState`, equal-device compatible grants, conflict retention and suspension, explicit owner choice, provisional dual restore, keyed single-use invitations, and ordinary/compromise rotation. Remaining proof, freshness, partition and crypto details are correctly gated by `OQ-0022/0024` rather than treated as settled.
+
+## Finding
+
+**High — Story 1.4 can accept kit-only recovery as shared authority.** Its first criterion says a valid secret and “current” encrypted bundle restore Persona authority and issue a new `DeviceGrant` ([epics, lines 300–303](../../../epics.md)). It does not require a verifiably current controller frontier or label the grant provisional when that proof is unavailable. AD-37 explicitly limits the no-frontier grant to local provisional use ([spine, line 330](../ARCHITECTURE-SPINE.md)); AD-40 keeps dual-restore branches provisional until comparison and owner choice ([spine, line 348](../ARCHITECTURE-SPINE.md)); CAP-2/3 make the same distinction ([SPEC, lines 25–30](../../../../specs/spec-vida-persona-recovery/SPEC.md)). A later Story 1.4 criterion covers dual restore ([epics, lines 325–328](../../../epics.md)), but the first criterion still permits a separate single-restore implementation or test to claim accepted authority from the kit alone. **Disposition: autofix in Epic 1 Story 1.4.** Split the success outcome by verifiable frontier: accepted grant only with verified current history; otherwise a local provisional grant and clearly provisional authority, pending reconciliation. Keep exact proof under `OQ-0022/0024`.
+
+**No new spine finding:** The prior broad deferral of concurrent restore/rotation was narrowed to mechanism and proof; the approved rotation behaviors are now explicit. The remaining recovery-signer/history seam is an acknowledged production-proof question, not a license to claim shared acceptance.

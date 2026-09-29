@@ -1,7 +1,7 @@
 ---
 id: GOV-TRACEABILITY
 status: review
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 ---
 
 # Трасування досліджень
@@ -20,7 +20,8 @@ last_updated: 2026-09-28
 | `iroh-reference-projects-update-2026-09-24.md` | KVM/device sharing, desktop P2P privacy, embedded ESP32 telemetry | User GitHub report for 23.09 evening → 24.09 20:48; 3 new implementations; README/manifest spot-checks; imports/forks/older histories excluded; not a code/security audit |
 | `iroh-reference-projects-update-2026-09-25.md` | Remote desktop, distributed VCS/storage, encrypted storage design lead | User GitHub report for 24→25.09; 3 new URLs; README/manifest spot-checks; design-only Ultra-Netz separated from implementations; copies/old histories/Nix packages excluded; not a code/security audit |
 | `iroh-reference-projects-update-2026-09-27.md` | ACP/agent bus, messenger/files, host-ordered collaboration, multi-agent workspace, typed RPC SDKs; linked architecture updates | User GitHub report for 25→27.09; 5 new project groups / 6 URLs; selected README/manifest/commit spot-checks; updates separated from new entries; not a code/security audit |
-| [Iroh library inventory 2026-09-23](../../research/iroh-project-library-inventory-2026-09-23.md) | [BMad technical research](../../_bmad-output/planning-artifacts/research/technical-iroh-project-library-inventory-for-vida-2026-09-23/research.md), stack/provider conformance gates, future library ADRs | Manifest/code/activity sample: 54 app repos + 4 upstream libs; early versions are not excluded by semver; DStore corrected to Go; Ultra-Netz remains design-only; SDK/bridge references are not standalone providers; no production library selection; exact builds/device/security checks remain open |
+| `iroh-reference-projects-update-2026-09-29.md` | Agent mesh/workspace, enrollment/permissions, remote execution/desktop, stock blobs transfer; hardening/release follow-ups | User GitHub report for 27→29.09; 5 new URLs; README/facts spot-checks; older histories, forks and copies excluded; transport identity separated from user authorization; not a code/security audit |
+| [Iroh library inventory 2026-09-23](../../research/iroh-project-library-inventory-2026-09-23.md) | [BMad technical research](../../_bmad-output/planning-artifacts/research/technical-iroh-project-library-inventory-for-vida-2026-09-23/research.md), stack/provider conformance gates, future library ADRs | Manifest/code/activity sample: 59 app repos + 4 upstream libs; early versions are not excluded by semver; DStore corrected to Go; Ultra-Netz remains design-only; SDK/bridge references are not standalone providers; no production library selection; exact builds/device/security checks remain open |
 | `Новий Text Document.txt` | Governance | Корисний процес статусів |
 | `(2)` | Product/SaaS/portal | Product evidence; Dioxus відкликано |
 | `(3)` | App/plugin runtime | Rhai-обробники та Wasm/Wasmtime компоненти — досліджені кандидати; керовану прикладну логіку підтверджено в ADR-0009, виконавець не обраний |

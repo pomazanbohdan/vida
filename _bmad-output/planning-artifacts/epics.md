@@ -73,7 +73,7 @@ This document decomposes Release-1 requirements into user-valued epics and, afte
 - **FR-37** Personal/Shared Calendar Events with time zones, one-off and simple recurrence, reminders and creation from Contact Card in current Space.
 - **FR-38** Invite existing VIDA Personas to a specific Event without Space membership; scoped preview, RSVP, time proposal and renewed consent after time change.
 - **FR-39** Full static Flutter Web/Rust-Wasm client in public Release 1: local browser storage, authorized equal-Device direct-first peer sync with VIDA-operated encrypted Iroh relay fallback, all applicable Core-App/call flows and separate browser security/recovery conformance without paid Hosted Space. Stock Iroh/Wasm does not itself prove browser direct P2P; browser-compatible direct transport is a prototype gate. Static origin/code delivery is a trust boundary; offline cold reopen requires cached shell/JS/Wasm; a closed/suspended tab has no guaranteed call, reminder or sync.
-- **FR-40** Any Persona may explicitly toggle Tor routing on installed Android, iOS and Flutter Windows; the preference synchronizes across its authorized Devices. When enabled, discovery, authorized E2EE communication, Resource sync and receipts use verified Tor-compatible paths or remain pending; ordinary direct/relay fallback is forbidden until the owner explicitly turns Tor off. Separately, an individual chat may require both peers to use Tor, and a Space may require Tor for all its network actions; neither policy silently downgrades. Static Chromium Web remains a full ordinary client but does not perform Tor-required network actions in Release 1.
+- **FR-40** Any Persona may explicitly toggle Tor routing on installed Android, iOS and Flutter Windows; the preference synchronizes across its authorized Devices. Concurrent offline toggles resolve by the later action's creation time, not delivery time, preserving both actions; proving comparable offline times and ties remains an implementation gate. When Tor is enabled, discovery, authorized E2EE communication, Resource sync and receipts use verified Tor-compatible paths or remain pending; ordinary direct/relay fallback is forbidden until the owner explicitly turns Tor off. Separately, an individual chat may require both peers to use Tor, and strict Tor may be enabled in the same existing Space for all its network actions. A stale Device receives the authenticated Space policy first, applies it automatically, then resumes data sync only via Tor; ordinary data sync is refused. Static Chromium Web remains a full ordinary client but does not perform Tor-required network actions in Release 1.
 
 ### NonFunctional Requirements
 
@@ -261,6 +261,22 @@ So that I can later prove control of my Persona after losing a Device.
 **Then** VIDA durably records my confirmation, finalizes `PersonaCreated` and activates the existing Persona, Owner authority and Personal Space without changing their IDs
 **And** it explains that this confirmation does not verify either stored copy, and Note bytes still require an available authorized encrypted data copy; a two-part-material/confirmation/no-escrow fixture verifies these FR-3 outcomes.
 
+**Given** I export a recovery/data copy to a destination VIDA can reopen
+**When** the write completes
+**Then** VIDA labels that copy verified only after readback, authenticated open and manifest/coverage validation; it retains the previous known-good copy of the same custody class until the new one passes
+**And** verification of a local file does not prove independent off-Device recoverability. If the destination cannot be reopened, VIDA reports only a completed export, not a verified backup. Neither outcome changes the confirmation-only activation gate above.
+
+**Given** I start an ordinary recovery-kit rotation for an active Persona
+**When** VIDA prepares a new secret and encrypted bundle, verifies the export if its destination permits readback (otherwise reports export only), and records my confirmation of separate custody
+**Then** the old kit remains valid until the signed controller transition commits; a restart before that commit resumes the pending rotation without blocking ordinary edits
+**And** after the commit the old kit cannot grant new shared-accepted recovery authority to peers that have verified the current controller history; an isolated stale peer may only create a provisional local branch until reconciliation. Suspected compromise uses a separate urgent-revocation flow; commit atomicity, epoch binding and distribution proofs remain `OQ-0022/0024`.
+
+**Additional approved acceptance, 2026-09-29:**
+- **Given** I opt into scheduled encrypted resource backup for this Persona on a configured Device and choose a destination, **when** the schedule runs or fails, **then** the secret is not automatically uploaded, manual backup remains available, failure is visible and local edits continue.
+- **Given** no verified independent off-Device copy exists or its verified frontier lags my local edits, **when** I open Persona recovery settings, **then** a persistent nonmodal risk indicator explains the gap; no modal appears after every Note edit.
+- **Given** a newer resource snapshot passed verification, **when** VIDA marks it current, **then** the previous verified snapshot remains until a separate explicit cleanup action; a revoked recovery kit does not regain authority.
+- **Given** controller frontier or data-key epoch changes after preparing a rotation bundle but before signed commit, **when** rotation resumes, **then** commit waits for a rebuilt bundle and renewed separate-custody confirmation while ordinary edits continue. Atomic proof remains `OQ-0022/0024`.
+
 ### Story 1.3: Create and reopen the first simple Note
 
 As a Personal Space owner,
@@ -284,6 +300,11 @@ So that my private work remains available without a network connection.
 **Then** VIDA reports the failure and does not label it saved
 **And** it retains the draft where possible and offers a retry without silently discarding my text.
 
+**Given** the Note was durably saved locally but an external backup destination is unavailable
+**When** I continue editing
+**Then** VIDA permits local work and reports its local-save state without claiming those later edits are recoverable after device loss
+**And** the last verified backup coverage remains distinguishable from the current local Note state.
+
 **Given** another Persona is active on the same Device
 **When** it lists or tries to open Notes
 **Then** the first Persona's Note is neither visible nor readable
@@ -299,8 +320,8 @@ So that I can regain control of the same Persona without a server account.
 
 **Given** the valid owner-held secret, current encrypted recovery bundle and a replacement Device
 **When** I complete the recovery flow
-**Then** VIDA restores authority over the same Persona identity with distinct newly generated keys and a new DeviceGrant for the replacement Device
-**And** no mandatory federated or organizational account is required.
+**Then** VIDA restores the same Persona identity with distinct newly generated keys and a new DeviceGrant for the replacement Device
+**And** when a verifiably current controller frontier is unavailable, the grant and subsequent local work remain explicitly provisional until reconciliation rather than claiming shared authority; no mandatory federated or organizational account is required.
 
 **Given** the secret or encrypted bundle is invalid or missing
 **When** I attempt recovery
@@ -317,10 +338,30 @@ So that I can regain control of the same Persona without a server account.
 **Then** it states that my identity was restored but my earlier Note bytes were not
 **And** it does not invent, duplicate or claim to have recovered the missing Note.
 
+**Given** an accessible copy of my last verified backup predates a later locally saved Note edit
+**When** I restore after losing the only Device that held that edit
+**Then** VIDA shows the backup's actual covered frontier and restores only the available content
+**And** it does not infer that no later edits existed; if another authorized replica has them, they can synchronize after authorization, otherwise the missing edit is reported honestly.
+
+**Given** the first backup with resource data is available, or I rotate the recovery kit
+**When** the automated release conformance suite runs the recovery check in a fresh profile
+**Then** it verifies usable authority, data keys and an actually covered Resource ID/content, reporting the result separately from routine backup verification
+**And** no full restore is required after every edit; my own guided check is optional, while an untested copy is not described as successfully test-restored.
+
 **Given** I can sign in to a corporate account but lack the autonomous Persona's recovery material
 **When** I attempt to recover that Persona
 **Then** the corporate sign-in does not grant its authority
 **And** a valid/invalid-material, available/missing-data-copy and account-isolation fixture verifies these FR-3 outcomes.
+
+**Given** two replacement Devices restored the same Persona without a verifiably current controller frontier
+**When** their incompatible controller branches meet
+**Then** both local branches remain provisional and their data are preserved until I review both and explicitly choose the outcome
+**And** no Device-clock winner or unverified claim of shared authority is shown; the exact reconciliation proof remains an `OQ-0022/0024` production gate.
+
+**Additional approved acceptance, 2026-09-29:**
+- **Given** the first data-bearing backup or a rotated kit, **when** the release conformance suite runs, **then** automated fresh-profile restoration must pass before release; a user's guided restore is optional, and their untested copy is not called test-restored.
+- **Given** a postcommit fresh-profile test fails, **when** I inspect recovery, **then** I see critical risk and may repair via a currently trusted Device without silently reactivating the revoked kit; if none exists, VIDA explains the recovery limit. Repair proof remains `OQ-0024`.
+- **Given** a bundle requires a version this client does not support, **when** I import it, **then** VIDA preserves the file unchanged, refuses partial activation, requests update and keeps unrelated functions usable.
 
 ### Epic 2: Continue private work across equal devices
 
@@ -375,10 +416,22 @@ So that I can use the same Persona on a second equal Device without a hosted acc
 **Then** no valid DeviceGrant or private data access is conferred
 **And** hidden Space names and Note content are not disclosed.
 
+**Given** the Web enrollment invitation was copied, expired or already consumed
+**When** another browser profile presents it
+**Then** it cannot silently inherit the approved Web Device's grant
+**And** the trusted Android Device must explicitly approve a fresh request bound to that browser's new Device key.
+
 **Given** the authorized browser profile loses its keys
 **When** I open a fresh browser profile
 **Then** it requires new enrollment instead of inheriting the old DeviceGrant
 **And** the old grant remains identifiable for revocation from a trusted Device; an enrollment/denial/key-loss fixture verifies these FR-2 and FR-39 outcomes.
+
+**Given** the same physical installation also hosts a separate Work Persona
+**When** a different existing trusted Device approves its Work enrollment
+**Then** both Personas may coexist with independent logical Device IDs, keys and scoped grants
+**And** neither approval expands the other Persona's or Space's access.
+
+**Additional approved acceptance, 2026-09-29:** **Given** one logical Device/key of my Persona has separately valid Personal and Project Space grants, **when** both grants reconcile or one is revoked, **then** access is the union of only currently granted scopes; revoking one leaves the other unchanged. Wire/merge proof remains `OQ-0022`.
 
 ### Story 2.2: Synchronize the first Note directly between Android and Web
 
@@ -612,6 +665,8 @@ So that my Note and Conflict state agree everywhere without appointing a master 
 **Then** it keeps the operation pending for repair or fails that incompatible apply closed with an actionable affected-Resource state
 **And** it does not project partial accepted text, erase unknown fields or stop unrelated Personal Space use; missing-dependency, mixed-version, three-peer permutation and restart fixtures prove FR-2/23/24.
 
+The same fail-closed compatibility principle applies to recovery bundles, but the unsupported-mandatory-bundle import UX and conformance belong to Story 1.4 (`REC-F06`), not to Note replay in this story.
+
 ### Story 2.11: Show truthful synchronization and Persona Device presence
 
 As a Persona owner,
@@ -634,6 +689,8 @@ So that I do not mistake a connection for a completed synchronization.
 **When** the Persona profile count updates
 **Then** only currently proven reachable Devices count as online; the owner may see that Device reconnecting, while other viewers do not see its internal reconnect attempt
 **And** the count never aggregates another Persona, bot or ServicePrincipal or exposes raw Device IDs. Expiry timings follow a measured platform profile, not an invented constant; receipt/presence/privacy fixtures prove FR-23 and UX-DR-7.
+
+**Additional approved acceptance, 2026-09-29:** **Given** two authorized browser profiles share one physical host, **when** the second durably applies a Note and issues an application receipt, **then** VIDA may show the copy in details but does not label the Note «Синхронізовано» under the default independent-replica rule or claim off-Device recoverability from that receipt alone. Independent-host proof remains a conformance gate.
 
 ### Story 2.12: Recover trust after a Web Device or static origin is compromised
 
@@ -658,6 +715,13 @@ So that its old grant cannot authorize future synchronization.
 **Then** it explains that future managed access is blocked after effective sync but past screenshots, exports or copied plaintext cannot be erased
 **And** compromised-origin, revoked-envelope, new-enrollment and browser-profile-loss fixtures prove the recovery path without claiming the page can detect its own compromise.
 
+**Given** one authorized Device renewed an existing Web grant offline while another revoked it offline
+**When** a peer learns both signed branches
+**Then** it suspends that Web Device's new protected reads, writes, key distribution and accepted operations until I explicitly resolve the conflict on an unaffected verified Device
+**And** the decision references both branches without implying that previously copied plaintext was erased.
+
+**Additional approved acceptance, 2026-09-29:** **Given** Web holds the sole unsynchronized edit, **when** I voluntarily unlink it, **then** VIDA warns and offers synchronization or encrypted export before proceeding. **Given** urgent compromise revocation, **when** I revoke that Web Device, **then** revocation is not delayed by the export flow and any resulting local loss is explained.
+
 ### Story 2.13: Toggle Tor routing for an Android Persona
 
 As a Persona owner on Android,
@@ -675,6 +739,11 @@ So that I can choose the network route while understanding its privacy limits.
 **When** I view the setting before that Device returns an application receipt
 **Then** VIDA shows that propagation is pending or unknown rather than claiming the other Device already uses Tor
 **And** when it reconnects, the Device applies the current signed preference before presenting its own Tor-protected state.
+
+**Given** two authorized Devices changed this Persona's Tor preference while offline and both signed actions have comparable action-creation times
+**When** the actions synchronize
+**Then** the later action determines the shared preference regardless of arrival order
+**And** both actions remain in history; proving comparable offline times and equal-time handling is an unresolved engineering gate, so this criterion does not yet make the story implementation-ready.
 
 **Given** Tor is enabled
 **When** I explicitly turn it off after a clear warning that earlier exposure cannot be undone and ordinary routing may link sessions
@@ -697,7 +766,7 @@ So that it can receive a distinct authorized DeviceGrant without confusing a con
 **Given** I open an enrollment invitation on the new Android Device through any supported representation
 **When** the trusted existing Device verifies the new Device key, Persona, intent, freshness and my explicit confirmation
 **Then** it issues one signed DeviceGrant for that Device and the new Device may join the Persona under equal-device rules
-**And** a copied, expired, mismatched or replayed invitation cannot silently enroll another Device.
+**And** the short-lived, single-use invitation binds that Device key; a copied, expired, mismatched or replayed invitation cannot silently enroll another Device.
 
 **Given** I instead scan/import/paste a contact locator
 **When** VIDA parses its typed payload
@@ -706,6 +775,13 @@ So that it can receive a distinct authorized DeviceGrant without confusing a con
 **Given** the second Device is offline
 **When** I prepare enrollment or a Note change
 **Then** the relevant action remains locally pending until both Devices can complete authorization/sync; Epic 2 does not require a Tor mailbox.
+
+**Given** two existing trusted Devices separately approve distinct new Devices while disconnected
+**When** their signed grants synchronize
+**Then** both valid compatible grants are accepted without a priority for either existing Device
+**And** neither new Device is accepted solely because it presented a copied invitation.
+
+**Additional approved acceptance, 2026-09-29:** **Given** another Android Device/key of my Persona is separately authorized for Personal and Project Space, **when** both grants reconcile or one is revoked, **then** the Device receives only the union of current scopes, without revoking or expanding the other grant. Exact merge proof remains `OQ-0022`.
 
 ### Story 2.15: Synchronize a simple Note over Tor between Android Devices
 
@@ -733,7 +809,7 @@ So that I can continue private work without exposing an ordinary direct or VIDA-
 **Given** I inspect the Note and network-profile state
 **When** its operation is local, waiting for Tor, transferring, receipt-confirmed or blocked
 **Then** the Android UI names the evidenced state and explains that Tor routing does not guarantee absolute anonymity
-**And** an exact-pinned Rust runtime/VIDA-Iroh adapter, Android release-build, packet-capture leak matrix and applicable OWASP MASVS-NETWORK/PRIVACY checks prove this Android slice against FR-40, NFR-17, UX-DR-12 and REQ-TOR-001–010. This does not certify iOS, Windows, Web, calls or App-specific egress.
+**And** an exact-pinned Rust runtime/VIDA-Iroh adapter, Android release-build, packet-capture leak matrix and applicable OWASP MASVS-NETWORK/PRIVACY checks prove this Android slice against FR-40, NFR-17, UX-DR-12 and REQ-TOR-001–012. This does not certify iOS, Windows, Web, calls or App-specific egress.
 
 ### Epic 3: Work together in a Space without exposing private data
 
@@ -741,7 +817,7 @@ The user can create a Shared Space, invite people under explicit rights and revo
 
 **FRs covered:** FR-5, FR-6, FR-7.
 
-**Implementation considerations:** Full layered ACL, role presets, control-before-data sync, key epochs and seven-day recheck are Core governance APIs. Minimal owner checks exist from Epic 1; Shared-Space grants/revocations require the signed durable operation path from Epic 2. A Space may require Tor for all network actions; this policy overrides a Persona's ordinary-route preference and cannot be weakened by a chat. Whether an existing ordinary Space may be upgraded while Devices are offline remains an open security decision; do not claim immediate protection for stale Devices. Include a revocation-race acceptance case: an offline candidate authored under an apparently valid grant but presented after revocation is revalidated at its actual authority-acceptance point; an invalid candidate remains recoverable locally but is not projected as an accepted shared change. Delivery order alone neither grants nor revokes earlier valid acceptance. Epic 5 applies the same grants to Note/Section sharing.
+**Implementation considerations:** Full layered ACL, role presets, control-before-data sync, key epochs and seven-day recheck are Core governance APIs. Minimal owner checks exist from Epic 1; Shared-Space grants/revocations require the signed durable operation path from Epic 2. Strict Tor is switched on in the same existing Space. An updated peer refuses ordinary Space data sync with a stale Device and sends only an authenticated policy control update; the Device verifies and durably applies it, closes its ordinary data route, and automatically resumes data sync only through Tor or remains pending. The Space rule overrides a Persona's ordinary-route preference and cannot be weakened by a chat. Show which Devices have not yet applied the policy; do not claim retroactive protection for offline Devices. Exact policy epoch, acknowledgment and safe reconnect protocol remain implementation gates. Include a revocation-race acceptance case: an offline candidate authored under an apparently valid grant but presented after revocation is revalidated at its actual authority-acceptance point; an invalid candidate remains recoverable locally but is not projected as an accepted shared change. Delivery order alone neither grants nor revokes earlier valid acceptance. Epic 5 applies the same grants to Note/Section sharing.
 
 ### Epic 4: Add and update Space applications safely
 
